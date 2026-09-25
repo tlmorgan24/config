@@ -1,0 +1,110 @@
+{
+  // ### THEME ###
+  // install with "Catppuccin for VS Code" extension: https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc
+  "workbench.colorTheme": "Catppuccin Mocha", // good base, from which I override selected parts below
+  // override editor syntax highlighting
+  "editor.tokenColorCustomizations": {
+    "[Catppuccin Mocha]": {
+      "textMateRules": [
+        {
+          "scope": [ // methods and functions
+            "entity.name.function",
+            "meta.function-call.generic.python", // in Python, function calls considered different scope to function declarations
+            "support.function"
+          ],
+          "settings": {
+            "fontStyle": "" // non-italicised, instead of theme's default (italicised)
+          }
+        }
+      ]
+    }
+  },
+  // override colours other than editor syntax 
+  // button backgrounds are mauve ("#cba6f7") in theme default, which can stick out too much
+  "workbench.colorCustomizations": {
+    "button.background": "#45475a", // default: "#cba6f7"
+    "button.hoverBackground": "#585b70", // default: "#dec7fa"
+    "button.border": "#00000000", // default: "#00000000" (hack for "no border")
+    "button.foreground": "#cdd6f4", // default: "11111b"
+
+    "badge.background": "#45475a", // default: "#45475a"
+    "badge.foreground": "#cdd6f4", // default: "#cdd6f4"
+    "activityBarBadge.background": "#45475a", // default: "#cba6f7"
+    "activityBarBadge.foreground": "#cdd6f4", // default: "#11111b"
+
+    "extensionButton.background": "#45475a", // default: "#585b70"
+    "extensionButton.hoverBackground": "#585b70", // default: "#686b84" 
+    "extensionButton.border": "#00000000", // default: "#cba6f7"
+    "extensionButton.foreground": "#cdd6f4", // default: "#cdd6f4"
+    "extensionButton.prominentBackground": "#cba6f7", // default: "#cba6f7"
+    "extensionButton.prominentHoverBackground": "#dec7fa", // default: "#dec7fa"
+    "extensionButton.prominentForeground": "#11111b" // default: "#11111b"
+    // no 'prominentBorder' setting exists, so forced to have same border for regular
+    // extension buttons as for prominent ones
+  },
+
+  // ### FONT ###
+  // install with: brew install --cask font-jetbrains-mono-nerd-font
+  "editor.fontFamily": "'JetBrainsMono Nerd Font'", // fontname with whitespace has to be single-quoted
+  "editor.fontLigatures": true, // e.g. '>' followed by '=' formats as '≥'
+  "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font'", // fontname with whitespace has to be single-quoted
+  // alternative - install with: brew install --cask font-fira-code-nerd-font
+  /*
+  "editor.fontFamily": "'FiraCode Nerd Font'", // fontname with whitespace has to be single-quoted
+  "editor.fontLigatures": true, // e.g. '>' followed by '=' formats as '≥'
+  "terminal.integrated.fontFamily": "'FiraCode Nerd Font'", // fontname with whitespace has to be single-quoted
+  */
+  "editor.fontSize": 13,
+  "editor.letterSpacing": 0,
+  "editor.smoothScrolling": true,
+
+  // ### INSERT SPACES WHEN PRESS TAB ###
+  "editor.insertSpaces": true,
+  "[go]": { // Go is only language I use which prefers tabs over spaces
+    "editor.insertSpaces": false
+  },
+
+  // ### TAB SIZING ###
+  "editor.tabSize": 4, // default (overrides to 2 specified below)
+  "[shellscript]": { // eg bash
+    "editor.tabSize": 2
+  },
+  "[html]": {
+    "editor.tabSize": 2
+  },
+  "[css]": {
+    "editor.tabSize": 2
+  },
+  "[json]": {
+    "editor.tabSize": 2
+  },
+  "[jsonc]": { // json with comments (this settings.json file is actually JSONC, hence why I can comment!)
+    "editor.tabSize": 2
+  },
+  "[yaml]": {
+    "editor.tabSize": 2
+  },
+  "[xml]": {
+    "editor.tabSize": 2
+  },
+  "[graphql]": {
+    "editor.tabSize": 2
+  },
+  "[javascript]": {
+    "editor.tabSize": 2
+  },
+  "[javascriptreact]": {
+    "editor.tabSize": 2
+  },
+  "[typescript]": {
+    "editor.tabSize": 2
+  },
+  "[typescriptreact]": {
+    "editor.tabSize": 2
+  },
+
+  // ### OTHER ###
+  "editor.guides.indentation": true, // vertical line guides for indentation
+  "notebook.lineNumbers": "on",
+
+}
