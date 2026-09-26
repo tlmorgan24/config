@@ -4,7 +4,7 @@ add_newline = false
 format = """
 $status
 
-$directory➜ """
+$directory ➜ """
 right_format = "$git_metrics$git_state$git_commit$git_branch"
 
 [status]
@@ -15,6 +15,7 @@ symbol = "[$status ✗](bold red)"
 
 [directory]
 disabled = false
+format = "[$path](bold sapphire)"
 truncation_length = 2
 truncate_to_repo = true
 

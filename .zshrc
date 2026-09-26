@@ -4,6 +4,8 @@ eval "$(starship init zsh)" # after `brew install starship`
 eval "$(zoxide init zsh)" # after `brew install zoxide`
 source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
 
+zle_highlight=(default:fg=5) # fg=i renders command foreground as palette i of terminal theme (e.g. pink in catppuccin-mocha.conf)
+
 ## Aliases ##
 
 alias ..='cd ..'
