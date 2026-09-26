@@ -32,6 +32,7 @@ alias push='git push origin HEAD'
 alias pull='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git pull origin "$branch"' # merges current branch on origin into local branch
 alias abandon='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git fetch origin "$branch" && git reset --hard origin/"$branch"' # resets HEAD to same branch on origin (i.e. discards local divergence)
 alias sync='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git switch main && git pull origin main && git switch "$branch"' # merges origin/main into main (i.e. ensures main is in sync) without leaving current branch
+alias gl='git log --oneline'
 
 ## Shortcuts to make editing the current terminal command resemble the behaviour of other text editors ##
 # Coded based off the exact key sequences Ghostty & VS Code send when pressing the shortcuts at the time of writing, so may not work with other terminals/configs.
