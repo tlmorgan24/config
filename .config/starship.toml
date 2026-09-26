@@ -4,8 +4,8 @@ add_newline = false
 format = """
 $status
 
-$directory ➜ """
-right_format = "$git_metrics$git_state$git_commit$git_branch"
+$directory """
+right_format = "$git_state$git_metrics$git_branch$git_commit"
 
 [status]
 disabled = false
@@ -15,17 +15,22 @@ symbol = "[$status ✗](bold red)"
 
 [directory]
 disabled = false
-format = "[$path](bold sapphire)"
+format = "[](fg:sapphire)[ $path ]($style)[](fg:sapphire)"
+style = "fg:base bg:sapphire"
 truncation_length = 2
 truncate_to_repo = true
 
 [git_branch]
-format = '$symbol$branch'
+disabled = false
+format = "[](fg:yellow)[$symbol $branch]($style)[](fg:yellow)"
+style = "fg:base bg:yellow"
+symbol = ""
 only_attached = true
 
 [git_commit]
 disabled = false
-format = '$hash'
+format = "[$hash]($style)"
+style = "fg:yellow"
 only_detached = true
 
 [git_state]
