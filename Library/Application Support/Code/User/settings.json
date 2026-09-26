@@ -54,6 +54,7 @@
   "editor.fontLigatures": true, // e.g. '>' followed by '=' formats as '≥'
   "terminal.integrated.fontFamily": "'FiraCode Nerd Font'", // fontname with whitespace has to be single-quoted
   */
+  "window.zoomLevel": 0.5,
   "editor.fontSize": 13,
   "editor.letterSpacing": 0,
   "editor.smoothScrolling": true,
