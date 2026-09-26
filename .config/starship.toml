@@ -1,46 +1,37 @@
 palette = "catppuccin_mocha"
 
-# Don't add a newline at the start of the prompt
 add_newline = false
+format = """
+$status
 
-# A minimal left prompt
-format = """$directory$character"""
-# move the rest of the prompt to the right
-right_format = """$all"""
+$directory➜  """
+right_format = "$git_metrics$git_state$git_commit$git_branch"
+
+[status]
+disabled = false
+format = "$symbol"
+success_symbol = "[$status ✓](bold green)"
+symbol = "[$status ✗](bold red)"
 
 [directory]
+disabled = false
 truncation_length = 2
 truncate_to_repo = true
 
-[character]
-success_symbol = '➜'
-error_symbol = "✗"
-
 [git_branch]
-format =  '$symbol$branch(:$remote_branch)'
+format = '$symbol$branch'
+only_attached = true
 
-[gcloud]
-disabled = true
-
-[aws]
-format = '$symbol(profile: "$profile" )(\(region: $region\) )'
+[git_commit]
 disabled = false
-style = 'bold blue'
-symbol = " "
+format = '$hash'
+only_detached = true
 
-[golang]
-format = ' '
+[git_state]
+disabled = false
 
-[kubernetes]
-symbol = '☸ '
-disabled = true
-detect_files = ['Dockerfile']
-format = '$symbol$context( \($namespace\)) '
-contexts = [
-]
-
-[docker_context]
-disabled = true
+[git_metrics]
+disabled = false
 
 [palettes.catppuccin_mocha]
 rosewater = "#f5e0dc"

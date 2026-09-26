@@ -4,6 +4,8 @@ eval "$(starship init zsh)" # after `brew install starship`
 eval "$(zoxide init zsh)" # after `brew install zoxide`
 source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
 
+## Aliases ##
+
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
@@ -29,35 +31,85 @@ alias pull='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git p
 alias abandon='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git fetch origin "$branch" && git reset --hard origin/"$branch"' # resets HEAD to same branch on origin (i.e. discards local divergence)
 alias sync='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git switch main && git pull origin main && git switch "$branch"' # merges origin/main into main (i.e. ensures main is in sync) without leaving current branch
 
-# shortcuts to make editing your current terminal command more similar to other apps
+## Shortcuts to make editing the current terminal command resemble the behaviour of other apps ##
+# Coded based off the exact key sequences Ghostty sends when pressing the shortcuts at the time of writing, so may not work with other terminals/configs
+# Ghostty config at time of writing uses macos-option-as-alt = true
+
 # cmd+backspace already deletes whole line in Ghostty
-# alt+backspace already deletes previous word in Ghostty (and default macOS terminal)
+# alt+backspace already deletes previous word in Ghostty
+# so, most focused on providing the right highlighting behaviour (and deletion when press backspace with text highlighted)
+# note, there is no way to allow deletion from mouse highlights, as Zsh does not know what the terminal has highlighted with mouse.
+
+# shift+left: select previous character
+select-backward-char() {
+    if (( ! REGION_ACTIVE )); then
+        MARK=$CURSOR
+    fi
+    REGION_ACTIVE=1
+    zle backward-char
+}
+zle -N select-backward-char
+bindkey $'\e[1;2D' select-backward-char
+
+# shift+right: select next character
+select-forward-char() {
+    if (( ! REGION_ACTIVE )); then
+        MARK=$CURSOR
+    fi
+    REGION_ACTIVE=1
+    zle forward-char
+}
+zle -N select-forward-char
+bindkey $'\e[1;2C' select-forward-char
 
 # alt+shift+left: select previous word
 select-backward-word() {
     if (( ! REGION_ACTIVE )); then
         MARK=$CURSOR
     fi
-
     REGION_ACTIVE=1
     zle backward-word
 }
+zle -N select-backward-word
+bindkey $'\e[1;4D' select-backward-word
 
 # alt+shift+right: select next word
 select-forward-word() {
     if (( ! REGION_ACTIVE )); then
         MARK=$CURSOR
     fi
-
     REGION_ACTIVE=1
     zle forward-word
 }
-
-zle -N select-backward-word
 zle -N select-forward-word
-
-bindkey $'\e[1;4D' select-backward-word
 bindkey $'\e[1;4C' select-forward-word
+
+# cmd+shift+left: select to beginning of current line
+select-backward-line() {
+    if (( ! REGION_ACTIVE )); then
+        MARK=$CURSOR
+    fi
+    local line_start=${BUFFER[1,$CURSOR]##*$'\n'}
+    local target=$(( CURSOR - ${#line_start} ))
+    CURSOR=$target
+    REGION_ACTIVE=1
+}
+zle -N select-backward-line
+bindkey $'\e[1;10D' select-backward-line
+
+# cmd+shift+right: select to end of current line
+select-forward-line() {
+    if (( ! REGION_ACTIVE )); then
+        MARK=$CURSOR
+    fi
+    local after_cursor=${BUFFER[$((CURSOR + 1)),-1]}
+    local line_end=${after_cursor%%$'\n'*}
+    local target=$(( CURSOR + ${#line_end} ))
+    CURSOR=$target
+    REGION_ACTIVE=1
+}
+zle -N select-forward-line
+bindkey $'\e[1;10C' select-forward-line
 
 # Delete active selection with backspace:
 delete-selection-or-backspace() {
@@ -80,5 +132,36 @@ delete-selection-or-backspace() {
 }
 
 zle -N delete-selection-or-backspace
-
 bindkey '^?' delete-selection-or-backspace
+
+# Left after a selection: collapse the selection instead of extending it
+left-or-cancel-selection() {
+    if (( REGION_ACTIVE )); then
+        # Collapse to the left edge of the selection
+        if (( CURSOR > MARK )); then
+            CURSOR=$MARK
+        fi
+        REGION_ACTIVE=0
+        zle redisplay
+    else
+        zle backward-char
+    fi
+}
+zle -N left-or-cancel-selection
+bindkey $'\e[D' left-or-cancel-selection
+
+# Right after a selection: collapse the selection instead of extending it
+right-or-cancel-selection() {
+    if (( REGION_ACTIVE )); then
+        # Collapse to the right edge of the selection
+        if (( CURSOR < MARK )); then
+            CURSOR=$MARK
+        fi
+        REGION_ACTIVE=0
+        zle redisplay
+    else
+        zle forward-char
+    fi
+}
+zle -N right-or-cancel-selection
+bindkey $'\e[C' right-or-cancel-selection
