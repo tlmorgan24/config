@@ -1,0 +1,19 @@
+// can be opened in VS Code via Preferences: Open Keyboard Shortcuts (JSON)
+[
+  {
+    "key": "cmd+shift+left",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "\u001b[1;10D"
+    },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "cmd+shift+right",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "\u001b[1;10C"
+    },
+    "when": "terminalFocus"
+  }
+]

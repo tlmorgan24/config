@@ -31,14 +31,19 @@ alias pull='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git p
 alias abandon='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git fetch origin "$branch" && git reset --hard origin/"$branch"' # resets HEAD to same branch on origin (i.e. discards local divergence)
 alias sync='branch="$(git branch --show-current)" && [[ -n "$branch" ]] && git switch main && git pull origin main && git switch "$branch"' # merges origin/main into main (i.e. ensures main is in sync) without leaving current branch
 
-## Shortcuts to make editing the current terminal command resemble the behaviour of other apps ##
-# Coded based off the exact key sequences Ghostty sends when pressing the shortcuts at the time of writing, so may not work with other terminals/configs
-# Ghostty config at time of writing uses macos-option-as-alt = true
+## Shortcuts to make editing the current terminal command resemble the behaviour of other text editors ##
+# Coded based off the exact key sequences Ghostty & VS Code send when pressing the shortcuts at the time of writing, so may not work with other terminals/configs.
+# Ghostty config at time of writing uses macos-option-as-alt = true.
 
-# cmd+backspace already deletes whole line in Ghostty
-# alt+backspace already deletes previous word in Ghostty
-# so, most focused on providing the right highlighting behaviour (and deletion when press backspace with text highlighted)
-# note, there is no way to allow deletion from mouse highlights, as Zsh does not know what the terminal has highlighted with mouse.
+# In Ghostty & VS Code, these behaviours were already present (no need to specify in this config file):
+# alt+left/right moves cursor by one word
+# alt+backspace deletes previous word
+# cmd+left/right moves cursor to far left/right of line
+# cmd+backspace deletes whole line
+
+# Other behaviours are specified here. Fortunately the key sequences ended up being the same for VS Code as for Ghostty,
+# except that cmd+shift+left/right seems to be intercepted by VS Code before reaching Zsh - solved in VS Code's keybindings.json.
+# Note, there is no way to allow deletion from mouse highlights, as Zsh does not know what the terminal has highlighted with mouse.
 
 # shift+left: select previous character
 select-backward-char() {
