@@ -1,4 +1,5 @@
 setopt interactive_comments # interpret '#' as comment, even interactively (i.e. outside scripts)
+setopt SH_WORD_SPLIT # word splitting on whitespace, for same behaviour as Bash
 
 eval "$(starship init zsh)" # after `brew install starship`
 eval "$(zoxide init zsh)" # after `brew install zoxide`
