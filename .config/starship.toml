@@ -15,7 +15,7 @@ symbol = "[$status ✗](bold red)"
 
 [directory]
 disabled = false
-format = "[](fg:sapphire)[ $path ]($style)[](fg:sapphire)"
+format = "[░▒▓](fg:sapphire)[   $path ]($style)[](fg:sapphire)"
 style = "fg:base bg:sapphire"
 truncation_length = 2
 truncate_to_repo = true
