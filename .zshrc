@@ -13,7 +13,7 @@ eval "$(zoxide init zsh)" # after `brew install zoxide`
 source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
 autoload -U zcalc # REPL calculator which removes need for `echo $((...))` whilst still being able to work with shell's variables, command substitution etc
 
-zle_highlight=(default:fg=5) # fg=i renders command foreground as palette i of terminal theme (e.g. pink in catppuccin-mocha.conf)
+zle_highlight=(default:fg=#f5e0dc)
 
 ## Aliases ##
 

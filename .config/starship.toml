@@ -22,19 +22,20 @@ truncate_to_repo = true
 
 [git_branch]
 disabled = false
-format = "[](fg:yellow)[$symbol $branch]($style)[](fg:yellow)"
-style = "fg:base bg:yellow"
+format = "[](fg:lavender)[$symbol $branch]($style)[](fg:lavender)"
+style = "fg:base bg:lavender"
 symbol = ""
 only_attached = true
 
 [git_commit]
 disabled = false
 format = "[$hash]($style)"
-style = "fg:yellow"
+style = "fg:bold lavender"
 only_detached = true
 
 [git_state]
 disabled = false
+style = "fg:yellow"
 
 [git_metrics]
 disabled = false
