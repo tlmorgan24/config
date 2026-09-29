@@ -68,7 +68,7 @@
 
   // ### TAB SIZING ###
   "editor.tabSize": 4, // default (overrides to 2 specified below)
-  "[shellscript]": { // eg bash
+  "[shellscript]": { // eg bash (see files.associations)
     "editor.tabSize": 2
   },
   "[html]": {
@@ -103,6 +103,24 @@
   },
   "[typescriptreact]": {
     "editor.tabSize": 2
+  },
+
+  "files.associations": {
+    "*.sh": "shellscript",
+    "*.bash": "shellscript",
+    "*.zsh": "shellscript",
+
+    ".zshrc": "shellscript",
+    ".zshenv": "shellscript",
+    ".zprofile": "shellscript",
+    ".zlogin": "shellscript",
+    ".zlogout": "shellscript",
+
+    ".bashrc": "shellscript",
+    ".bash_profile": "shellscript",
+    ".bash_login": "shellscript",
+    ".bash_logout": "shellscript",
+    ".profile": "shellscript",
   },
 
   // ### OTHER ###

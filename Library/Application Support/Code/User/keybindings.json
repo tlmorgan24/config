@@ -1,7 +1,9 @@
 // can be opened in VS Code via Preferences: Open Keyboard Shortcuts (JSON)
 [
+
+  // keybindings for terminal shortcuts whose key sequences are intercepted by VS Code
   {
-    "key": "cmd+shift+left",
+    "key": "cmd+shift+left", // intention: expand command-line program's selection to start of line
     "command": "workbench.action.terminal.sendSequence",
     "args": {
       "text": "\u001b[1;10D"
@@ -9,10 +11,46 @@
     "when": "terminalFocus"
   },
   {
-    "key": "cmd+shift+right",
+    "key": "cmd+shift+right", // intention: expand command-line program's selection to end of line
     "command": "workbench.action.terminal.sendSequence",
     "args": {
       "text": "\u001b[1;10C"
+    },
+    "when": "terminalFocus"
+  },
+
+  {
+    "key": "cmd+shift+c", // intention: copy command-line program's current selection to clipboard (would use cmd+c, but VS Code already uses this to copy it's OWN selection, e.g. following mouse drag)
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "\u001b[99;9u" // cmd+shift+c would technically be 10u (9u is for cmd+c), but I still expect programs to expect cmd+c, hence use of 9u here
+    },
+    "when": "terminalFocus"
+  },
+
+  {
+    "key": "cmd+x", // intention: cut command-line program's current selection to clipboard
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "\u001b[120;9u"
+    },
+    "when": "terminalFocus"
+  },
+
+  {
+    "key": "cmd+z", // intention: undo edit to command-line
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "\u001f"
+    },
+    "when": "terminalFocus"
+  },
+
+  {
+    "key": "cmd+shift+z", // intention: redo edit to command-line
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "\u001b/"
     },
     "when": "terminalFocus"
   }
