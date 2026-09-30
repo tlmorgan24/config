@@ -21,12 +21,16 @@
     }
   },
   // override colours other than editor syntax 
-  // button backgrounds are mauve ("#cba6f7") in theme default, which can stick out too much
+  // some borders and backgrounds are mauve ("#cba6f7") in theme default, which I find can stick out too much
   "workbench.colorCustomizations": {
     "button.background": "#45475a", // default: "#cba6f7"
     "button.hoverBackground": "#585b70", // default: "#dec7fa"
     "button.border": "#00000000", // default: "#00000000" (hack for "no border")
     "button.foreground": "#cdd6f4", // default: "11111b"
+    "button.secondaryBackground": "#45475a", // default: "#585b70"
+    "button.secondaryHoverBackground": "#585b70", // default: "#686b84" 
+    "button.secondaryBorder": "#00000000", // default: "#cba6f7"
+    "button.secondaryForeground": "#cdd6f4", // default: "#cdd6f4"
 
     "badge.background": "#45475a", // default: "#45475a"
     "badge.foreground": "#cdd6f4", // default: "#cdd6f4"
@@ -39,9 +43,16 @@
     "extensionButton.foreground": "#cdd6f4", // default: "#cdd6f4"
     "extensionButton.prominentBackground": "#cba6f7", // default: "#cba6f7"
     "extensionButton.prominentHoverBackground": "#dec7fa", // default: "#dec7fa"
-    "extensionButton.prominentForeground": "#11111b" // default: "#11111b"
-    // no 'prominentBorder' setting exists, so forced to have same border for regular
+    "extensionButton.prominentForeground": "#11111b", // default: "#11111b"
+    // no 'extensionButton.prominentBorder' setting exists, so forced to have same border for regular
     // extension buttons as for prominent ones
+
+    "notifications.border": "#6c7086", // default: "#cba6f7"
+    "notificationCenter.border": "#6c7086", // default: "#cba6f7"
+    "notifications.background": "#1e1e2e", // default: "#181825"
+    "notificationCenterHeader.background": "#1e1e2e", // default: "#181825"
+
+    "focusBorder": "#9399b2" // default: "#cba6f7"
   },
 
   // ### FONT ###

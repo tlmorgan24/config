@@ -5,13 +5,34 @@ setopt SH_WORD_SPLIT # word splitting on whitespace, for same behaviour as Bash
 HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
-setopt HIST_IGNORE_ALL_DUPS # when executing duplicate command, erase older one from in-memory history (otherwise pain to scroll back through duplicates)
-setopt HIST_EXPIRE_DUPS_FIRST # when history file hits size limit, remove duplicates from it before other commands
+setopt INC_APPEND_HISTORY # write to history file on each command, instead of batching commands to write when shell is closed
+setopt HIST_IGNORE_ALL_DUPS # discard older duplicate commands in in-memory history
+setopt HIST_SAVE_NO_DUPS # discard older duplicate commands when saving to history file
+setopt HIST_FIND_NO_DUPS # if, despite the above, there are still duplicates, do not show them in history search (otherwise pain to scroll back to find the command you want)
 
-eval "$(starship init zsh)" # after `brew install starship`
+# customisation of fzf list when using zoxide's `zi` command
+# --with-nth=2.. # prevents score from appearing in list (continues to be used internally for ranking)
+# --preview='lsf {2..}' # uses my custom command `lsf` (discoverable on PATH) to display files in the previewed directory
+# by default, zi uses the `ls` command, but it is not so well formatted for this purpose (tries to format as columns, inserting inconsistent spaces)
+# the {2..} is to prevent the score from being sent to the `lsf` function (as it is irrelevant to displaying the files)
+export _ZO_FZF_OPTS="\
+--exact
+--no-sort
+--bind=ctrl-z:ignore,btab:up,tab:down
+--cycle
+--keep-right
+--border=sharp
+--height=45%
+--info=inline
+--layout=reverse
+--tabstop=1
+--with-nth=2..
+--preview='lsf {2..}'
+--preview-window=down,30%,sharp
+--exit-0"
 eval "$(zoxide init zsh)" # after `brew install zoxide`
 source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
-autoload -U zcalc # REPL calculator which removes need for `echo $((...))` whilst still being able to work with shell's variables, command substitution etc
+eval "$(starship init zsh)" # after `brew install starship`
 
 zle_highlight=(default:fg=#f5e0dc)
 
@@ -22,6 +43,7 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias c='pbcopy'
 alias v='pbpaste'
+autoload -U zcalc # REPL calculator which removes need for `echo $((...))` whilst still being able to work with shell's variables, command substitution etc
 alias calc='zcalc -f' # so, simply execute `calc` to enter the zcalc REPL calculator (Ctrl-D to exit), uses -f to make everything a float (prevent 3/4 = 0 etc)
 
 # replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first)
@@ -30,6 +52,9 @@ alias head='ghead' # for e.g. head -n -N file to get all except the last N lines
 alias grep='ggrep -E' # -E to always use extended regex, ggrep to allow GNU-specific features (but still prefer rg most of the time)
 alias find='gfind' # (but still prefer fd most of the time)
 alias tac='gtac'
+
+alias ls='eza -1'
+alias lst='eza -1 --tree --icons'
 concat() {
     printf '%s' "$@"
 }
@@ -45,7 +70,15 @@ alias gcf='git commit -a --amend --no-edit' # gcf stands for 'git commit fixup',
 alias gci='git add . && git restore --staged .gitignore && git commit -m' # so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
 alias gcif='git add . && git restore --staged .gitignore && git commit --amend --no-edit'
 alias gl='git log --oneline'
-alias push='git push origin HEAD'
+
+# pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream)
+push() {
+  if git rev-parse '@{u}' >/dev/null 2>&1; then
+    git push
+  else
+    git push -u origin HEAD
+  fi
+}
 
 # merges current branch's remote into local (assuming remote source is called "origin")
 pull() {
@@ -59,6 +92,7 @@ pull() {
 }
 
 # Resets chosen local branch to its corresponding remote branch (assumes remote source is called "origin").
+# Usage: reset-origin <branch>
 # If specified branch is current branch, uses `git reset --hard`
 # If specified branch is NOT current branch, uses `git branch -f`
 reset-origin() {
@@ -86,6 +120,49 @@ reset-origin() {
 
 reset-main() { 
   reset-origin main
+}
+
+# Push current branch and create PR for it using provided .md file, using its level-1 header as the PR title
+# Usage: pr <file>
+# The branch to merge into will be the value of gh-merge-base git branch config. If not configured, the repository's default branch (i.e. main) will be used.
+pr() {
+  local filepath="$1"
+  local title=""
+  local tmp # temporary file with title removed, to use as PR body
+  local line
+
+  if [[ -z "$filepath" ]]; then
+    echo "usage: pr <file>" >&2
+    return 2
+  fi
+
+  if [[ ! -f "$filepath" ]]; then
+    echo "fatal: file not found: $filepath" >&2
+    return 1
+  fi
+
+  tmp=$(mktemp) || return 1
+  trap 'rm -f "$tmp"' RETURN
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == '# '* ]]; then
+      if [[ -n "$title" ]]; then
+        echo "fatal: multiple level-1 headers" >&2
+        return 1
+      fi
+      title="${line#\# }"
+    else
+      printf '%s\n' "$line" >> "$tmp"
+    fi
+  done < "$filepath"
+
+  if [[ -z "$title" ]]; then
+    echo "fatal: no level-1 header found" >&2
+    return 1
+  fi
+
+  push || return 1
+  gh pr create -t "$title" -F "$tmp"
 }
 
 ## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##
