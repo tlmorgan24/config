@@ -30,6 +30,12 @@ alias head='ghead' # for e.g. head -n -N file to get all except the last N lines
 alias grep='ggrep -E' # -E to always use extended regex, ggrep to allow GNU-specific features (but still prefer rg most of the time)
 alias find='gfind' # (but still prefer fd most of the time)
 alias tac='gtac'
+concat() {
+    printf '%s' "$@"
+}
+# like echo, but arguments end up joined without a space separating them
+# e.g.: concat hello world --> helloworld
+# whereas: echo hello world --> hello world
 
 # convenient git shortcuts
 alias gc='git commit -m'

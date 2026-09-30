@@ -1,7 +1,7 @@
 # How to use
 
 1. Clone this repo
-2. Run `./install.sh` to install the tools I use
+2. Run `./install.sh` to install the tools I use and add them to PATH
 3. Run `./copy.sh` to copy the associated config files into their appropriate places in your home directory (assumes same structure as on my mac). WARNING: the sync will overwrite any file that already exists at the same filepath. If you have parts of an existing config file you want to preserve, copy them into the repo files before running this script.
 
 E.g.:
@@ -15,6 +15,8 @@ chmod +x ./copy.sh
 cd ..
 rm -r config
 ```
+
+Note .zprofile is not shown in the repo, because your .zprofile is instead appended to programmatically in `./install.sh`.
 
 # Shortcuts
 
@@ -39,16 +41,13 @@ In the table, I specify whether the keybinding is already used by the terminal (
 | Shortcut | Intended behaviour | Keybinding used | Other popular bindings  | Ghostty | VS Code | Zsh |
 | --- | --- | --- | --- | --- | --- | --- |
 | Type a printable ASCII character | (1) If text is selected, erase that text (2) Insert the character | N/A | N/A | N/A | N/A | Default satisfies (2), wrote custom function to additionally satisfy (1) |
-| ← | (1) If nothing selected, move back one character
-(2) Else, cancel selection | `\e[D` | `^B` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) |
-| →  | (1) If nothing selected, move forward one character
-(2) Else, cancel selection | `\e[C` | `^F` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) |
+| ← | (1) If nothing selected, move back one character (2) Else, cancel selection | `\e[D` | `^B` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) |
+| →  | (1) If nothing selected, move forward one character (2) Else, cancel selection | `\e[C` | `^F` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) |
 | Alt + ← | Move back one word | `\eB` | `^B` | Default | Default | Default |
 | Alt + →  | Move forward one word | `\eF` | `^F` | Default | Default | Default |
 | Cmd + ← | Move to start of line | `^A` |  | Default | Default | Default |
 | Cmd + →  | Move to end of line | `^E` |  | Default | Default | Default |
-| ⌫ | (1) If nothing selected, delete the character before cursor
-(2) Else, delete the selected text. | `^?` | `^H` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) |
+| ⌫ | (1) If nothing selected, delete the character before cursor (2) Else, delete the selected text. | `^?` | `^H` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) |
 | fn + ⌫ | Delete character under cursor (i.e., after cursor, if cursor is a thin line rather than block) | `\e[3~` | `^D` | Default | Default | Default |
 | Alt + ⌫ | Delete back to start of word | `\e^?` | `^W` | Default | Default | Default |
 | Cmd + ⌫ | Delete back to start of line | `^U` |  | Default | Default | Custom |
@@ -60,8 +59,7 @@ In the table, I specify whether the keybinding is already used by the terminal (
 | Cmd + Shift + → | Expand selection to end of line | `\e[1;10C` |  | Default | Custom | Custom |
 | Cmd + C | Copy selection to clipboard | `\e[99;9u` |  | Custom bound to Cmd + Shift + C (see below) | Custom bound to Cmd + Shift + C (see below) | Custom |
 | Cmd + X | Cut selection (i.e. delete and copy to clipboard) | `\e[120;9u` |  | Custom | Custom | Custom |
-| Cmd + P | (1) If text is selected, delete the selected text
-(2) Then, paste from clipboard. |  |  |  |  | Default (not sure specifically how Ghostty / VS Code handle it, but whatever it is they do, it ends up working exactly as desired in Zsh) |
+| Cmd + P | (1) If text is selected, delete the selected text (2) Then, paste from clipboard. |  |  |  |  | Default (not sure specifically how Ghostty / VS Code handle it, but whatever it is they do, it ends up working exactly as desired in Zsh) |
 | Cmd + Z | Undo | `^_` |  | Custom | Custom | Default |
 | Cmd + Shift + Z | Redo | `^[/` |  | Custom | Custom | Mapped existing function to respond as desired |
 
