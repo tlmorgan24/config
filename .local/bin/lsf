@@ -1,0 +1,9 @@
+#!/bin/sh
+# list files, packing as many as possible on each line (unlike ls and eza, which format into columns)
+w="${FZF_PREVIEW_COLUMNS:-${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}}"
+eza -1 --color=always "$@" | awk -v w="$w" '
+  { plain=$0; gsub(/\033\[[0-9;]*m/, "", plain)
+    l = length(plain) + 2
+    if (len + l > w && len > 0) { print ""; len = 0 }
+    printf "%s  ", $0; len += l }
+  END { if (len) print "" }'

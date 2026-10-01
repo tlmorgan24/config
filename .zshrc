@@ -1,3 +1,6 @@
+eval "$(starship init zsh)" # after `brew install starship`
+zle_highlight=(default:fg=#f5e0dc) # sets colour of typed command
+
 setopt interactive_comments # interpret '#' as comment, even interactively (i.e. outside scripts)
 setopt SH_WORD_SPLIT # word splitting on whitespace, for same behaviour as Bash
 
@@ -9,32 +12,6 @@ setopt INC_APPEND_HISTORY # write to history file on each command, instead of ba
 setopt HIST_IGNORE_ALL_DUPS # discard older duplicate commands in in-memory history
 setopt HIST_SAVE_NO_DUPS # discard older duplicate commands when saving to history file
 setopt HIST_FIND_NO_DUPS # if, despite the above, there are still duplicates, do not show them in history search (otherwise pain to scroll back to find the command you want)
-
-# customisation of fzf list when using zoxide's `zi` command
-# --with-nth=2.. # prevents score from appearing in list (continues to be used internally for ranking)
-# --preview='lsf {2..}' # uses my custom command `lsf` (discoverable on PATH) to display files in the previewed directory
-# by default, zi uses the `ls` command, but it is not so well formatted for this purpose (tries to format as columns, inserting inconsistent spaces)
-# the {2..} is to prevent the score from being sent to the `lsf` function (as it is irrelevant to displaying the files)
-export _ZO_FZF_OPTS="\
---exact
---no-sort
---bind=ctrl-z:ignore,btab:up,tab:down
---cycle
---keep-right
---border=sharp
---height=45%
---info=inline
---layout=reverse
---tabstop=1
---with-nth=2..
---preview='lsf {2..}'
---preview-window=down,30%,sharp
---exit-0"
-eval "$(zoxide init zsh)" # after `brew install zoxide`
-source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
-eval "$(starship init zsh)" # after `brew install starship`
-
-zle_highlight=(default:fg=#f5e0dc)
 
 ## Aliases ##
 
@@ -53,8 +30,9 @@ alias grep='ggrep -E' # -E to always use extended regex, ggrep to allow GNU-spec
 alias find='gfind' # (but still prefer fd most of the time)
 alias tac='gtac'
 
-alias ls='eza -1'
-alias lst='eza -1 --tree --icons'
+alias ls='eza -1 --icons=auto'
+alias lst='eza -1 --tree --icons=auto'
+
 concat() {
     printf '%s' "$@"
 }
@@ -66,10 +44,13 @@ concat() {
 alias gc='git commit -m'
 alias gca='git commit -am'
 alias gcd='git add . && git commit -m' # gcd stands for 'git commit directory', as commits entire current directory (except .gitignored files)
-alias gcf='git commit -a --amend --no-edit' # gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
+alias gcf='git commit --amend --no-edit' # gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
 alias gci='git add . && git restore --staged .gitignore && git commit -m' # so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
+alias gcaf='git commit -a --amend --no-edit'
+alias gcdf='git add . && git commit --amend --no-edit'
 alias gcif='git add . && git restore --staged .gitignore && git commit --amend --no-edit'
 alias gl='git log --oneline'
+alias gt='git log --graph --oneline --all' # tree view of all commits
 
 # pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream)
 push() {
@@ -163,6 +144,96 @@ pr() {
 
   push || return 1
   gh pr create -t "$title" -F "$tmp"
+}
+
+## zoxide and fzf ##
+
+# Custom fzf configuration for zoxide's `zi` command.
+#
+# zoxide passes entries as:
+#   <score> <directory>
+# We hide the score from the list, and keep only the directory as the searchable/displayed field. 
+# The score is still used for zoxide's ranking, which it uses to pass entries to fzf in rank order.
+# --with-nth=2.. hides zoxide's score (the first field)
+# --bind=start:change-nth(1) overrides zoxide's default fzf config to ensure fzf searches the new 1st field
+#
+# --no-sort prevents fzf from reordering the inputs based on fuzzy match score, 
+# because zoxide already passes the directories in its ranked order, and
+# fzf's fuzzy score reordering would not consider the original ranking.
+# --exact prevents fuzzy search, i.e., must be a substring rather than subsequence. 
+# This is needed because, with --no-sort, fzf will not change the ranking based on search likelihood. 
+# E.g. if have folders called "Downloads" and "was", with "Downloads" ranking higher, typing "was" 
+# (without --exact) would still match "Downloads" (because it still has the "was" subsequence), and 
+# "Downloads" would still take priority as a match, even though "was" is unlikely to refer to "Downloads".
+#
+# `lsf` is my custom command for displaying the contents of the previewed directory. 
+# zoxide normally uses `ls`, but its column formatting produces inconsistent spacing.
+# `{2..}` is fzf syntax for passing the second field onward (i.e. pass the directory, not the score, to lsf).
+#
+# The other options mostly reproduce zoxide's fzf defaults, since specifying `_ZO_FZF_OPTS` otherwise wipes them.
+export _ZO_FZF_OPTS="\
+--exact
+--no-sort
+--cycle
+--keep-right
+--border=sharp
+--height=80%
+--info=inline
+--layout=reverse
+--tabstop=2
+--with-nth=2..
+--bind=\"start:change-nth(1),ctrl-z:ignore,btab:up,tab:down\"
+--preview='lsf {2..}'
+--preview-window=down,30%,sharp
+--exit-0"
+
+# Custom fzf configuration when not using the `zi` command
+export FZF_DEFAULT_OPTS="\
+--border=sharp
+--height=80% 
+--layout=reverse
+--tabstop=2"
+
+eval "$(zoxide init zsh)" # after `brew install zoxide`
+source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
+
+# Custom file browser.
+# Usage: browse <directory>
+# Output: full path to the chosen file/directory
+# If initial directory not provided, assumes current working directory.
+# From the initial directory, can interactively browse by pressing
+# left to come out of the directory, right to go into the highlighted directory
+browse() {
+  local directory="$1"
+  if [[ -z "$directory" ]]; then
+    directory=$(pwd)
+  elif [[ ! -d "$directory" ]]; then
+    echo "browse: no such directory: $directory"
+    return 1
+  fi
+
+  local MY_OPTS=(
+    --delimiter=$'\t' # fzf is provided full_path<TAB>pretty_path fields
+    --with-nth=2.. # only use the pretty path for display/search
+    --accept-nth=1 # only output the full path
+    --bind="right:transform(browse-in {1}),left:transform(browse-out {1})" # pass the full path for navigating directories
+    --preview="display-contents {1}" # pass the full path for displaying contents
+    --ansi # preserve colours
+  )
+  echo "$(provide-contents "$directory" | fzf "${MY_OPTS[@]}")"
+}
+
+# alias cd so that, if no argument provided, uses my custom file browser
+cd() {
+  local directory="$1"
+  if [[ -z "$directory" ]]; then
+    builtin cd "$(browse)"
+  elif [[ ! -d "$directory" ]]; then
+    echo "cd: no such directory: $directory"
+    return 1
+  else;
+    builtin cd "$directory"
+  fi
 }
 
 ## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##

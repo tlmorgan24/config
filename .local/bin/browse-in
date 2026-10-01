@@ -1,0 +1,9 @@
+#!/bin/bash
+# usage: browse-in <highlighted entry's full path>
+# intended as private helper for my custom `browse` function
+
+path="$1"
+if [[ -d "$path" ]]; then
+  echo 'reload(browser-provider {1})+first'
+fi
+# if highlighted entry is not a directory, do nothing (makes no sense to navigate into a file)
