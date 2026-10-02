@@ -1,22 +1,33 @@
 #!/bin/bash
-# usage: provide-contents <directory>
+# Usage: provide-contents [options] directory
+# Options are to pass directly to the eza command
 # dependencies: eza
 # for each entry in the directory, provides field 1 as the full path, and field 2 as the nicely formatted path
 # uses tabs to separate, assumption being that tabs will not appear in any paths
 # if directory is empty, prints <directory>/<TAB><NEWLINE>, so that navigating into the directory is recoverable with browse-out
 
+options=()
+while [[ $# -gt 1 ]]; do
+  options+=("$1")
+  shift
+done
+
 directory="$1"
 if [[ ! -d "$directory" ]]; then
-  echo "usage: contents-provider <directory>"
+  echo "provide-contents: directory must be provided"
   exit 1
 fi
 
 full_paths=$(
-  eza -1 --no-quotes --color=never -- "$directory" | while IFS= read -r line; do
-    realpath -- "$directory/$line"
-  done
+  eza "${options[@]}" -1 --no-quotes --color=never --icons=never -- "$directory" |
+    while IFS= read -r line; do
+      realpath -- "$directory/$line"
+    done
 )
-pretty_paths=$(eza -1 --no-quotes --color=always --icons=always -- "$directory")
+
+pretty_paths=$(
+  eza "${options[@]}" -1 --no-quotes --color=always --icons=always -- "$directory"
+)
 
 if [[ -z "$full_paths" && -z "$pretty_paths" ]]; then # nothing inside directory
   current_path=$(realpath -- "$directory")

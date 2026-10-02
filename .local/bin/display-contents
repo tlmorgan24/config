@@ -1,6 +1,6 @@
 #!/bin/bash
 # usage: display-contents <path>
-# dependencies: eza, bat, sed
+# dependencies: eza, bat
 # shows the contents of <path>. 
 # If <path> is a file, prints the file contents.
 # If <path> is a directory, prints one level of the directory's entries.

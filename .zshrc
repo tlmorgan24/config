@@ -198,13 +198,30 @@ eval "$(zoxide init zsh)" # after `brew install zoxide`
 source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
 
 # Custom file browser.
-# Usage: browse <directory>
+# Usage: browse [options] [directory]
 # Output: full path to the chosen file/directory
+# Options:
+  # --group-directories-first - self explanatory.
 # If initial directory not provided, assumes current working directory.
 # From the initial directory, can interactively browse by pressing
 # left to come out of the directory, right to go into the highlighted directory
 browse() {
-  local directory="$1"
+  local group=false
+  local directory=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --group-directories-first)
+        group=true
+        shift
+        ;;
+      *)
+        directory="$1"
+        shift
+        ;;
+    esac
+  done
+
   if [[ -z "$directory" ]]; then
     directory=$(pwd)
   elif [[ ! -d "$directory" ]]; then
@@ -212,22 +229,34 @@ browse() {
     return 1
   fi
 
-  local MY_OPTS=(
+  local PROVIDE_OPTS=()
+  if [[ "$group" == true ]]; then
+    PROVIDE_OPTS+=(--group-directories-first)
+  fi
+
+  local BROWSE_OPTS=()
+  if [[ "$group" == true ]]; then
+    BROWSE_OPTS+=(--group-directories-first)
+  fi
+  local BROWSE_OPTS_STR
+  printf -v BROWSE_OPTS_STR '%q ' "${BROWSE_OPTS[@]}"
+
+  local FZF_OPTS=(
     --delimiter=$'\t' # fzf is provided full_path<TAB>pretty_path fields
     --with-nth=2.. # only use the pretty path for display/search
     --accept-nth=1 # only output the full path
-    --bind="right:transform(browse-in {1}),left:transform(browse-out {1})" # pass the full path for navigating directories
+    --bind="right:transform(browse-in ${BROWSE_OPTS_STR} {1}),left:transform(browse-out ${BROWSE_OPTS_STR} {1})"
     --preview="display-contents {1}" # pass the full path for displaying contents
     --ansi # preserve colours
   )
-  echo "$(provide-contents "$directory" | fzf "${MY_OPTS[@]}")"
+  echo "$(provide-contents "${PROVIDE_OPTS[@]}" "$directory" | fzf "${FZF_OPTS[@]}")"
 }
 
 # alias cd so that, if no argument provided, uses my custom file browser
 cd() {
   local directory="$1"
   if [[ -z "$directory" ]]; then
-    builtin cd "$(browse)"
+    builtin cd "$(browse --group-directories-first)"
   elif [[ ! -d "$directory" ]]; then
     echo "cd: no such directory: $directory"
     return 1
