@@ -249,7 +249,7 @@ browse() {
   local BROWSE_OPTS_STR
   printf -v BROWSE_OPTS_STR '%q ' "${BROWSE_OPTS[@]}"
 
-  local FZF_OPTS=( # options specific to this browse function, in addition to FZF_DEFAULT_OPTS
+  local FZF_OPTS=( # fzf options specific to this browse function, in addition to FZF_DEFAULT_OPTS
     --delimiter=$'\t' # fzf is provided full_path<TAB>pretty_path fields
     --with-nth=2.. # only use the pretty path for display/search
     --accept-nth=1 # only output the full path
@@ -271,6 +271,20 @@ cd() {
   else;
     builtin cd "$directory"
   fi
+}
+
+# Custom git branch switcher that previews the log of each branch
+switch() {
+  local branches=$(git branch --format='%(refname:short)')
+  if (($? != 0)); then
+    echo 'git branch failed: perhaps you are not in a git repository'
+    return 1
+  elif [[ -z "$branches" ]]; then
+    echo "no branches found"
+    return 1
+  fi
+
+  git switch $(echo "$branches" | fzf --preview='git -c color.ui=always log --oneline {}')
 }
 
 ## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##
