@@ -148,7 +148,27 @@ pr() {
 
 ## zoxide and fzf ##
 
-# Custom fzf configuration for zoxide's `zi` command.
+# Custom fzf configuration
+export FZF_DEFAULT_OPTS="\
+--border=sharp
+--height=80% 
+--layout=reverse
+--tabstop=2
+--color=fg:#cdd6f4
+--color=bg:#1e1e2e
+--color=fg+:#cdd6f4
+--color=bg+:#313244
+--color=hl:#cba6f7
+--color=hl+:#cba6f7
+--color=prompt:#cba6f7
+--color=pointer:#f38ba8
+--color=marker:#a6e3a1
+--color=spinner:#89dceb
+--color=header:#89b4fa
+--color=info:#a6adc8
+--color=border:#585b70"
+
+# Additional fzf configuration for zoxide's `zi` command.
 #
 # zoxide passes entries as:
 #   <score> <directory>
@@ -169,31 +189,19 @@ pr() {
 # `lsf` is my custom command for displaying the contents of the previewed directory. 
 # zoxide normally uses `ls`, but its column formatting produces inconsistent spacing.
 # `{2..}` is fzf syntax for passing the second field onward (i.e. pass the directory, not the score, to lsf).
-#
-# The other options mostly reproduce zoxide's fzf defaults, since specifying `_ZO_FZF_OPTS` otherwise wipes them.
-export _ZO_FZF_OPTS="\
+export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
 --exact
 --no-sort
 --cycle
 --keep-right
---border=sharp
---height=80%
 --info=inline
---layout=reverse
---tabstop=2
 --with-nth=2..
---bind=\"start:change-nth(1),ctrl-z:ignore,btab:up,tab:down\"
+--bind='start:change-nth(1),ctrl-z:ignore,btab:up,tab:down'
 --preview='lsf {2..}'
 --preview-window=down,30%,sharp
 --exit-0"
 
-# Custom fzf configuration when not using the `zi` command
-export FZF_DEFAULT_OPTS="\
---border=sharp
---height=80% 
---layout=reverse
---tabstop=2"
-
+export BAT_THEME="Catppuccin Mocha"
 eval "$(zoxide init zsh)" # after `brew install zoxide`
 source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
 
@@ -241,7 +249,7 @@ browse() {
   local BROWSE_OPTS_STR
   printf -v BROWSE_OPTS_STR '%q ' "${BROWSE_OPTS[@]}"
 
-  local FZF_OPTS=(
+  local FZF_OPTS=( # options specific to this browse function, in addition to FZF_DEFAULT_OPTS
     --delimiter=$'\t' # fzf is provided full_path<TAB>pretty_path fields
     --with-nth=2.. # only use the pretty path for display/search
     --accept-nth=1 # only output the full path
