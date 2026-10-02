@@ -284,7 +284,13 @@ switch() {
     return 1
   fi
 
-  git switch $(echo "$branches" | fzf --preview='git -c color.ui=always log --oneline {}')
+  local FZF_OPTS=( # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
+    --height=100% # take up entire terminal window
+    --preview="display-logs {}" # where {} injects the branch name currently selected
+    --preview-window=down,99%,sharp # make preview window take up as much horizontal and vertical space as possible
+  )
+
+  git switch $(echo "$branches" | fzf "${FZF_OPTS[@]}")
 }
 
 ## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##

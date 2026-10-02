@@ -31,3 +31,6 @@ chmod +x "$LOCAL_BIN/browse-in"
 chmod +x "$LOCAL_BIN/browse-out"
 chmod +x "$LOCAL_BIN/provide-contents"
 chmod +x "$LOCAL_BIN/display-contents"
+
+chmod +x "$LOCAL_BIN/idk"
+
