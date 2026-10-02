@@ -293,6 +293,26 @@ switch() {
   git switch $(echo "$branches" | fzf "${FZF_OPTS[@]}")
 }
 
+# Custom git checkout that previews the logs of surrounding commits
+checkout() {
+  local commits=$(git log --all --format='%h') # use short hashes, to exactly match the git log --oneline used in the preview
+  if (($? != 0)); then
+    echo 'git log failed: perhaps you are not in a git repository'
+    return 1
+  elif [[ -z "$commits" ]]; then
+    echo "no commits found"
+    return 1
+  fi
+
+  local FZF_OPTS=( # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
+    --height=100% # take up entire terminal window
+    --preview="display-logs {}" # where {} injects the commit hash currently selected (can use the same program as for branches!)
+    --preview-window=down,99%,sharp # make preview window take up as much horizontal and vertical space as possible
+  )
+
+  git checkout $(echo "$commits" | fzf "${FZF_OPTS[@]}")
+}
+
 ## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##
 # Coded based off either:
 # the exact key sequences Ghostty & VS Code send when pressing the shortcuts at the time of writing (so far, both always agree with each other, but may not work with other terminals/configs).

@@ -1,4 +1,8 @@
 #!/bin/sh
+# usage: display-logs <branch>
+# intended as private helper for my custom `switch` and `checkout` functions
+# shows a graph view of the logs of all branches, while cropping to and highlighting the branch provided
+# can provide a commit hash instead of a branch, and the program works without adjustment (though the naming uses "branch" throughout)
 
 branch="$1" # name of fzf's highlighted branch
 escaped_branch=$(echo "$branch" | gsed 's/[.[\*^$\\\/]/\\&/g') # escapes all characters special to sed's regex pattern - includes special regex characters plus the sed delimiter '/'
