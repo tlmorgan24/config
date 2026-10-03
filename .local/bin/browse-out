@@ -1,0 +1,25 @@
+#!/bin/bash
+# usage: browse-out <highlighted entry's full path>
+# intended as private helper for my custom `browse` function
+
+options=()
+while [[ $# -gt 1 ]]; do
+  options+=("$1")
+  shift
+done
+
+path="$1"
+# get current directory (i.e., the directory in which the highlighted entry sits)
+if [[ "$path" == */ && "$path" != / ]]; then
+  cur="${path%/}" # empty-directory placeholder entry (see provide-contents)
+else
+  cur="${path%/*}" # normal entry
+fi
+[[ -z "$cur" ]] && cur=/
+
+parent=$(dirname -- "$cur") # parent of current directory (to navigate to)
+
+printf 'reload(provide-contents'
+printf ' %q' "${options[@]}"
+printf ' %q)+first\n' "$parent"
+# for simplicity, highlights first item of list instead of trying to highlight the directory just exited

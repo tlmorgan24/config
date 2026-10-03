@@ -14,16 +14,6 @@ fi
 
 ZPROFILE="$HOME/.zprofile" # best place to put PATH exports
 
-## CUSTOM COMMANDS ##
-
-# Provide accessible directory for custom commands:
-LOCAL_BIN="$HOME/.local/bin"
-mkdir -p "$LOCAL_BIN"
-LOCAL_PATH_EXPORT="export PATH=\"$LOCAL_BIN:\$PATH\"" # e.g. 'export PATH="/Users/thomas/.local/bin:$PATH"'
-if ! grep -Fqx "$LOCAL_PATH_EXPORT" "$ZPROFILE" 2>/dev/null; then
-    echo "$LOCAL_PATH_EXPORT" >> "$ZPROFILE"
-fi
-
 ## HOMEBREW ##
 
 # Install
@@ -65,20 +55,6 @@ brew install eza # more visual ls
 brew install bat # more user-friendly cat
 brew install zoxide # better cd (command is `z`) - pair with `eval "$(zoxide init zsh)"` in ~/.zshrc
 brew install fzf # fuzzy find - pair with `source <(fzf --zsh)` in ~/.zshrc
-
-# Custom command to run for zoxide/fzf previews (see .zshrc):
-cat > "$LOCAL_BIN/lsf" <<'EOF'
-#!/bin/sh
-# list files, packing as many as possible on each line (unlike ls and eza, which format into columns)
-w="${FZF_PREVIEW_COLUMNS:-${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}}"
-eza -1 --color=always "$@" | awk -v w="$w" '
-  { plain=$0; gsub(/\033\[[0-9;]*m/, "", plain)
-    l = length(plain) + 2
-    if (len + l > w && len > 0) { print ""; len = 0 }
-    printf "%s  ", $0; len += l }
-  END { if (len) print "" }'
-EOF
-chmod +x "$LOCAL_BIN/lsf"
 
 # GNU utilities to use instead of macOS's default BSD utilities (e.g. gsed for GNU sed instead of BSD sed)
 brew install gnu-sed

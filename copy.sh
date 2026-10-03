@@ -14,3 +14,22 @@ rsync -av \
   --exclude="$(basename "$0")" \
   "$script_dir/" \
   "$HOME/"
+
+# Ensure custom commands are accessible:
+ZPROFILE="$HOME/.zprofile" # best place to put PATH exports
+LOCAL_BIN="$HOME/.local/bin" # where custom commands stored (already copied across as part of rsync)
+LOCAL_PATH_EXPORT="export PATH=\"$LOCAL_BIN:\$PATH\"" # e.g. 'export PATH="/Users/thomas/.local/bin:$PATH"'
+if ! grep -Fqx "$LOCAL_PATH_EXPORT" "$ZPROFILE" 2>/dev/null; then
+    echo "$LOCAL_PATH_EXPORT" >> "$ZPROFILE"
+fi
+
+# Ensure custom commands are executable:
+# Custom command to run for zi previews (see .zshrc):
+chmod +x "$LOCAL_BIN/lsc"
+# Helpers for my other custom fzf-based functions (see .zshrc)
+chmod +x "$LOCAL_BIN/browse-in"
+chmod +x "$LOCAL_BIN/browse-out"
+chmod +x "$LOCAL_BIN/provide-contents"
+chmod +x "$LOCAL_BIN/display-contents"
+chmod +x "$LOCAL_BIN/display-logs"
+
