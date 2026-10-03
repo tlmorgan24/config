@@ -1,6 +1,3 @@
-eval "$(starship init zsh)" # after `brew install starship`
-zle_highlight=(default:fg=#f5e0dc) # sets colour of typed command
-
 setopt interactive_comments # interpret '#' as comment, even interactively (i.e. outside scripts)
 setopt SH_WORD_SPLIT # word splitting on whitespace, for same behaviour as Bash
 
@@ -12,6 +9,13 @@ setopt INC_APPEND_HISTORY # write to history file on each command, instead of ba
 setopt HIST_IGNORE_ALL_DUPS # discard older duplicate commands in in-memory history
 setopt HIST_SAVE_NO_DUPS # discard older duplicate commands when saving to history file
 setopt HIST_FIND_NO_DUPS # if, despite the above, there are still duplicates, do not show them in history search (otherwise pain to scroll back to find the command you want)
+
+# editor
+export EDITOR=vim
+export VISUAL=vim
+
+eval "$(starship init zsh)" # after `brew install starship`
+zle_highlight=(default:fg=#f5e0dc) # sets colour of typed command
 
 ## Aliases ##
 
@@ -104,27 +108,32 @@ reset-main() {
 }
 
 # Push current branch and create PR for it using provided .md file, using its level-1 header as the PR title
-# Usage: pr <file>
+# Usage: pr [filepath]
+# If filepath not provided, will be prompted to enter title and body manually
 # The branch to merge into will be the value of gh-merge-base git branch config. If not configured, the repository's default branch (i.e. main) will be used.
 pr() {
   local filepath="$1"
-  local title=""
-  local tmp # temporary file with title removed, to use as PR body
-  local line
+
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "Not authenticated - follow steps below to log in..."
+    if ! gh auth login; then
+      echo "Failed to authenticate. Either the login failed or you have not installed gh" >&2
+      return 1
+    fi
+  fi
 
   if [[ -z "$filepath" ]]; then
-    echo "usage: pr <file>" >&2
-    return 2
+    # use gh's default prompt to ask for title/body
+    push || return 1
+    gh pr create
+    return 0
   fi
 
-  if [[ ! -f "$filepath" ]]; then
-    echo "fatal: file not found: $filepath" >&2
-    return 1
-  fi
-
-  tmp=$(mktemp) || return 1
+  local tmp=$(mktemp) || return 1 # temporary file with title removed, to use as PR body
   trap 'rm -f "$tmp"' RETURN
 
+  local title=""
+  local line
   while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$line" == '# '* ]]; then
       if [[ -n "$title" ]]; then

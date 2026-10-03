@@ -48,6 +48,7 @@
     // extension buttons as for prominent ones
 
     "notifications.border": "#6c7086", // default: "#cba6f7"
+    "notificationToast.border": "#6c7086", // default: "#cba6f7"
     "notificationCenter.border": "#6c7086", // default: "#cba6f7"
     "notifications.background": "#1e1e2e", // default: "#181825"
     "notificationCenterHeader.background": "#1e1e2e", // default: "#181825"
