@@ -19,15 +19,15 @@ cursor-click-to-move = true
 
 ## keybindings for shortcuts whose key sequences are intercepted by Ghostty ##
 
+keybind = cmd+up=text:\x1b[1;9A
+keybind = cmd+down=text:\x1b[1;9B
+keybind = cmd+shift+up=text:\x1b[1;10A
+keybind = cmd+shift+down=text:\x1b[1;10B
+
 # intention: copy command-line program's current selection to clipboard (would use cmd+c, but Ghostty already uses this to copy it's OWN selection, e.g. following mouse drag)
 # cmd+shift+c would technically be 10u (9u is for cmd+c), but I still expect programs to expect cmd+c, hence use of 9u here
 keybind = cmd+shift+c=text:\x1b[99;9u 
-
-# intention: cut command-line program's current selection to clipboard
 keybind = cmd+x=text:\x1b[120;9u
 
-# intention: undo edit to command-line
 keybind = cmd+z=text:\x1f
-
-# intention: redo edit to command-line
 keybind = cmd+shift+z=text:\x1b/

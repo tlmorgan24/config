@@ -404,6 +404,58 @@ select-forward-line() {
 zle -N select-forward-line
 bindkey $'\e[1;10C' select-forward-line
 
+# shift+up: select up a line (or to the start of the command if already on the first line)
+select-up-line() {
+  if (( ! REGION_ACTIVE )); then
+    MARK=$CURSOR
+  fi
+  REGION_ACTIVE=1
+  local old=$CURSOR
+  zle up-line
+  if (( CURSOR == old )); then
+    CURSOR=0
+  fi
+}
+zle -N select-up-line
+bindkey $'\e[1;2A' select-up-line
+
+# shift+down: select down a line (or to the end of the command if already on the last line)
+select-down-line() {
+  if (( ! REGION_ACTIVE )); then
+    MARK=$CURSOR
+  fi
+  REGION_ACTIVE=1
+  local old=$CURSOR
+  zle down-line
+  if (( CURSOR == old )); then
+    CURSOR=${#BUFFER}
+  fi
+}
+zle -N select-down-line
+bindkey $'\e[1;2B' select-down-line
+
+# cmd+shift+up: select to beginning of the whole command
+select-to-beginning-of-command() {
+  if (( ! REGION_ACTIVE )); then
+    MARK=$CURSOR
+  fi
+  REGION_ACTIVE=1
+  CURSOR=0
+}
+zle -N select-to-beginning-of-command
+bindkey $'\e[1;10A' select-to-beginning-of-command
+
+# cmd+shift+down: select to end of the whole command
+select-to-end-of-command() {
+  if (( ! REGION_ACTIVE )); then
+    MARK=$CURSOR
+  fi
+  REGION_ACTIVE=1
+  CURSOR=${#BUFFER}
+}
+zle -N select-to-end-of-command
+bindkey $'\e[1;10B' select-to-end-of-command
+
 # helper
 delete-active-selection() {
   local start=$MARK
@@ -473,6 +525,72 @@ right-or-cancel-selection() {
 }
 zle -N right-or-cancel-selection
 bindkey $'\e[C' right-or-cancel-selection
+
+# alt+left: move back one word, cancelling any selection
+backward-word-cancel-selection() {
+  REGION_ACTIVE=0
+  zle backward-word
+}
+zle -N backward-word-cancel-selection
+bindkey $'\eb' backward-word-cancel-selection
+
+# alt+right: move forward one word, cancelling any selection
+forward-word-cancel-selection() {
+  REGION_ACTIVE=0
+  zle forward-word
+}
+zle -N forward-word-cancel-selection
+bindkey $'\ef' forward-word-cancel-selection
+
+# cmd+left: move to start of line, cancelling any selection
+beginning-of-line-cancel-selection() {
+  REGION_ACTIVE=0
+  zle beginning-of-line
+}
+zle -N beginning-of-line-cancel-selection
+bindkey $'^A' beginning-of-line-cancel-selection
+
+# cmd+right: move to end of line, cancelling any selection
+end-of-line-cancel-selection() {
+  REGION_ACTIVE=0
+  zle end-of-line
+}
+zle -N end-of-line-cancel-selection
+bindkey $'^E' end-of-line-cancel-selection
+
+# up: cancel any selection, then move up a line (or to the previous history entry if on the first line)
+up-cancel-selection() {
+  REGION_ACTIVE=0
+  zle up-line-or-history
+}
+zle -N up-cancel-selection
+bindkey $'\e[A' up-cancel-selection
+bindkey $'\eOA' up-cancel-selection
+
+# down: cancel any selection, then move down a line (or to the next history entry if on the last line)
+down-cancel-selection() {
+  REGION_ACTIVE=0
+  zle down-line-or-history
+}
+zle -N down-cancel-selection
+bindkey $'\e[B' down-cancel-selection
+bindkey $'\eOB' down-cancel-selection
+
+# cmd+up: move to start of the whole command (not just the current line), cancelling any selection
+beginning-of-command() {
+  REGION_ACTIVE=0
+  CURSOR=0
+}
+zle -N beginning-of-command
+bindkey $'\e[1;9A' beginning-of-command
+
+# cmd+down: move to end of the whole command, cancelling any selection
+end-of-command() {
+  REGION_ACTIVE=0
+  CURSOR=${#BUFFER}
+}
+zle -N end-of-command
+bindkey $'\e[1;9B' end-of-command
 
 # cmd+backspace: delete from cursor to beginning of current line (regardless of active selection)
 delete-backward-line() {

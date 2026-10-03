@@ -3,7 +3,7 @@
 
   // keybindings for terminal shortcuts whose key sequences are intercepted by VS Code
   {
-    "key": "cmd+shift+left", // intention: expand command-line program's selection to start of line
+    "key": "cmd+shift+left",
     "command": "workbench.action.terminal.sendSequence",
     "args": {
       "text": "\u001b[1;10D"
@@ -11,11 +11,35 @@
     "when": "terminalFocus"
   },
   {
-    "key": "cmd+shift+right", // intention: expand command-line program's selection to end of line
+    "key": "cmd+shift+right",
     "command": "workbench.action.terminal.sendSequence",
     "args": {
       "text": "\u001b[1;10C"
     },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "cmd+up",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[1;9A" },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "cmd+down",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[1;9B" },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "cmd+shift+up",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[1;10A" },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "cmd+shift+down",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[1;10B" },
     "when": "terminalFocus"
   },
 
@@ -27,9 +51,8 @@
     },
     "when": "terminalFocus"
   },
-
   {
-    "key": "cmd+x", // intention: cut command-line program's current selection to clipboard
+    "key": "cmd+x",
     "command": "workbench.action.terminal.sendSequence",
     "args": {
       "text": "\u001b[120;9u"
@@ -38,16 +61,15 @@
   },
 
   {
-    "key": "cmd+z", // intention: undo edit to command-line
+    "key": "cmd+z",
     "command": "workbench.action.terminal.sendSequence",
     "args": {
       "text": "\u001f"
     },
     "when": "terminalFocus"
   },
-
   {
-    "key": "cmd+shift+z", // intention: redo edit to command-line
+    "key": "cmd+shift+z",
     "command": "workbench.action.terminal.sendSequence",
     "args": {
       "text": "\u001b/"
