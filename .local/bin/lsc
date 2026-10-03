@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # list files in a compact view, packing as many as possible on each line 
 # (unlike ls and eza, which format into columns)
 # usage: lsc [column width] [eza arguments],
