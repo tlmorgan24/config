@@ -6,15 +6,22 @@ let &t_EI = "\<Esc>[2 q"  " Normal mode: block cursor
 let &t_SI = "\<Esc>[6 q"  " Insert mode: bar cursor
 let &t_SR = "\<Esc>[4 q"  " Replace mode: underline cursor
 
-" enable use of mouse to move cursor and drag to select (automatically enters visual mode)
-" can still select using terminal itself with shift + drag
-set mouse=a
-
 " IMPORTANT
 " It seems .vimrc keymaps are really brittle
 " You CANNOT add comments to the end of the keymap lines, or they break
 " For e.g. ctrl+A and ctrl+E, you MUST use <Char-0x01> and <Char-0x05>
 " If you use <C-A> and <C-E>, even in addition, everything breaks
+
+" enable use of mouse to move cursor and drag to select (automatically enters visual mode)
+" can still select using terminal itself with shift + drag
+set mouse=a
+" The above remembers if you were in insert mode and returns you there afterwards
+" This is not desirable (e.g. want d to always take you to normal mode)
+" The below explicitly leaves goes into the standard visual mode (also makes sure not to shift the cursor)
+inoremap <LeftDrag> <Cmd>let g:drag_pos = getcurpos()<CR><Esc><Cmd>call setpos('.', g:drag_pos)<CR><LeftDrag>
+
+" Backspace in visual mode: delete selection and enter insert mode (like c, rather than the default d)
+xnoremap <BS> c
 
 " Alt + Left: move back a word
 nnoremap <Esc>b b
