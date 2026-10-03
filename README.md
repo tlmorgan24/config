@@ -85,9 +85,10 @@ There are mostly the result of my config files.
 * `browse` - opens interactive file browser. Type to fuzzy search, navigate within directory with up/down arrows, navigate out/into directories with left/right. Press enter to send highlighted file/directory to stdout.
 * `cd` (no arguments) - as with `browse`, but press enter to change directory to the highlighted directory.
 * `z <directory-substring>` - changes to most likely directory based on substring and your previous directory changes.
+* `z -` - changes to previous working directory
 * `zi` - similar to my custom `cd`, but rank according to `z`'s likelihood, without changing order based off the search input. Also, lists all directories rather than a navigable tree.
 
-* `calc` - open REPL calculator in terminal. Works as though everything you type is in `echo $((...))`, i.e., can use/define shell variables, do command substitution, etc.
+* `calc` - open REPL calculator in terminal. Works as though everything you type is in `echo $((...))`, i.e., can use/define shell variables, do command substitution, etc. Unlike usual `((...))`, I chose to make it use float arithmetic, so e.g. `3/4` is 0.75 instead of 0. However, this does mean integers will be saved with trailing `.000...`, so avoid using saved variables string comparisons.
 * `c` - copies its stdin to clipboard
 * `v` - pastes clipboard to its stdout
 * `lst [directory]` - list directory contents, including subdirectories etc, with a tree view. Uses CWD if no directory specified.
