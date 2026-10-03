@@ -77,9 +77,48 @@ Note all selections refer to the PROGRAM's selection (e.g. as manipulated by abo
 
 ### Zsh
 
+There are mostly the result of my config files.
+
+* `fzf` - each line of its stdin becomes an option you can choose from interactively. Type to fuzzy search, navigate options with up/down arrows, then choose one by pressing enter. The chosen option then gets passed to its stdout.
 * Tab - autocomplete command/argument (e.g. `vim fi<TAB>` might autocomplete as `vim file123.txt`)
+* Ctrl+r - type to fuzzy search through command history, navigate with up/down arrows. Press enter to paste the command into terminal.
+* `browse` - opens interactive file browser. Type to fuzzy search, navigate within directory with up/down arrows, navigate out/into directories with left/right. Press enter to send highlighted file/directory to stdout.
+* `cd` (no arguments) - as with `browse`, but press enter to change directory to the highlighted directory.
+* `z <directory-substring>` - changes to most likely directory based on substring and your previous directory changes.
+* `zi` - similar to my custom `cd`, but rank according to `z`'s likelihood, without changing order based off the search input. Also, lists all directories rather than a navigable tree.
+
+* `calc` - open REPL calculator in terminal. Works as though everything you type is in `echo $((...))`, i.e., can use/define shell variables, do command substitution, etc.
+* `c` - copies its stdin to clipboard
+* `v` - pastes clipboard to its stdout
+* `lst [directory]` - list directory contents, including subdirectories etc, with a tree view. Uses CWD if no directory specified.
+* `concat` - concatenate arguments directly (unlike `echo`, which separates them with a space, and `cat`, which reads files)
+
+* `gc` - alias for `git commit -m`
+* `gca` - alias for `git commit -am`
+* `gcd` - alias for `git add . && git commit -m` - gcd stands for 'git commit directory', as commits entire current directory (except .gitignored files)
+* `gcf` - alias for `git commit --amend --no-edit` - gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
+* `gci` - alias for `git add . && git restore --staged .gitignore && git commit -m` - so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
+* `gcaf` - alias for `git commit -a --amend --no-edit`
+* `gcdf` - alias for `git add . && git commit --amend --no-edit`
+* `gcif` - alias for `git add . && git restore --staged .gitignore && git commit --amend --no-edit`
+* `gl` - alias for `git log --oneline`
+* `gt` - alias for `git log --graph --oneline --all` - tree view of all commits
+
+* `push` - pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream)
+* `pull` - merges current branch's remote into local
+* `reset-origin <branch>` - hard-resets chosen local branch to its corresponding remote branch. The remote branch is automatically fetched.
+* `reset-main` - equivalent to `reset-origin main`
+* `rebase-origin <branch>` - rebases current branch onto chosen remote branch. The remote branch is automatically fetched before the rebase.
+* `rebase-main` - equivalent to `rebase-origin main`
+* `merge-origin <branch>` - merges chosen remote branch into current branch. The remote branch is automatically fetched before the merge.
+* `merge-main` - equivalent to `merge-origin main`
+* `pr [filepath]` - pushes current branch and creates PR to merge it into main. The provided .md file is parsed to use its level-1 header (e.g. `# My PR title`) as the PR title and the rest of the file as the body (assuming no other level-1 headers). If filepath not provided, will be prompted to enter title and body manually.
+* `switch` - interactive `git switch` that previews the logs of each branch. Type to fuzzy search, navigate with up/down arrows. Choose the branch to switch to by pressing enter.
+* `checkout` - interactive `git checkout` that previews the log of each commit and its surroundings.
 
 ### Vim
+
+There are mostly the result of my config files.
 
 * Mouse click -	move cursor
 * Mouse drag - enter visual mode and select dragged-over region
@@ -87,3 +126,15 @@ Note all selections refer to the PROGRAM's selection (e.g. as manipulated by abo
 * Backspace - if in insert mode, deletes character before cursor. If in visual mode, acts like `c`
 
 The usual vim keybindings continue to work (d/y/c to delete/yank/change, etc).
+
+### VS Code
+
+There are mostly default behaviours, but useful to know about.
+
+* Cmd+f - open find and replace. Can press buttons to make pattern case sensitive (insensitive by default) and match entire word. More powerfully, can press button to make pattern a regex pattern. Refer to captured groups in the "replace" box with e.g. `$1`, rather than `\1`.
+* Alt+click - place additional cursor. Anything you type (inserts/deletes) will apply to all cursors simultaneously.
+* Insert a 'wrapping' type of punctuation while have text selected - wraps the selected text. E.g. pressing `[` while `hello` is selected changes it to `[hello]`.
+* Alt+up/down - swap current line with line before/after
+* Alt+z: Toggle between views that wrap long lines vs let them run off the screen
+* cmd+shift+o: Search for "symbols" (e.g. classes/methods/functions) within current file and jump to one. The symbols are indexed by the language server (e.g. Pylance), which is present if you have installed the appropriate extension.
+* cmd+t: Like cmd+shift+o, but across entire repository. May be more picky (e.g. only show classes) unless specifically configure the language server.
