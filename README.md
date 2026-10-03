@@ -38,30 +38,30 @@ The keybinding I choose is either the most standard one for the intended behavio
 
 In the table, I specify whether the keybinding is already used by the terminal (Ghostty / VS Code) by default or if I custom-specified it. I also specify whether the keybinding used is responded to by the program (Zsh) with the intended behaviour by default or if I wrote a custom function for it.
 
-| **Shortcut** | **Intended Zsh behaviour** | **Keybinding used** | **Other popular bindings**  | **Ghostty** | **VS Code** | **Zsh** | **Intended Vim behaviour** | **Vim** |
-| --- | --- | --- | --- | --- | --- | --- |
-| Type a printable ASCII character | (1) If text is selected, erase that text (2) Insert the character | N/A | N/A | N/A | N/A | Default satisfies (2), wrote custom function to additionally satisfy (1) | Default Vim | Default |
-| ← | (1) If nothing selected, move back one character (2) Else, cancel selection | `\e[D` | `^B` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default |
-| →  | (1) If nothing selected, move forward one character (2) Else, cancel selection | `\e[C` | `^F` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default |
-| Alt + ← | Move back one word | `\eb` | | Default | Default | Default | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| Alt + →  | Move forward one word | `\ef` | | Default | Default | Default | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| Cmd + ← | Move to start of line | `^A` |  | Default | Default | Default | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| Cmd + →  | Move to end of line | `^E` |  | Default | Default | Default | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| ⌫ | (1) If nothing selected, delete the character before cursor (2) Else, delete the selected text. | `^?` | `^H` | Default | Default | Default satisfies (1), wrote custom function to additionally satisfy (2) | Delete character before cursor in INSERT mode, delete selection in VISUAL mode | Default |
-| fn + ⌫ | Delete character under cursor (i.e., after cursor, if cursor is a thin line rather than block) | `\e[3~` | `^D` | Default | Default | Default | | |
-| Alt + ⌫ | Delete back to start of word | `\e^?` | `^W` | Default | Default | Default | Do so in INSERT mode | Custom |
-| Cmd + ⌫ | Delete back to start of line | `^U` |  | Default | Default | Custom | Do so in INSERT mode | Custom |
-| Shift + ← | Expand selection left by one character | `\e[1;2D` |  | Default | Default | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Shift + → | Expand selection right by one character | `\e[1;2C` |  | Default | Default | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Alt + Shift + ← | Expand selection to start of word | `\e[1;4D` |  | Default | Default | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Alt + Shift + → | Expand selection to end of word | `\e[1;4C` |  | Default | Default | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Cmd + Shift + ← | Expand selection to start of line | `\e[1;10D` |  | Default | Custom | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Cmd + Shift + → | Expand selection to end of line | `\e[1;10C` |  | Default | Custom | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Cmd + Shift + c | Copy program's selection to clipboard | `\e[99;9u` |  | Custom | Custom | Custom | No effect | Default |
-| Cmd + x | Cut selection (i.e. delete and copy to clipboard) | `\e[120;9u` |  | Custom | Custom | Custom | No effect | Default |
-| Cmd + v | (1) If text is selected, delete the selected text (2) Then, paste from clipboard. |  |  |  |  | Default (not sure specifically how Ghostty / VS Code handle it, but whatever it is they do, it ends up working exactly as desired in Zsh) | Paste from clipboard in INSERT mode | Default |
-| Cmd + z | Undo | `^_` |  | Custom | Custom | Default | Undo | Custom |
-| Cmd + Shift + z | Redo | `^[/` |  | Custom | Custom | Mapped existing function to respond as desired | Redo | Custom |
+| **Shortcut** | **Keybinding used** | **Other popular bindings** | **Ghostty** | **VS Code** | **Intended Zsh behaviour** | **Zsh** | **Intended Vim behaviour** | **Vim** |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Type a printable ASCII character | N/A | N/A | N/A | N/A | (1) If text is selected, erase that text (2) Insert the character | Default satisfies (2), wrote custom function to additionally satisfy (1) | Default Vim | Default |
+| ← | `\e[D` | `^B` | Default | Default | (1) If nothing selected, move back one character (2) Else, cancel selection | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default |
+| →  | `\e[C` | `^F` | Default | Default | (1) If nothing selected, move forward one character (2) Else, cancel selection | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default |
+| Alt + ← | `\eb` | | Default | Default | Move back one word | Default | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
+| Alt + →  | `\ef` | | Default | Default | Move forward one word | Default | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
+| Cmd + ← | `^A` |  | Default | Default | Move to start of line | Default | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
+| Cmd + →  | `^E` |  | Default | Default | Move to end of line | Default | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
+| ⌫ | `^?` | `^H` | Default | Default | (1) If nothing selected, delete the character before cursor (2) Else, delete the selected text. | Default satisfies (1), wrote custom function to additionally satisfy (2) | Delete character before cursor in INSERT mode, delete selection in VISUAL mode | Default |
+| fn + ⌫ | `\e[3~` | `^D` | Default | Default | Delete character under cursor (i.e., after cursor, if cursor is a thin line rather than block) | Default | | |
+| Alt + ⌫ | `\e^?` | `^W` | Default | Default | Delete back to start of word | Default | Do so in INSERT mode | Custom |
+| Cmd + ⌫ | `^U` |  | Default | Default | Delete back to start of line | Custom | Do so in INSERT mode | Custom |
+| Shift + ← | `\e[1;2D` |  | Default | Default | Expand selection left by one character | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
+| Shift + → | `\e[1;2C` |  | Default | Default | Expand selection right by one character | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
+| Alt + Shift + ← | `\e[1;4D` |  | Default | Default | Expand selection to start of word | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
+| Alt + Shift + → | `\e[1;4C` |  | Default | Default | Expand selection to end of word | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
+| Cmd + Shift + ← | `\e[1;10D` |  | Default | Custom | Expand selection to start of line | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
+| Cmd + Shift + → | `\e[1;10C` |  | Default | Custom | Expand selection to end of line | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
+| Cmd + Shift + c | `\e[99;9u` |  | Custom | Custom | Copy program's selection to clipboard | Custom | No effect | Default |
+| Cmd + x | `\e[120;9u` |  | Custom | Custom | Cut selection (i.e. delete and copy to clipboard) | Custom | No effect | Default |
+| Cmd + v | | | | | (1) If text is selected, delete the selected text (2) Then, paste from clipboard. | Default (not sure specifically how Ghostty / VS Code handle it, but whatever it is they do, it ends up working exactly as desired in Zsh) | Paste from clipboard in INSERT mode | Default |
+| Cmd + z | `^_` |  | Custom | Custom | Undo | Default | Undo | Custom |
+| Cmd + Shift + z | `^[/` |  | Custom | Custom | Redo | Mapped existing function to respond as desired | Redo | Custom |
 
 Note all selections refer to the PROGRAM's selection (e.g. as manipulated by above shortcuts), rather than TERMINAL's selection (e.g. from mouse drag in most situations). Both Ghostty and VS Code use Cmd+c to copy the terminal's selection, so I am forced to use Cmd+Shift+c if wanting to copy the program's selection. There is no way to merge the behaviours, because the program (e.g. Zsh) cannot know what/when the terminal (e.g. Ghostty) has highlighted text, and vice versa.
 
