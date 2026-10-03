@@ -1,4 +1,6 @@
+set termguicolors
 syntax on  " syntax highlighting
+colorscheme catppuccin_mocha
 set number  " line numbers (only one space away from start of line, unfortunately no way to customise spacing)
 hi LineNr ctermfg=8  " very low contrast with background, helps prevent line numbers from intruding on actual text
 
