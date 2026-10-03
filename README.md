@@ -75,6 +75,10 @@ Note all selections refer to the PROGRAM's selection (e.g. as manipulated by abo
 
 ## Other shortcuts
 
+### Zsh
+
+* Tab - autocomplete command/argument (e.g. `vim fi<TAB>` might autocomplete as `vim file123.txt`)
+
 ### Vim
 
 * Mouse click -	move cursor

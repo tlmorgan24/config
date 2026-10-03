@@ -107,6 +107,8 @@ reset-main() {
   reset-origin main
 }
 
+export GH_EXPERIMENTAL_PROMPTER=1 # make gh CLI prompt inputs more natural (otherwise, sending escape sequences like alt+backspace causes crash)
+
 # Push current branch and create PR for it using provided .md file, using its level-1 header as the PR title
 # Usage: pr [filepath]
 # If filepath not provided, will be prompted to enter title and body manually
@@ -129,30 +131,34 @@ pr() {
     return 0
   fi
 
-  local tmp=$(mktemp) || return 1 # temporary file with title removed, to use as PR body
-  trap 'rm -f "$tmp"' RETURN
-
-  local title=""
-  local line
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    if [[ "$line" == '# '* ]]; then
-      if [[ -n "$title" ]]; then
-        echo "fatal: multiple level-1 headers" >&2
-        return 1
+  local tmp # temporary file with title removed, to use as PR body
+  tmp=$(mktemp) || return 1
+  #trap 'rm -f "$tmp"' RETURN # not valid Zsh syntax, use `always` construct instead
+  {
+    local title=""
+    local line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      if [[ "$line" == '# '* ]]; then
+        if [[ -n "$title" ]]; then
+          echo "fatal: multiple level-1 headers" >&2
+          return 1
+        fi
+        title="${line#\# }"
+      else
+        printf '%s\n' "$line" >> "$tmp"
       fi
-      title="${line#\# }"
-    else
-      printf '%s\n' "$line" >> "$tmp"
+    done < "$filepath"
+
+    if [[ -z "$title" ]]; then
+      echo "fatal: no level-1 header found" >&2
+      return 1
     fi
-  done < "$filepath"
 
-  if [[ -z "$title" ]]; then
-    echo "fatal: no level-1 header found" >&2
-    return 1
-  fi
-
-  push || return 1
-  gh pr create -t "$title" -F "$tmp"
+    push || return 1
+    gh pr create -t "$title" -F "$tmp"
+  } always {
+    rm -f "$tmp"
+  }
 }
 
 ## zoxide and fzf ##
@@ -248,7 +254,7 @@ browse() {
   if [[ -z "$directory" ]]; then
     directory=$(pwd)
   elif [[ ! -d "$directory" ]]; then
-    echo "browse: no such directory: $directory"
+    echo "no such directory: $directory"
     return 1
   fi
 
@@ -281,7 +287,7 @@ cd() {
   if [[ -z "$directory" ]]; then
     builtin cd "$(browse --group-directories-first)"
   elif [[ ! -d "$directory" ]]; then
-    echo "cd: no such directory: $directory"
+    echo "no such directory: $directory"
     return 1
   else;
     builtin cd "$directory"
