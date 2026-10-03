@@ -36,6 +36,16 @@ nnoremap <Char-0x05> $
 inoremap <Char-0x05> <C-o>$
 xnoremap <Char-0x05> $
 
+" Cmd + Up: move to start of file
+nnoremap <Esc>[1;9A gg
+inoremap <Esc>[1;9A <C-o>gg
+xnoremap <Esc>[1;9A gg
+
+" Cmd + Down: move to end of file
+nnoremap <Esc>[1;9B G$
+inoremap <Esc>[1;9B <C-o>G<End>
+xnoremap <Esc>[1;9B G$
+
 " Alt + Backspace: delete previous word (if in insert mode)
 " <Esc><BS> and <Esc><Char-0x7f> do not work
 inoremap <M-BS> <C-w>
@@ -66,6 +76,24 @@ inoremap <Esc>[1;10D <C-o>v^
 inoremap <Esc>[1;10C <C-o>v$
 xnoremap <Esc>[1;10D ^
 xnoremap <Esc>[1;10C $
+
+" Shift + Up/Down: extend selection by one line
+nnoremap <S-Up> vk
+nnoremap <S-Down> vj
+inoremap <S-Up> <C-o>vk
+inoremap <S-Down> <C-o>vj
+xnoremap <S-Up> k
+xnoremap <S-Down> j
+
+" Cmd + Shift + Up: extend selection to start of file
+nnoremap <Esc>[1;10A vgg
+inoremap <Esc>[1;10A <C-o>vgg
+xnoremap <Esc>[1;10A gg
+
+" Cmd + Shift + Down: extend selection to end of file
+nnoremap <Esc>[1;10B vG$
+inoremap <Esc>[1;10B <C-o>vG$
+xnoremap <Esc>[1;10B G$
 
 " Cmd + z: undo
 nnoremap <Char-0x1f> u
