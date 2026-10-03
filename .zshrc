@@ -77,6 +77,7 @@ pull() {
 }
 
 # Resets chosen local branch to its corresponding remote branch (assumes remote source is called "origin").
+# The remote branch is automatically fetched
 # Usage: reset-origin <branch>
 # If specified branch is current branch, uses `git reset --hard`
 # If specified branch is NOT current branch, uses `git branch -f`
@@ -95,7 +96,7 @@ reset-origin() {
     return 1
   fi;
 
-  git fetch origin "$target" || { echo "fatal: remote branch not found"; return 1; }
+  git fetch origin "$target" || { echo "fatal: no remote branch fetched"; return 1; }
   if [[ "$target" == "$current_branch" ]]; then
     git reset --hard "origin/$target"
   else
@@ -105,6 +106,54 @@ reset-origin() {
 
 reset-main() { 
   reset-origin main
+}
+
+# Rebases current branch onto chosen remote branch (assumes remote source is called "origin").
+# The remote branch is automatically fetched before the rebase
+# Usage: rebase-origin <branch>
+rebase-origin() {
+  local target="$1"
+  if [[ -z "$target" ]]; then
+    echo "fatal: must explicitly supply a target branch"
+    return 1
+  fi;
+  
+  local current_branch="$(git branch --show-current)" # empty if not currently on a branch
+  if [[ -z "$current_branch" ]]; then
+    echo "fatal: not currently on any branch"
+    return 1
+  fi;
+
+  git fetch origin "$target" || { echo "fatal: no remote branch fetched"; return 1; }
+  git rebase "origin/$target"
+}
+
+rebase-main() { 
+  rebase-origin main
+}
+
+# Merges chosen remote branch into current branch (assumes remote source is called "origin").
+# The remote branch is automatically fetched before the merge
+# Usage: merge-origin <branch>
+merge-origin() {
+  local source="$1"
+  if [[ -z "$source" ]]; then
+    echo "fatal: must explicitly supply a source branch"
+    return 1
+  fi;
+  
+  local current_branch="$(git branch --show-current)" # empty if not currently on a branch
+  if [[ -z "$current_branch" ]]; then
+    echo "fatal: not currently on any branch"
+    return 1
+  fi;
+
+  git fetch origin "$source" || { echo "fatal: no remote branch fetched"; return 1; }
+  git merge "origin/$source"
+}
+
+merge-main() { 
+  merge-origin main
 }
 
 export GH_EXPERIMENTAL_PROMPTER=1 # make gh CLI prompt inputs more natural (otherwise, sending escape sequences like alt+backspace causes crash)
