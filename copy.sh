@@ -24,13 +24,12 @@ if ! grep -Fqx "$LOCAL_PATH_EXPORT" "$ZPROFILE" 2>/dev/null; then
 fi
 
 # Ensure custom commands are executable:
-# Custom command to run for zoxide/fzf previews (see .zshrc):
-chmod +x "$LOCAL_BIN/lsf"
-# Helpers for my custom fzf-based `browse` function (see .zshrc)
+# Custom command to run for zi previews (see .zshrc):
+chmod +x "$LOCAL_BIN/lsc"
+# Helpers for my other custom fzf-based functions (see .zshrc)
 chmod +x "$LOCAL_BIN/browse-in"
 chmod +x "$LOCAL_BIN/browse-out"
 chmod +x "$LOCAL_BIN/provide-contents"
 chmod +x "$LOCAL_BIN/display-contents"
-
 chmod +x "$LOCAL_BIN/display-logs"
 

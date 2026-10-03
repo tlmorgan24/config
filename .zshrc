@@ -154,6 +154,7 @@ export FZF_DEFAULT_OPTS="\
 --height=80% 
 --layout=reverse
 --tabstop=2
+--info=hidden
 --color=fg:#cdd6f4
 --color=bg:#1e1e2e
 --color=fg+:#cdd6f4
@@ -186,24 +187,29 @@ export FZF_DEFAULT_OPTS="\
 # (without --exact) would still match "Downloads" (because it still has the "was" subsequence), and 
 # "Downloads" would still take priority as a match, even though "was" is unlikely to refer to "Downloads".
 #
-# `lsf` is my custom command for displaying the contents of the previewed directory. 
+# `lsc` is my custom command for displaying the contents of the previewed directory. 
 # zoxide normally uses `ls`, but its column formatting produces inconsistent spacing.
-# `{2..}` is fzf syntax for passing the second field onward (i.e. pass the directory, not the score, to lsf).
+# lsc is more compact (hence the 'c')
+# `{2..}` is fzf syntax for passing the second field onward (i.e. pass the directory, not the score, to lsc).
 export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
 --exact
 --no-sort
 --cycle
 --keep-right
---info=inline
 --with-nth=2..
 --bind='start:change-nth(1),ctrl-z:ignore,btab:up,tab:down'
---preview='lsf {2..}'
+--preview='lsc "$FZF_PREVIEW_COLUMNS" {2..}'
 --preview-window=down,30%,sharp
 --exit-0"
 
+# options for ctrl+R shortcut to fuzzy search through shell history
+export FZF_CTRL_R_OPTS="\
+--with-nth=2..
+--layout=default"
+
 export BAT_THEME="Catppuccin Mocha"
 eval "$(zoxide init zsh)" # after `brew install zoxide`
-source <(fzf --zsh) # after `brew install fzf`, to enable Ctrl-R, Ctrl-T, and Alt-C shortcuts, and autocomplete (fzf still runnable without this)
+source <(fzf --zsh) # after `brew install fzf` and option configuration, to enable shortcuts (fzf still runnable without this)
 
 # Custom file browser.
 # Usage: browse [options] [directory]
