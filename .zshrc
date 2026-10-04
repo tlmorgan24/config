@@ -47,7 +47,11 @@ concat() {
 # convenient git shortcuts
 alias gc='git commit -m'
 alias gca='git commit -am'
-alias gcd='git add . && git commit -m' # gcd stands for 'git commit directory', as commits entire current directory (except .gitignored files)
+alias gaa='git add -u' # add tracked files (like the -a in git commit -a)
+alias gad='git add .'
+alias gaar='git add -u && git restore --staged'
+alias gadr='git add . && git restore --staged'
+alias gcd='git add . && git commit -m' # gcd stands for 'git commit directory' or 'git commit dot', as commits entire current directory (except .gitignored files)
 alias gcf='git commit --amend --no-edit' # gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
 alias gci='git add . && git restore --staged .gitignore && git commit -m' # so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
 alias gcaf='git commit -a --amend --no-edit'
@@ -69,7 +73,7 @@ push() {
 pull() {
   local branch="$(git branch --show-current)"
   if [[ -z "$branch" ]]; then
-    echo "Must be on a branch"
+    echo "fatal: must be on a branch" >&2
     return 1
   fi
 
@@ -84,7 +88,7 @@ pull() {
 reset-origin() {
   local target="$1"
   if [[ -z "$target" ]]; then
-    echo "fatal: must explicitly supply a branch"
+    echo "fatal: must explicitly supply a branch" >&2
     return 1
   fi;
   
@@ -92,11 +96,11 @@ reset-origin() {
   if [[ "$target" == HEAD && -n "$current_branch" ]]; then
     target="$current_branch" # must use full branch name, not HEAD, as origin/HEAD refers to origin/main, not necessarily the intended branch
   elif [[ "$target" == HEAD ]]; then
-    echo "fatal: supplied HEAD as the branch, but not currently on any branch"
+    echo "fatal: supplied HEAD as the branch, but not currently on any branch" >&2
     return 1
   fi;
 
-  git fetch origin "$target" || { echo "fatal: no remote branch fetched"; return 1; }
+  git fetch origin "$target" || { echo "fatal: no remote branch fetched" >&2; return 1; }
   if [[ "$target" == "$current_branch" ]]; then
     git reset --hard "origin/$target"
   else
@@ -114,17 +118,17 @@ reset-main() {
 rebase-origin() {
   local target="$1"
   if [[ -z "$target" ]]; then
-    echo "fatal: must explicitly supply a target branch"
+    echo "fatal: must explicitly supply a target branch" >&2
     return 1
   fi;
   
   local current_branch="$(git branch --show-current)" # empty if not currently on a branch
   if [[ -z "$current_branch" ]]; then
-    echo "fatal: not currently on any branch"
+    echo "fatal: not currently on any branch" >&2
     return 1
   fi;
 
-  git fetch origin "$target" || { echo "fatal: no remote branch fetched"; return 1; }
+  git fetch origin "$target" || { echo "fatal: no remote branch fetched" >&2; return 1; }
   git rebase "origin/$target"
 }
 
@@ -138,17 +142,17 @@ rebase-main() {
 merge-origin() {
   local source="$1"
   if [[ -z "$source" ]]; then
-    echo "fatal: must explicitly supply a source branch"
+    echo "fatal: must explicitly supply a source branch" >&2
     return 1
   fi;
   
   local current_branch="$(git branch --show-current)" # empty if not currently on a branch
   if [[ -z "$current_branch" ]]; then
-    echo "fatal: not currently on any branch"
+    echo "fatal: not currently on any branch" >&2
     return 1
   fi;
 
-  git fetch origin "$source" || { echo "fatal: no remote branch fetched"; return 1; }
+  git fetch origin "$source" || { echo "fatal: no remote branch fetched" >&2; return 1; }
   git merge "origin/$source"
 }
 
@@ -278,19 +282,26 @@ source <(fzf --zsh) # after `brew install fzf` and option configuration, to enab
 # Custom file browser.
 # Usage: browse [options] [directory]
 # Output: full path to the chosen file/directory
+# By default, allows multi-select (select with tab, confirm selection with enter, sent as separate lines of stdout)
 # Options:
   # --group-directories-first - self explanatory.
+  # --no-multi - opt out of multi-select.
 # If initial directory not provided, assumes current working directory.
 # From the initial directory, can interactively browse by pressing
 # left to come out of the directory, right to go into the highlighted directory
 browse() {
   local group=false
+  local multi=true
   local directory=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --group-directories-first)
         group=true
+        shift
+        ;;
+      --no-multi)
+        multi=false
         shift
         ;;
       *)
@@ -303,7 +314,7 @@ browse() {
   if [[ -z "$directory" ]]; then
     directory=$(pwd)
   elif [[ ! -d "$directory" ]]; then
-    echo "no such directory: $directory"
+    echo "no such directory: $directory" >&2
     return 1
   fi
 
@@ -327,16 +338,21 @@ browse() {
     --preview="display-contents {1}" # pass the full path for displaying contents
     --ansi # preserve colours
   )
-  echo "$(provide-contents "${PROVIDE_OPTS[@]}" "$directory" | fzf "${FZF_OPTS[@]}")"
+
+  if [[ "$multi" == true ]]; then
+    FZF_OPTS+=(--multi)
+  fi
+
+  provide-contents "${PROVIDE_OPTS[@]}" "$directory" | fzf "${FZF_OPTS[@]}"
 }
 
 # alias cd so that, if no argument provided, uses my custom file browser
 cd() {
   local directory="$1"
   if [[ -z "$directory" ]]; then
-    builtin cd "$(browse --group-directories-first)"
+    builtin cd "$(browse --no-multi --group-directories-first)"
   elif [[ ! -d "$directory" ]]; then
-    echo "no such directory: $directory"
+    echo "no such directory: $directory" >&2
     return 1
   else;
     builtin cd "$directory"
@@ -347,10 +363,10 @@ cd() {
 switch() {
   local branches=$(git branch --format='%(refname:short)')
   if (($? != 0)); then
-    echo 'git branch failed: perhaps you are not in a git repository'
+    echo 'git branch failed: perhaps you are not in a git repository' >&2
     return 1
   elif [[ -z "$branches" ]]; then
-    echo "no branches found"
+    echo "no branches found" >&2
     return 1
   fi
 
@@ -367,10 +383,10 @@ switch() {
 checkout() {
   local commits=$(git log --all --format='%h') # use short hashes, to exactly match the git log --oneline used in the preview
   if (($? != 0)); then
-    echo 'git log failed: perhaps you are not in a git repository'
+    echo 'git log failed: perhaps you are not in a git repository' >&2
     return 1
   elif [[ -z "$commits" ]]; then
-    echo "no commits found"
+    echo "no commits found" >&2
     return 1
   fi
 
@@ -387,6 +403,9 @@ checkout() {
 # Coded based off either:
 # the exact key sequences Ghostty & VS Code send when pressing the shortcuts at the time of writing (so far, both always agree with each other, but may not work with other terminals/configs).
 # for key sequences intercepted by the app/terminal before reaching the command-line program, explicitly provided keybindings in VS Code's keybindings.json and Ghostty's config.ghostty.
+
+WORDCHARS=${WORDCHARS//\//} # do not consider '/' as part of a word (word splitting is not impacted)
+# e.g. if command populated with folder/subfolder/file123.txt, deleting word becomes folder/subfolder/
 
 # shift+left: select previous character
 select-backward-char() {

@@ -79,23 +79,30 @@ Note all selections refer to the PROGRAM's selection (e.g. as manipulated by abo
 
 There are mostly the result of my config files.
 
+Search and navigation:
 * `fzf` - each line of its stdin becomes an option you can choose from interactively. Type to fuzzy search, navigate options with up/down arrows, then choose one by pressing enter. The chosen option then gets passed to its stdout.
 * Tab - autocomplete command/argument (e.g. `vim fi<TAB>` might autocomplete as `vim file123.txt`)
 * Ctrl+r - type to fuzzy search through command history, navigate with up/down arrows. Press enter to paste the command into terminal.
-* `browse` - opens interactive file browser. Type to fuzzy search, navigate within directory with up/down arrows, navigate out/into directories with left/right. Press enter to send highlighted file/directory to stdout.
-* `cd` (no arguments) - as with `browse`, but press enter to change directory to the highlighted directory.
+* `browse` - opens interactive file browser. Type to fuzzy search, navigate within directory with up/down arrows, navigate out/into directories with left/right. Press enter to send highlighted file/directory to stdout. E.g. `vim "$(browse)"` lets you interactively choose a file to edit. Can also select multiple entries with tab (enter to send all of them as separate lines of stdout).
+* `cd` (no arguments) - as with `browse`, but press enter to change directory to the highlighted directory (no multi-select).
 * `z <directory-substring>` - changes to most likely directory based on substring and your previous directory changes.
 * `z -` - changes to previous working directory
 * `zi` - similar to my custom `cd`, but rank according to `z`'s likelihood, without changing order based off the search input. Also, lists all directories rather than a navigable tree.
 
+Utilities:
 * `calc` - open REPL calculator in terminal. Works as though everything you type is in `echo $((...))`, i.e., can use/define shell variables, do command substitution, etc. Unlike usual `((...))`, I chose to make it use float arithmetic, so e.g. `3/4` is 0.75 instead of 0. However, this does mean integers will be saved with trailing `.000...`, so avoid using saved variables string comparisons.
 * `c` - copies its stdin to clipboard
 * `v` - pastes clipboard to its stdout
 * `lst [directory]` - list directory contents, including subdirectories etc, with a tree view. Uses CWD if no directory specified.
 * `concat` - concatenate arguments directly (unlike `echo`, which separates them with a space, and `cat`, which reads files)
 
+Git 1:
 * `gc` - alias for `git commit -m`
 * `gca` - alias for `git commit -am`
+* `gaa` - alias for `git add -u` - adds tracked files (like the -a in git commit -a)
+* `gad` - alias for `git add .`
+* `gaar` - alias for `git add -u && git restore --staged`
+* `gadr` - alias for `git add . && git restore --staged`
 * `gcd` - alias for `git add . && git commit -m` - gcd stands for 'git commit directory', as commits entire current directory (except .gitignored files)
 * `gcf` - alias for `git commit --amend --no-edit` - gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
 * `gci` - alias for `git add . && git restore --staged .gitignore && git commit -m` - so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
@@ -105,6 +112,7 @@ There are mostly the result of my config files.
 * `gl` - alias for `git log --oneline`
 * `gt` - alias for `git log --graph --oneline --all` - tree view of all commits
 
+Git 2:
 * `push` - pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream)
 * `pull` - merges current branch's remote into local
 * `reset-origin <branch>` - hard-resets chosen local branch to its corresponding remote branch. The remote branch is automatically fetched.
@@ -132,6 +140,7 @@ The usual vim keybindings continue to work (d/y/c to delete/yank/change, etc).
 
 There are mostly default behaviours, but useful to know about.
 
+* Run `code <file>` or `code <directory>` to open files/folder in VS Code. If did not install VS Code through Homebrew, may have to manually add this to ~/.zprofile: `export PATH="/Applications/Visual Studio Code.app/Contents/Resources/app/bin:$PATH"`.
 * Cmd+f - open find and replace. Can press buttons to make pattern case sensitive (insensitive by default) and match entire word. More powerfully, can press button to make pattern a regex pattern. Refer to captured groups in the "replace" box with e.g. `$1`, rather than `\1`.
 * Alt+click - place additional cursor. Anything you type (inserts/deletes) will apply to all cursors simultaneously.
 * Insert a 'wrapping' type of punctuation while have text selected - wraps the selected text. E.g. pressing `[` while `hello` is selected changes it to `[hello]`.
@@ -139,3 +148,11 @@ There are mostly default behaviours, but useful to know about.
 * Alt+z: Toggle between views that wrap long lines vs let them run off the screen
 * cmd+shift+o: Search for "symbols" (e.g. classes/methods/functions) within current file and jump to one. The symbols are indexed by the language server (e.g. Pylance), which is present if you have installed the appropriate extension.
 * cmd+t: Like cmd+shift+o, but across entire repository. May be more picky (e.g. only show classes) unless specifically configure the language server.
+
+# Future work
+
+* Check for macOS at start of install.sh, exit if not macOS
+* `cp`, `mv` and `>` with automatic `mkdir -p`.
+* Create interactive rebase tool that has a similar display to my interactive switch/checkout tools, allowing user to mark each commit as pick/edit/fixup etc and choose the base without having to know it upfront.
+* Create shortcut for my browse function to populate the file(s) into the command line instead of always stdout
+* Enable shift + click to expand selection from old cursor position to new cursor position in vim

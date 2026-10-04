@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Ensure Zsh is installed and set as the default shell
 if [[ ! -x /bin/zsh ]]; then
-  echo "fatal: Zsh not found. This is unexpected for macOS."
+  echo "fatal: Zsh not found. This is unexpected for macOS." >&2
   exit 1
 fi
 if [[ "$SHELL" != /bin/zsh ]]; then
@@ -30,7 +30,7 @@ else
   elif [ -x /usr/local/bin/brew ]; then
     BREW="/usr/local/bin/brew"
   else
-    echo "Homebrew installation failed."
+    echo "Homebrew installation failed." >&2
     exit 1
   fi
 fi
