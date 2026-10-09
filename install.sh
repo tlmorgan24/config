@@ -53,8 +53,8 @@ brew install ripgrep # better grep (command is `rg`)
 brew install fd # better find
 brew install eza # more visual ls
 brew install bat # more user-friendly cat
-brew install zoxide # better cd (command is `z`) - pair with `eval "$(zoxide init zsh)"` in ~/.zshrc
-brew install fzf # fuzzy find - pair with `source <(fzf --zsh)` in ~/.zshrc
+brew install zoxide # cd to most likely directory (command is `z`) - pair with `eval "$(zoxide init zsh)"` in ~/.zshrc
+brew install fzf # fuzzy find
 
 # GNU utilities to use instead of macOS's default BSD utilities (e.g. gsed for GNU sed instead of BSD sed)
 brew install gnu-sed
@@ -69,3 +69,6 @@ brew install --cask font-jetbrains-mono-nerd-font # my preferred font (alternati
 brew install --cask ghostty # my preferred terminal
 brew install starship # my preferred prompt customiser (i.e. to replace "user@MacBook") - powerlevel10k is an alternative, but not actively maintained
 brew install --cask visual-studio-code # my preferred IDE
+
+# Programming languages
+brew install go # used for building my cmdlog program (see copy.sh)

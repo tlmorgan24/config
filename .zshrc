@@ -1,3 +1,13 @@
+# Record every command (and its output) with my cmdlog program (source in the cmdlog/ folder of my config repo).
+# It has to sit between the terminal and zsh, so this shell replaces itself with `cmdlog record`, which starts a new zsh
+# (that re-reads this file, with CMDLOG_SESSION set so it doesn't do this again). Done first, so nothing below runs twice.
+# If cmdlog can't record, it starts the shell anyway (unrecorded). To stop recording, delete ~/.local/bin/cmdlog.
+if [[ -o interactive && -t 0 && -t 1 && "$TERM" != dumb && -z "$CMDLOG_SESSION" ]] && (( $+commands[cmdlog] )); then
+  # VS Code's shell integration script is in a temporary folder only known to this shell, so pass its location on (see cmdlog section below)
+  [[ -n "$VSCODE_ZDOTDIR" ]] && export CMDLOG_VSCODE_RC="$VSCODE_ZDOTDIR/.zshrc"
+  exec cmdlog record "${commands[zsh]:-/bin/zsh}"
+fi
+
 setopt interactive_comments # interpret '#' as comment, even interactively (i.e. outside scripts)
 setopt SH_WORD_SPLIT # word splitting on whitespace, for same behaviour as Bash
 
@@ -270,7 +280,8 @@ export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
 --preview-window=down,30%,sharp
 --exit-0"
 
-# options for ctrl+R shortcut to fuzzy search through shell history
+# options for fzf's own ctrl+R shortcut to fuzzy search through shell history
+# (only used if cmdlog isn't installed, as otherwise my cmdlog-history-widget replaces it - see the cmdlog section below)
 export FZF_CTRL_R_OPTS="\
 --with-nth=2..
 --layout=default"
@@ -398,6 +409,100 @@ checkout() {
 
   git checkout $(echo "$commits" | fzf "${FZF_OPTS[@]}")
 }
+
+## Command recording (cmdlog) ##
+# See the top of this file for how cmdlog gets started.
+# The hooks below print invisible "markers" telling cmdlog where each command's output starts and ends.
+# Each marker contains a secret only this shell and its cmdlog know, so program output can't fake one.
+# cmdlog removes the markers before passing output on to the terminal.
+
+# Keep the secret as an unexported variable, so programs run from this shell never see it
+if [[ -n "$CMDLOG_SECRET" ]]; then
+  typeset -g _cmdlog_secret="$CMDLOG_SECRET"
+  unset CMDLOG_SECRET
+fi
+
+if [[ -n "$_cmdlog_secret" ]]; then
+  # Percent-encodes the characters that can't appear inside a marker: ';' separates its fields, BEL ends it,
+  # ESC could start another escape sequence, and the terminal would turn a newline into \r\n. Result goes in $REPLY.
+  _cmdlog_encode() {
+    REPLY=${1//\%/%25}
+    REPLY=${REPLY//;/%3B}
+    REPLY=${REPLY//$'\a'/%07}
+    REPLY=${REPLY//$'\e'/%1B}
+    REPLY=${REPLY//$'\n'/%0A}
+    REPLY=${REPLY//$'\r'/%0D}
+  }
+
+  # Runs just before each command: $1 is the command exactly as typed
+  _cmdlog_preexec() {
+    local REPLY dir
+    _cmdlog_encode "$PWD"
+    dir=$REPLY
+    _cmdlog_encode "$1"
+    print -rn -- $'\e]7777;'"$_cmdlog_secret;start;$dir;$REPLY"$'\a'
+    _cmdlog_running=1
+  }
+
+  # Runs just before each prompt, so $? is still the exit status of the command that just finished.
+  # Also runs before the first prompt, and after pressing enter on an empty line, when no command ran.
+  _cmdlog_precmd() {
+    local cmd_status=$?
+    if (( _cmdlog_running )); then
+      print -rn -- $'\e]7777;'"$_cmdlog_secret;end;$cmd_status"$'\a'
+      _cmdlog_running=0
+    fi
+    return $cmd_status # leave $? as it was for the other precmd hooks (e.g. starship's, which shows the status)
+  }
+
+  # Put these hooks first, so the output cmdlog captures doesn't include what other hooks print
+  preexec_functions=(_cmdlog_preexec ${preexec_functions:#_cmdlog_preexec})
+  precmd_functions=(_cmdlog_precmd ${precmd_functions:#_cmdlog_precmd})
+fi
+
+# ctrl+r: search the recorded history (replacing fzf's own ctrl+r, set up by `source <(fzf --zsh)` above).
+# Shows each distinct command once (its most recent run), and previews its directory, time, exit status and output.
+# Press enter to put the command on the command line (not run it), as fzf's ctrl+r does.
+if (( $+commands[cmdlog] )); then
+  cmdlog-history-widget() {
+    local FZF_OPTS=( # fzf options specific to this widget, in addition to FZF_DEFAULT_OPTS
+      --delimiter=$'\t' # cmdlog search gives id<TAB>time<TAB>status<TAB>command
+      --with-nth=2.. # hide the id
+      --nth=3.. # only search the command (fields counted after --with-nth, so the 3rd shown field)
+      --accept-nth=1 # only output the id
+      --ansi # preserve colours
+      --scheme=history
+      --layout=default # newest commands nearest the command line
+      --query="$LBUFFER"
+      --preview='cmdlog show {1}'
+      --preview-window=up,50%,sharp,wrap
+    )
+    local id
+    id=$(cmdlog search | fzf "${FZF_OPTS[@]}")
+    if [[ -n "$id" ]]; then
+      BUFFER=$(cmdlog get "$id")
+      CURSOR=${#BUFFER}
+    fi
+    zle reset-prompt
+  }
+  zle -N cmdlog-history-widget
+  # fzf binds ctrl+r in all three of these keymaps, so replace it in all of them (not just the current one)
+  bindkey -M emacs '^R' cmdlog-history-widget
+  bindkey -M viins '^R' cmdlog-history-widget
+  bindkey -M vicmd '^R' cmdlog-history-widget
+fi
+
+# Ghostty and VS Code only set up their shell integration (e.g. Ghostty's click-to-move-cursor) automatically in the
+# shell they start themselves, which cmdlog replaced with this one, so set it up manually here.
+if [[ -n "$CMDLOG_SESSION" ]]; then
+  if [[ -n "$GHOSTTY_RESOURCES_DIR" ]]; then
+    source "$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration"
+  fi
+  if [[ "$TERM_PROGRAM" == vscode && -r "$CMDLOG_VSCODE_RC" && -z "$VSCODE_SHELL_INTEGRATION" ]]; then
+    unset VSCODE_INJECTION # otherwise VS Code's script would source this file again
+    source "$CMDLOG_VSCODE_RC"
+  fi
+fi
 
 ## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##
 # Coded based off either:
