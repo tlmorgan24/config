@@ -18,6 +18,10 @@ const (
 	red    = "\x1b[31m"
 	green  = "\x1b[32m"
 	yellow = "\x1b[33m"
+
+	// exact colours from my terminal's Catppuccin Mocha theme (24-bit, as the theme's 16 ANSI colours don't include them)
+	rosewater = "\x1b[38;2;245;224;220m" // #f5e0dc
+	mauve     = "\x1b[38;2;203;166;247m" // #cba6f7
 )
 
 // search prints one line per distinct command (its most recent run), newest first, for fzf:
@@ -95,13 +99,13 @@ func show(args []string) error {
 	if home, err := os.UserHomeDir(); err == nil && (dir == home || strings.HasPrefix(dir, home+"/")) {
 		dir = "~" + dir[len(home):]
 	}
-	details := []string{dir, formatTime(started, "2006-01-02 15:04:05")}
+	details := []string{formatTime(started, "2006-01-02 15:04:05")}
 	if ended.Valid {
 		details = append(details, formatDuration(ended.Float64-started))
 	}
 
-	fmt.Printf("%s%s%s\n", bold, command, reset)
-	fmt.Printf("%s%s%s  %s\n\n", dim, strings.Join(details, " · "), reset, statusText(status, ended.Valid))
+	fmt.Printf("%s%s%s%s\n", bold, rosewater, command, reset)
+	fmt.Printf("%s%s%s%s · %s%s  %s\n\n", mauve, dir, reset, dim, strings.Join(details, " · "), reset, statusText(status, ended.Valid))
 	if interactive {
 		fmt.Printf("%s(interactive program: only output after it exited is kept)%s\n", dim, reset)
 	}
