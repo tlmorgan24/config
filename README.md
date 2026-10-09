@@ -82,7 +82,7 @@ There are mostly the result of my config files.
 Search and navigation:
 * `fzf` - each line of its stdin becomes an option you can choose from interactively. Type to fuzzy search, navigate options with up/down arrows, then choose one by pressing enter. The chosen option then gets passed to its stdout.
 * Tab - autocomplete command/argument (e.g. `vim fi<TAB>` might autocomplete as `vim file123.txt`)
-* Ctrl+r - type to fuzzy search through command history, navigate with up/down arrows. Press enter to paste the command into terminal. The preview shows where and when the command was last run, its exit status and its output (see `cmdlog` below).
+* Ctrl+r - type to fuzzy search through command history, navigate with up/down arrows. Press enter to paste the command into terminal. The preview shows where and when the command was last run, its exit status and its output (see `cmdlog` below). Press Ctrl+r again to toggle between commands from all directories and only those run in the current directory.
 * `browse` - opens interactive file browser. Type to fuzzy search, navigate within directory with up/down arrows, navigate out/into directories with left/right. Press enter to send highlighted file/directory to stdout. E.g. `vim "$(browse)"` lets you interactively choose a file to edit. Can also select multiple entries with tab (enter to send all of them as separate lines of stdout).
 * `cd` (no arguments) - as with `browse`, but press enter to change directory to the highlighted directory (no multi-select).
 * `z <directory-substring>` - changes to most likely directory based on substring and your previous directory changes.

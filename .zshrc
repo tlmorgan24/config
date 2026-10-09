@@ -476,6 +476,12 @@ if (( $+commands[cmdlog] )); then
       --query="$LBUFFER"
       --preview='cmdlog show {1}'
       --preview-window=up,50%,sharp,wrap
+      # pressing ctrl+r again toggles between all commands and only those run in the current directory (like atuin).
+      # The border label shows which one is active, and doubles as the toggle's memory of it.
+      # (fzf runs the transform in a new shell, in this directory. The label is set with the `:` form, as the last action,
+      # so a directory name containing brackets can't break it.)
+      --border-label=' all directories '
+      --bind='ctrl-r:transform:if [[ $FZF_BORDER_LABEL == " all directories " ]]; then echo "reload(cmdlog search --here)+change-border-label: ${PWD/#$HOME/~} "; else echo "reload(cmdlog search)+change-border-label: all directories "; fi'
     )
     local id
     id=$(cmdlog search | fzf "${FZF_OPTS[@]}")

@@ -4,7 +4,8 @@
 // Usage:
 //
 //	cmdlog record <shell>   run <shell> under a pty, recording its commands (started by .zshrc)
-//	cmdlog search           print history for fzf: id<TAB>time<TAB>status<TAB>command, newest first
+//	cmdlog search [--here]  print history for fzf: id<TAB>time<TAB>status<TAB>command, newest first
+//	                        (--here: only commands run in the current directory)
 //	cmdlog show <id>        print a command's details and output (for fzf's preview)
 //	cmdlog get <id>         print a command exactly as it was typed
 //
@@ -50,7 +51,7 @@ func main() {
 	case "record":
 		err = record(os.Args[2:])
 	case "search":
-		err = search()
+		err = search(os.Args[2:])
 	case "show":
 		err = show(os.Args[2:])
 	case "get":
@@ -65,7 +66,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: cmdlog record <shell> | search | show <id> | get <id>")
+	fmt.Fprintln(os.Stderr, "usage: cmdlog record <shell> | search [--here] | show <id> | get <id>")
 	os.Exit(2)
 }
 

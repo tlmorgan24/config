@@ -26,7 +26,21 @@ const (
 //
 // Newlines in a command are shown as ↵ (and tabs as spaces) so each command stays on one line;
 // `cmdlog get <id>` then gives back the command exactly as typed.
-func search() error {
+// With --here, only commands run in the current directory are included.
+func search(args []string) error {
+	dir := "" // empty means any directory
+	switch {
+	case len(args) == 1 && args[0] == "--here":
+		// Getwd gives $PWD when it's valid, so this matches the directory zsh recorded (e.g. /tmp, not /private/tmp)
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		dir = wd
+	case len(args) > 0:
+		return errors.New("usage: cmdlog search [--here]")
+	}
+
 	db, err := openDB()
 	if err != nil {
 		return err
@@ -35,8 +49,8 @@ func search() error {
 
 	rows, err := db.Query(`
 		SELECT c.id, c.started, c.status, c.command
-		FROM commands c JOIN (SELECT max(id) AS id FROM commands GROUP BY command) latest ON c.id = latest.id
-		ORDER BY c.id DESC`)
+		FROM commands c JOIN (SELECT max(id) AS id FROM commands WHERE ?1 = '' OR dir = ?1 GROUP BY command) latest ON c.id = latest.id
+		ORDER BY c.id DESC`, dir)
 	if err != nil {
 		return err
 	}
