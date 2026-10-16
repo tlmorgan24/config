@@ -27,16 +27,6 @@ if ! grep -Fqx "$LOCAL_PATH_EXPORT" "$ZPROFILE" 2>/dev/null; then
     echo "$LOCAL_PATH_EXPORT" >> "$ZPROFILE"
 fi
 
-# Ensure custom commands are executable:
-# Custom command to run for zi previews (see .zshrc):
-chmod +x "$LOCAL_BIN/lsc"
-# Helpers for my other custom fzf-based functions (see .zshrc)
-chmod +x "$LOCAL_BIN/browse-in"
-chmod +x "$LOCAL_BIN/browse-out"
-chmod +x "$LOCAL_BIN/provide-contents"
-chmod +x "$LOCAL_BIN/display-contents"
-chmod +x "$LOCAL_BIN/display-logs"
-
 # Build my cmdlog program (for my custom ctrl+r - see .zshrc) from its source in this repo
 (cd "$script_dir/cmdlog" && go build -o "$LOCAL_BIN/cmdlog" .)
 

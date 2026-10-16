@@ -18,7 +18,7 @@ This runs the two separate scripts required to set everything up. You can run th
 
 WARNING: the copying of files into the appropriate places in your home directory will overwrite any file that already exists at the same filepath. If you have parts of an existing config file you want to preserve, copy them into the repo files before running `./setup.sh` or `./copy.sh`.
 
-Note, no `chmod +x` is needed if cloning from my repo, as the scripts are already tracked as executable.
+Note, no `chmod +x` is needed for the setup scripts if cloning from my repo, as they are already tracked as executable. The .local/bin executables are also tracked as such, and `./copy.sh` (therefore `./setup.sh`) preserves these permissions, so no `chmod +x` is needed for these either.
 
 Note .zprofile is not shown in the repo, because your .zprofile is instead appended to programmatically in `./install.sh`.
 
