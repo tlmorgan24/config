@@ -6,9 +6,7 @@
 I.e.:
 ```bash
 git clone https://github.com/tlmorgan24/config.git
-cd config
-./setup.sh
-cd ..
+config/setup.sh
 rm -r config
 ```
 
