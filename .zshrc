@@ -510,6 +510,17 @@ if [[ -n "$CMDLOG_SESSION" ]]; then
   fi
 fi
 
+# Programs like vim can change the cursor shape and leave it changed when they exit. Ghostty's shell integration resets it
+# to a line at each prompt, but VS Code's doesn't, so do that here (\e[5 q = blinking line, matching Ghostty).
+if [[ "$TERM_PROGRAM" == vscode ]]; then
+  _vscode_reset_cursor_precmd() {
+    local cmd_status=$?
+    print -n '\e[5 q'
+    return $cmd_status # leave $? as it was for any later precmd hooks
+  }
+  precmd_functions+=(_vscode_reset_cursor_precmd)
+fi
+
 ## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##
 # Coded based off either:
 # the exact key sequences Ghostty & VS Code send when pressing the shortcuts at the time of writing (so far, both always agree with each other, but may not work with other terminals/configs).

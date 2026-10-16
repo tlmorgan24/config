@@ -139,4 +139,13 @@
   "editor.guides.indentation": true, // vertical line guides for indentation
   "notebook.lineNumbers": "on",
 
+  "terminal.integrated.cursorStyle": "line", // default: "block"
+  "terminal.integrated.cursorBlinking": true, // default: false
+  
+  "workbench.editor.empty.hint": "hidden",
+  "security.workspace.trust.untrustedFiles": "open",
+  "github.copilot.enable": {
+    "*": false, // prevent code autocomplete suggestions
+  },
+
 }
