@@ -12,6 +12,7 @@ rsync -av \
   --exclude='.gitignore' \
   --exclude='README.md' \
   --exclude='cmdlog/' \
+  --exclude='vscode-extensions.txt' \
   --exclude="$(basename "$0")" \
   "$script_dir/" \
   "$HOME/"

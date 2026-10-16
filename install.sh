@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+script_dir="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 
 ## ZSH ##
 
@@ -65,10 +66,15 @@ brew install coreutils
 brew install git
 brew install gh
 
+# Programming languages
+brew install go # used for building my cmdlog program (see copy.sh)
+brew install python # but executable is python3 (I alias it back to python in .zshrc)
+
 brew install --cask font-jetbrains-mono-nerd-font # my preferred font (alternative: `brew install --cask font-fira-code-nerd-font`)
 brew install --cask ghostty # my preferred terminal
 brew install starship # my preferred prompt customiser (i.e. to replace "user@MacBook") - powerlevel10k is an alternative, but not actively maintained
 brew install --cask visual-studio-code # my preferred IDE
 
-# Programming languages
-brew install go # used for building my cmdlog program (see copy.sh)
+# VS Code extensions (strip comments and blank lines, then install each ID)
+# Must come after installation of VS Code
+sed -e 's/#.*//' -e 's/[[:space:]]//g' "$script_dir/vscode-extensions.txt" | grep . | xargs -L1 code --install-extension

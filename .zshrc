@@ -46,13 +46,14 @@ alias tac='gtac'
 
 alias ls='eza -1 --icons=auto'
 alias lst='eza -1 --tree --icons=auto'
-
 concat() {
     printf '%s' "$@"
 }
 # like echo, but arguments end up joined without a space separating them
 # e.g.: concat hello world --> helloworld
 # whereas: echo hello world --> hello world
+
+alias python='python3'
 
 # convenient git shortcuts
 alias gc='git commit -m'

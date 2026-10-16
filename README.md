@@ -138,7 +138,7 @@ The usual vim keybindings continue to work (d/y/c to delete/yank/change, etc).
 
 ### VS Code
 
-There are mostly default behaviours, but useful to know about.
+Useful default behaviours:
 
 * Run `code <file>` or `code <directory>` to open files/folder in VS Code. If did not install VS Code through Homebrew, may have to manually add this to ~/.zprofile: `export PATH="/Applications/Visual Studio Code.app/Contents/Resources/app/bin:$PATH"`.
 * Cmd+f - open find and replace. Can press buttons to make pattern case sensitive (insensitive by default) and match entire word. More powerfully, can press button to make pattern a regex pattern. Refer to captured groups in the "replace" box with e.g. `$1`, rather than `\1`.
@@ -148,6 +148,14 @@ There are mostly default behaviours, but useful to know about.
 * Alt+z: Toggle between views that wrap long lines vs let them run off the screen
 * cmd+shift+o: Search for "symbols" (e.g. classes/methods/functions) within current file and jump to one. The symbols are indexed by the language server (e.g. Pylance), which is present if you have installed the appropriate extension.
 * cmd+t: Like cmd+shift+o, but across entire repository. May be more picky (e.g. only show classes) unless specifically configure the language server.
+
+Thanks to extensions:
+* cmd+b to bold in .md files.
+* cmd+i to italicise in .md files.
+* alt+shift+f to format table in .md files.
+* ... and more markdown conveniences.
+
+Extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`.
 
 # cmdlog
 
