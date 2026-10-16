@@ -1,20 +1,23 @@
 # How to use
 
 1. Clone this repo
-2. Run `./install.sh` to install the tools I use and add them to PATH
-3. Run `./copy.sh` to copy the associated config files into their appropriate places in your home directory (assumes same structure as on my mac). WARNING: the sync will overwrite any file that already exists at the same filepath. If you have parts of an existing config file you want to preserve, copy them into the repo files before running this script.
+2. Run `./setup.sh`
 
-E.g.:
+I.e.:
 ```bash
 git clone https://github.com/tlmorgan24/config.git
 cd config
-chmod +x ./install.sh
-./install.sh
-chmod +x ./copy.sh
-./copy.sh
+chmod +x ./setup.sh
+./setup.sh
 cd ..
 rm -r config
 ```
+
+This runs the two separate scripts required to set everything up. You can run them separately if you prefer:
+* `./install.sh` - install the tools I use and add them to PATH
+* `./copy.sh` - to copy the associated config files into their appropriate places in your home directory (assumes same structure as on my mac). 
+
+WARNING: the copying of files into the appropriate places in your home directory will overwrite any file that already exists at the same filepath. If you have parts of an existing config file you want to preserve, copy them into the repo files before running `./setup.sh` or `./copy.sh`.
 
 Note .zprofile is not shown in the repo, because your .zprofile is instead appended to programmatically in `./install.sh`.
 

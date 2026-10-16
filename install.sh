@@ -78,3 +78,6 @@ brew install --cask visual-studio-code # my preferred IDE
 # VS Code extensions (strip comments and blank lines, then install each ID)
 # Must come after installation of VS Code
 sed -e 's/#.*//' -e 's/[[:space:]]//g' "$script_dir/vscode-extensions.txt" | grep . | xargs -L1 code --install-extension
+
+# Random handy tools
+brew install poppler # for working with pdfs, e.g. merge with `pdfunite`, extract text with `pdftotext`

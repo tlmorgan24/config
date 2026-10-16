@@ -10,6 +10,7 @@ fi
 
 setopt interactive_comments # interpret '#' as comment, even interactively (i.e. outside scripts)
 setopt SH_WORD_SPLIT # word splitting on whitespace, for same behaviour as Bash
+setopt EXTENDED_GLOB
 
 # command history
 HISTFILE=~/.zsh_history

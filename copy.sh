@@ -1,6 +1,6 @@
 #!/bin/bash
 # Copies all files in this repo (relative to the repo root) into the corresponding
-# location relative to the home directory (~), excluding .git and this script itself.
+# location relative to the home directory (~), excluding .git and the repo's own scripts/docs.
 # All the files in the repo are structured with this in mind, so running this script
 # should place them all in the correct locations automatically
 set -euo pipefail
@@ -13,7 +13,9 @@ rsync -av \
   --exclude='README.md' \
   --exclude='cmdlog/' \
   --exclude='vscode-extensions.txt' \
-  --exclude="$(basename "$0")" \
+  --exclude='/setup.sh' \
+  --exclude='/install.sh' \
+  --exclude='/copy.sh' \
   "$script_dir/" \
   "$HOME/"
 
