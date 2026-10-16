@@ -153,9 +153,9 @@ Useful default behaviours:
 * cmd+t: Like cmd+shift+o, but across entire repository. May be more picky (e.g. only show classes) unless specifically configure the language server.
 
 Thanks to extensions:
-* cmd+b to bold in .md files.
-* cmd+i to italicise in .md files.
-* alt+shift+f to format table in .md files.
+* cmd+b - bold in .md files.
+* cmd+i - italicise in .md files.
+* alt+shift+f - format table in .md files.
 * ... and more markdown conveniences.
 
 Extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`.
