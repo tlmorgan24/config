@@ -26,7 +26,7 @@ export EDITOR=vim
 export VISUAL=vim
 
 eval "$(starship init zsh)" # after `brew install starship`
-zle_highlight=(default:fg=#f5e0dc) # sets colour of typed command
+zle_highlight=('default:fg=#f5e0dc') # sets colour of typed command
 
 ## Aliases ##
 
