@@ -53,49 +53,32 @@ alias rg='rg -P' # -P to always use PCRE (maximal regex features)
 
 # Alias for perl -ane, while still allowing extra flags to be passed without -e swallowing them.
 # Note, can still provide -p as a flag (effectively overwrites -n).
-p() {
-  local -a flags=()
-  while [[ $1 == -* ]]; do
-    [[ $1 == -- ]] && { shift; break; }
-    flags+=("$1"); shift
-  done
-  perl -an "${flags[@]}" -e "$1" "${@:2}"
-}
-
-# Like p, but slurps the whole input as one record (-0777).
-pp() { p -0777 "$@"; }
-
-# Like p, but with a custom record separator:
-#   psep SEP [flags] 'code' [files]
-# SEP is a literal string (escapes allowed, e.g. \n, \t, \xHH...), or regex if written /like this/.
-# A literal SEP can't contain NUL (use p -0 for that), and a regex SEP must not be able to match empty.
-# A separator that both starts and ends with / is always treated as a regex.
-# To use a literal like /x/, write it as '\x2fx\x2f'.
 #
-# Literal mode uses perl's own $/; regex mode is extra custom work, as not supported by Perl.
-# Neither loads whole files into memory. Both end up with $., eof, -p, etc working as expected.
+# Also takes -R<sep> for a custom record separator, acting as the record counterpart of -F:
+# <sep> is always a perl regex, optionally written /like this/, so e.g. a literal | is -R'\|'.
+# It must not be able to match the empty string, and can't be combined with -0 (or used by pp).
 #
-# $_ keeps its separator unless -l is given. With -l, the separator is stripped from $_
+# A separator with no regex metacharacters just uses perl's own $/; anything else is extra custom work,
+# as not supported by Perl. Neither loads whole files into memory. Both end up with $., eof, -p, etc
+# working as expected.
+#
+# With -R, $_ keeps its separator unless -l is given. With -l, the separator is stripped from $_
 # and put back by every print (including -p's). This is the exact matched separator the record had, or
 # nothing for a final unterminated record. In END blocks, -l prints end in "\n" instead.
-psep() {
-  local regex=0 sep
-  if [[ $1 == /?*/ ]]; then
-    regex=1; sep=${1:1:${#1}-2}
-  else
-    printf -v sep '%b' "$1"
-  fi
-  shift
-  local -a flags=()
-  local fs= nl=0 inplace= ip=0 b plain c
-  while [[ $1 == -?* ]]; do
+p() {
+  local -a args=() flags=()
+  local rs= has_rs=0 has_0=0 regex=0 fs= nl=0 inplace= ip=0 b plain c
+  while [[ $1 == -* ]]; do
     [[ $1 == -- ]] && { shift; break; }
+    args+=("$1")
     # Split a switch bundle the way perl does: argless switches combine, and a switch
     # that takes a value (-i, -F, -e, -M, ...) uses up the rest of the bundle.
     b=${1#-} plain=
     while [[ -n $b ]]; do
       c=${b:0:1}; b=${b:1}
       case $c in
+        R) has_rs=1; rs=$b; b= ;;
+        0) has_0=1; [[ $b =~ ^(x[[:xdigit:]]*|[0-7]*) ]] && b=${b:${#MATCH}} ;;
         l) nl=1; [[ $b =~ ^[0-7]* ]] && b=${b:${#MATCH}} ;;
         a) ;;
         i) ip=1; inplace=$b; b= ;;
@@ -107,28 +90,38 @@ psep() {
     [[ -n $plain ]] && flags+=("-$plain")
     shift
   done
+  if ((!has_rs)); then
+    perl -an "${args[@]}" -e "$1" "${@:2}"
+    return
+  fi
+
+  ((has_0)) && { echo "p: -R can't be combined with -0" >&2; return 2; }
+  [[ $rs == /*/ && ${#rs} -ge 2 ]] && rs=${rs:1:${#rs}-2}
+  [[ -z $rs ]] && { echo "p: -R separator can't be empty" >&2; return 2; }
+  [[ $rs =~ '[][\\^$.|?*+(){}]' ]] && regex=1
   if ((ip)); then
-    if ((regex)); then [[ -z $inplace ]] && inplace=.psep$$
+    if ((regex)); then [[ -z $inplace ]] && inplace=.prs$$
     else flags+=("-i$inplace"); inplace=; fi
   fi
-  local split='our @F = length $PSEP::FS ? split(/$PSEP::FS/) : split(" ");'
-  local endfix=';END { $\ = "\n" if $ENV{PSEP_L}; select STDOUT }' # runs before user END blocks
+  local split='our @F = length $PRS::FS ? split(/$PRS::FS/) : split(" ");'
+  local endfix=';END { $\ = "\n" if $ENV{PRS_L}; select STDOUT }' # runs before user END blocks
 
   if ((!regex)); then
-    PSEP_RS=$sep PSEP_FS=$fs PSEP_L=$nl perl -n "${flags[@]}" -e '
-BEGIN { $/ = $ENV{PSEP_RS}; ($PSEP::FS = $ENV{PSEP_FS}) =~ s{^/(.*)/$}{$1}s }
-if ($ENV{PSEP_L}) { my $o = $_; chomp; $\ = substr $o, length } # put back exactly what chomp removed
+    PRS_RS=$rs PRS_FS=$fs PRS_L=$nl perl -n "${flags[@]}" -e '
+BEGIN { $/ = $ENV{PRS_RS}; ($PRS::FS = $ENV{PRS_FS}) =~ s{^/(.*)/$}{$1}s }
+if ($ENV{PRS_L}) { my $o = $_; chomp; $\ = substr $o, length } # put back exactly what chomp removed
 '"$split" -e "$1" -e "$endfix" "${@:2}"
     return
   fi
 
-  PSEP_RS=$sep PSEP_FS=$fs PSEP_L=$nl PSEP_I=$inplace PSEP_IKEEP=${inplace:+$([[ $inplace == .psep$$ ]] || echo 1)} \
-  perl -n -Mopen=IN,':via(PSEP)' "${flags[@]}" -e '
+  PRS_RS=$rs PRS_FS=$fs PRS_L=$nl PRS_I=$inplace PRS_IKEEP=${inplace:+$([[ $inplace == .prs$$ ]] || echo 1)} \
+  perl -n -Mopen=IN,':via(PRS)' "${flags[@]}" -e '
 BEGIN {
-  package PSEP;
-  our $S = "\x{1E}PSEP\x{1E}"; # sentinel that becomes $/
-  our $RS = qr/$ENV{PSEP_RS}/;
-  ($PSEP::FS = $ENV{PSEP_FS}) =~ s{^/(.*)/$}{$1}s;
+  package PRS;
+  our $S = "\x{1E}PRS\x{1E}"; # sentinel that becomes $/
+  our $RS = qr/$ENV{PRS_RS}/;
+  if ("" =~ $RS) { warn "p: separator /$ENV{PRS_RS}/ can match the empty string\n"; exit 2 }
+  ($PRS::FS = $ENV{PRS_FS}) =~ s{^/(.*)/$}{$1}s;
   sub PUSHED { my $b = ""; bless \$b, shift }
   sub FILL { # mark separators; hold back incomplete tail
     my ($self, $fh) = @_;
@@ -155,33 +148,36 @@ BEGIN {
   our %name;
   for (@ARGV) { if ($_ eq "-") { $_ = "/dev/stdin"; $name{$_} = "-" } }
   # -i emulation: read from a renamed copy, write to the original name
-  our ($I, @tmp) = ($ENV{PSEP_I});
+  our ($I, @tmp) = ($ENV{PRS_I});
   if (length $I) {
     for (@ARGV) {
       next if exists $name{$_};
       my $orig = $_; my $bak = "$orig$I";
-      rename $orig, $bak or die "psep: cannot rename $orig: $!\n";
-      push @tmp, $bak unless $ENV{PSEP_IKEEP};
+      rename $orig, $bak or die "p: cannot rename $orig: $!\n";
+      push @tmp, $bak unless $ENV{PRS_IKEEP};
       $name{$bak} = $orig; $_ = $bak;
     }
   }
   our $cur = "";
-  END { unlink @PSEP::tmp }
+  END { unlink @PRS::tmp }
   $/ = $S;
 }
-if ($ARGV ne $PSEP::cur) {
+if ($ARGV ne $PRS::cur) {
   my $real = $ARGV;
-  $PSEP::cur = $ARGV = $PSEP::name{$real} // $real;
-  if (length $PSEP::I && $ARGV ne "-") {
-    open PSEP::OUT, ">", $ARGV or die "psep: cannot write $ARGV: $!\n";
+  $PRS::cur = $ARGV = $PRS::name{$real} // $real;
+  if (length $PRS::I && $ARGV ne "-") {
+    open PRS::OUT, ">", $ARGV or die "p: cannot write $ARGV: $!\n";
     chmod((stat $real)[2] & 07777, $ARGV);
-    select PSEP::OUT;
+    select PRS::OUT;
   }
 }
-if (s/\0(\d+)\Q$PSEP::S\E\z//) { $\ = substr($_, -$1, $1, "") if $ENV{PSEP_L} }
-elsif ($ENV{PSEP_L}) { $\ = "" } # final record had no separator, so nothing to put back
+if (s/\0(\d+)\Q$PRS::S\E\z//) { $\ = substr($_, -$1, $1, "") if $ENV{PRS_L} }
+elsif ($ENV{PRS_L}) { $\ = "" } # final record had no separator, so nothing to put back
 '"$split" -e "$1" -e "$endfix" "${@:2}"
 }
+
+# Like p, but slurps the whole input as one record (-0777).
+pp() { p -0777 "$@"; }
 
 # Like echo, but arguments end up joined without a space separating them.
 # E.g. `concat hello world` --> helloworld
