@@ -1,5 +1,11 @@
 #!/bin/bash
 set -euo pipefail
+
+if [[ "$(uname -s)" != Darwin ]]; then
+  echo "fatal: this script only supports macOS." >&2
+  exit 1
+fi
+
 script_dir="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 
 ## ZSH ##

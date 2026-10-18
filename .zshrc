@@ -47,12 +47,30 @@ alias tac='gtac'
 
 alias ls='eza -1 --icons=auto'
 alias lst='eza -1 --tree --icons=auto'
+
+alias rg='rg -P' # -P to always use PCRE (maximal regex features)
+# Note fd does not support this, but still has most features except backreferences & lookarounds
+
+# Alias for perl -ane, while still allowing extra flags to be passed without -e swallowing them.
+# Note, can still provide -p as a flag (effectively overwrites -n).
+p() {
+  local -a flags=()
+  while [[ $1 == -* ]]; do
+    [[ $1 == -- ]] && { shift; break; }
+    flags+=("$1"); shift
+  done
+  perl -an "${flags[@]}" -e "$1" "${@:2}"
+}
+
+# Same as p, but slurps the whole input as one record (-0777).
+pp() { p -0777 "$@"; }
+
+# Like echo, but arguments end up joined without a space separating them.
+# E.g. `concat hello world` --> helloworld
+# whereas `echo hello world` --> hello world
 concat() {
     printf '%s' "$@"
 }
-# like echo, but arguments end up joined without a space separating them
-# e.g.: concat hello world --> helloworld
-# whereas: echo hello world --> hello world
 
 alias python='python3'
 
