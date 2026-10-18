@@ -97,6 +97,9 @@ Utilities:
 * `v` - pastes clipboard to its stdout
 * `lst [directory]` - list directory contents, including subdirectories etc, with a tree view. Uses CWD if no directory specified.
 * `concat` - concatenate arguments directly (unlike `echo`, which separates them with a space, and `cat`, which reads files)
+* `p` - alias for `perl -ane`, while still allowing extra flags to be passed without -e swallowing them
+* `pp` - like `p`, but slurps the whole input as one record (-0777).
+* `psep <separator>` - like `p`, but with a custom record separator (which can be `/regex/`).
 
 Git 1:
 * `gc` - alias for `git commit -m`
