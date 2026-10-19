@@ -122,25 +122,28 @@ BEGIN {
   our $RS = qr/$ENV{PRS_RS}/;
   if ("" =~ $RS) { warn "p: separator /$ENV{PRS_RS}/ can match the empty string\n"; exit 2 }
   ($PRS::FS = $ENV{PRS_FS}) =~ s{^/(.*)/$}{$1}s;
-  sub PUSHED { my $b = ""; bless \$b, shift }
+  # A flush (which perl does to every handle before system, fork, etc) drops whatever is left of
+  # the result of the last FILL, so FILL hands out one record at a time and nothing is left over.
+  sub PUSHED { bless ["", []], shift } # [unscanned input, marked records waiting to be handed out]
   sub FILL { # mark separators; hold back incomplete tail
     my ($self, $fh) = @_;
+    my ($buf, $q) = (\$self->[0], $self->[1]);
     while (1) {
+      return shift @$q if @$q;
       my $n = read $fh, my $chunk, 65536;
-      $$self .= $chunk if $n;
+      $$buf .= $chunk if $n;
       my $at_eof = !$n;
-      my ($out, $keep) = ("", 0);
-      while ($$self =~ /\G(.*?)($RS)/gcs) {
+      my $keep = 0;
+      while ($$buf =~ /\G(.*?)($RS)/gcs) {
         my ($rec, $sep) = ($1, $2);
-        last if !$at_eof && $+[0] >= length $$self; # match might extend further
+        last if !$at_eof && $+[0] >= length $$buf; # match might extend further
         last if !length $sep; # ignore empty matches
-        $out .= $rec . $sep . "\0" . length($sep) . $S;
+        push @$q, $rec . $sep . "\0" . length($sep) . $S;
         $keep = $+[0];
       }
-      substr($$self, 0, $keep) = "";
-      if ($at_eof) { $out .= $$self; $$self = "" }
-      return $out if length $out;
-      return undef if $at_eof;
+      substr($$buf, 0, $keep) = "";
+      if ($at_eof && length $$buf) { push @$q, $$buf; $$buf = "" }
+      return undef if $at_eof && !@$q;
     }
   }
   # stdin must be opened by name so the layer applies
@@ -178,6 +181,40 @@ elsif ($ENV{PRS_L}) { $\ = "" } # final record had no separator, so nothing to p
 
 # Like p, but slurps the whole input as one record (-0777).
 pp() { p -0777 "$@"; }
+
+# ff - stands for "For each File" or "For each output of Fd"
+# Like fd -x, but runs arbitrary shell code for each file found, with the path in $f.
+#   ff [fd args] <code>
+# The code comes last, everything before it goes to fd. Single-quote the code so 
+# treated as one argument and so shell does not expand $f before it reaches the function. 
+# And, double-quote the $f as normal if want to avoid word splitting.
+# E.g. `ff -e md 'echo "$f"; head -1 "$f"'`
+# Runs in the current shell (aliases, functions and variables all work), reading fd's output from fd 3
+# so commands in the code that read stdin don't swallow the file list.
+ff() {
+  local cmd=${@[-1]} f
+  while IFS= read -r -d '' f <&3; do eval "$cmd"; done 3< <(fd -0 "${@[1,-2]}")
+}
+
+# fr - stands for "For each Record"
+# Like ff, but for records split on a regex (via p -R), with the record in $r and the exact
+# separator that ended it in $s (empty for a final unterminated record).
+#   fr <sep> <code> [files]
+# <sep> is anything p -R takes, e.g. '\n\n+' or /,\s*/. Reads stdin if no files are given.
+# E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`
+# Same quoting rules and current-shell behaviour as ff. Records containing NUL bytes get split there.
+fr() {
+  local sep=$1 cmd=$2 r s; shift 2
+  while IFS= read -r -d '' r <&3 && IFS= read -r -d '' s <&3; do eval "$cmd"; done \
+    3< <(p -l -R"$sep" 'printf "%s\0%s\0", $_, $\' "$@")
+}
+
+# fl - stands for "For each Line"
+# fr with a newline separator, so the line is in $r ($s is a newline, or empty for an unterminated last line).
+#   fl <code> [files]
+# E.g. `fl 'mkdir "$r"' names.txt`
+# A literal newline (rather than '\n') lets p use perl's own $/, skipping the slower regex splitting.
+fl() { fr $'\n' "$@"; }
 
 # Like echo, but arguments end up joined without a space separating them.
 # E.g. `concat hello world` --> helloworld
