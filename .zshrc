@@ -225,6 +225,20 @@ concat() {
 
 alias python='python3'
 
+# gogo - quickly run a draft Go program: init a module in CWD, create boilerplate main.go to edit in vim, then automatically format, tidy modules and run.
+#   gogo [module name]
+# The module name defaults to draft. Refuses to run if main.go already exists, so an existing program isn't overwritten.
+# Vim opens on the Println line. Quit with :cq to skip formatting and running (loses unsaved changes).
+gogo() {
+  if [[ -e main.go ]]; then
+    echo "gogo: main.go already exists" >&2
+    return 1
+  fi
+  go mod init "${1:-draft}" &&
+    printf 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, world!")\n}\n' > main.go &&
+    vim +6 main.go && go fmt && go mod tidy && go run .
+}
+
 # convenient git shortcuts
 alias gc='git commit -m'
 alias gca='git commit -am'
@@ -254,7 +268,7 @@ push() {
 pull() {
   local branch="$(git branch --show-current)"
   if [[ -z "$branch" ]]; then
-    echo "fatal: must be on a branch" >&2
+    echo "pull: must be on a branch" >&2
     return 1
   fi
 
@@ -269,7 +283,7 @@ pull() {
 reset-origin() {
   local target="$1"
   if [[ -z "$target" ]]; then
-    echo "fatal: must explicitly supply a branch" >&2
+    echo "reset-origin: must explicitly supply a branch" >&2
     return 1
   fi;
   
@@ -277,11 +291,11 @@ reset-origin() {
   if [[ "$target" == HEAD && -n "$current_branch" ]]; then
     target="$current_branch" # must use full branch name, not HEAD, as origin/HEAD refers to origin/main, not necessarily the intended branch
   elif [[ "$target" == HEAD ]]; then
-    echo "fatal: supplied HEAD as the branch, but not currently on any branch" >&2
+    echo "reset-origin: supplied HEAD as the branch, but not currently on any branch" >&2
     return 1
   fi;
 
-  git fetch origin "$target" || { echo "fatal: no remote branch fetched" >&2; return 1; }
+  git fetch origin "$target" || { echo "reset-origin: no remote branch fetched" >&2; return 1; }
   if [[ "$target" == "$current_branch" ]]; then
     git reset --hard "origin/$target"
   else
@@ -299,17 +313,17 @@ reset-main() {
 rebase-origin() {
   local target="$1"
   if [[ -z "$target" ]]; then
-    echo "fatal: must explicitly supply a target branch" >&2
+    echo "rebase-origin: must explicitly supply a target branch" >&2
     return 1
   fi;
   
   local current_branch="$(git branch --show-current)" # empty if not currently on a branch
   if [[ -z "$current_branch" ]]; then
-    echo "fatal: not currently on any branch" >&2
+    echo "rebase-origin: not currently on any branch" >&2
     return 1
   fi;
 
-  git fetch origin "$target" || { echo "fatal: no remote branch fetched" >&2; return 1; }
+  git fetch origin "$target" || { echo "rebase-origin: no remote branch fetched" >&2; return 1; }
   git rebase "origin/$target"
 }
 
@@ -323,17 +337,17 @@ rebase-main() {
 merge-origin() {
   local source="$1"
   if [[ -z "$source" ]]; then
-    echo "fatal: must explicitly supply a source branch" >&2
+    echo "merge-origin: must explicitly supply a source branch" >&2
     return 1
   fi;
   
   local current_branch="$(git branch --show-current)" # empty if not currently on a branch
   if [[ -z "$current_branch" ]]; then
-    echo "fatal: not currently on any branch" >&2
+    echo "merge-origin: not currently on any branch" >&2
     return 1
   fi;
 
-  git fetch origin "$source" || { echo "fatal: no remote branch fetched" >&2; return 1; }
+  git fetch origin "$source" || { echo "merge-origin: no remote branch fetched" >&2; return 1; }
   git merge "origin/$source"
 }
 
@@ -353,7 +367,7 @@ pr() {
   if ! gh auth status >/dev/null 2>&1; then
     echo "Not authenticated - follow steps below to log in..."
     if ! gh auth login; then
-      echo "Failed to authenticate. Either the login failed or you have not installed gh" >&2
+      echo "pr: failed to authenticate. Either the login failed or you have not installed gh" >&2
       return 1
     fi
   fi
@@ -374,7 +388,7 @@ pr() {
     while IFS= read -r line || [[ -n "$line" ]]; do
       if [[ "$line" == '# '* ]]; then
         if [[ -n "$title" ]]; then
-          echo "fatal: multiple level-1 headers" >&2
+          echo "pr: multiple level-1 headers" >&2
           return 1
         fi
         title="${line#\# }"
@@ -384,7 +398,7 @@ pr() {
     done < "$filepath"
 
     if [[ -z "$title" ]]; then
-      echo "fatal: no level-1 header found" >&2
+      echo "pr: no level-1 header found" >&2
       return 1
     fi
 
@@ -496,7 +510,7 @@ browse() {
   if [[ -z "$directory" ]]; then
     directory=$(pwd)
   elif [[ ! -d "$directory" ]]; then
-    echo "no such directory: $directory" >&2
+    echo "browse: no such directory: $directory" >&2
     return 1
   fi
 
@@ -534,7 +548,7 @@ cd() {
   if [[ -z "$directory" ]]; then
     builtin cd "$(browse --no-multi --group-directories-first)"
   elif [[ ! -d "$directory" ]]; then
-    echo "no such directory: $directory" >&2
+    echo "cd: no such directory: $directory" >&2
     return 1
   else;
     builtin cd "$directory"
@@ -545,10 +559,10 @@ cd() {
 switch() {
   local branches=$(git branch --format='%(refname:short)')
   if (($? != 0)); then
-    echo 'git branch failed: perhaps you are not in a git repository' >&2
+    echo 'switch: git branch failed: perhaps you are not in a git repository' >&2
     return 1
   elif [[ -z "$branches" ]]; then
-    echo "no branches found" >&2
+    echo "switch: no branches found" >&2
     return 1
   fi
 
@@ -565,10 +579,10 @@ switch() {
 checkout() {
   local commits=$(git log --all --format='%h') # use short hashes, to exactly match the git log --oneline used in the preview
   if (($? != 0)); then
-    echo 'git log failed: perhaps you are not in a git repository' >&2
+    echo 'checkout: git log failed: perhaps you are not in a git repository' >&2
     return 1
   elif [[ -z "$commits" ]]; then
-    echo "no commits found" >&2
+    echo "checkout: no commits found" >&2
     return 1
   fi
 
