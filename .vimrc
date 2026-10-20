@@ -4,6 +4,23 @@ colorscheme catppuccin_mocha
 set number  " line numbers (only one space away from start of line, unfortunately no way to customise spacing)
 hi LineNr ctermfg=8  " very low contrast with background, helps prevent line numbers from intruding on actual text
 
+" indentation: default of 4 spaces per indent level
+set expandtab  " insert spaces rather than tab characters
+set tabstop=4  " width of an indent level (and of a tab character)
+set shiftwidth=0  " 0 means use tabstop, so indenting with >, <, Tab, Cmd+] etc. moves by one tabstop
+
+" per-language indentation, mirroring the language-specific settings in VS Code's settings.json
+" vim detects each file's type from its name/extension (e.g. *.ts is typescript, .zshrc is zsh)
+augroup indentation
+  autocmd!
+  " the only file in VS Code's files.associations that vim doesn't already detect as a shell script
+  autocmd BufNewFile,BufRead .bash_login setfiletype sh
+  " tabs rather than spaces
+  autocmd FileType go,make setlocal noexpandtab
+  " 2 spaces
+  autocmd FileType sh,bash,zsh,html,css,json,jsonc,yaml,xml,graphql,javascript,javascriptreact,typescript,typescriptreact setlocal tabstop=2
+augroup END
+
 let &t_EI = "\<Esc>[2 q"  " Normal mode: block cursor (there is an unfortunate ~1s delay before the cursor changes on many terminals, but Ghostty is instant)
 let &t_SI = "\<Esc>[5 q"  " Insert mode: blinking bar cursor
 let &t_SR = "\<Esc>[4 q"  " Replace mode: underline cursor
@@ -120,3 +137,21 @@ xnoremap <Esc>[99;9u <Cmd>call system('pbcopy', getregion(getpos('v'), getpos('.
 
 " Cmd + x: cut visual selection to system clipboard and enter insert mode (leaves vim registers untouched)
 xnoremap <Esc>[120;9u <Cmd>call system('pbcopy', getregion(getpos('v'), getpos('.'), #{type: mode()}) + (mode() ==# 'V' ? [''] : []))<CR>"_c
+
+" Cmd + ]: indent right by one level (current line in NORMAL/INSERT mode, selected lines in VISUAL mode, keeping the selection)
+nnoremap <Esc>[93;9u >>
+inoremap <Esc>[93;9u <C-t>
+xnoremap <Esc>[93;9u >gv
+
+" Cmd + [: indent left by one level (as for Cmd + ])
+nnoremap <Esc>[91;9u <<
+inoremap <Esc>[91;9u <C-d>
+xnoremap <Esc>[91;9u <gv
+
+" Tab / Shift + Tab in VISUAL mode: indent selected lines right/left by one level, keeping the selection
+" Tab is not remapped in NORMAL mode, because it is the same byte as Ctrl+I (jump forward), and in INSERT mode it already inserts an indent
+xnoremap <Tab> >gv
+xnoremap <S-Tab> <gv
+
+" Shift + Tab in INSERT mode: indent current line left by one level
+inoremap <S-Tab> <C-d>

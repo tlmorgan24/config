@@ -31,3 +31,7 @@ keybind = cmd+x=text:\x1b[120;9u
 
 keybind = cmd+z=text:\x1f
 keybind = cmd+shift+z=text:\x1b/
+
+# overrides Ghostty default of cmd+]/[ meaning "go to next/previous split" (cmd+alt+arrows still navigate splits)
+keybind = cmd+]=text:\x1b[93;9u
+keybind = cmd+[=text:\x1b[91;9u

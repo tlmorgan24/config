@@ -76,8 +76,12 @@
 
   // ### INSERT SPACES WHEN PRESS TAB ###
   "editor.insertSpaces": true,
-  "[go]": { // Go is only language I use which prefers tabs over spaces
+  // Exceptions for languages which prefer tabs over spaces:
+  "[go]": {
     "editor.insertSpaces": false
+  },
+  "[makefile]": {
+    "editor.insertSpaces": false // already VS Code's default, but listed for completeness
   },
 
   // ### TAB SIZING ###

@@ -75,5 +75,18 @@
       "text": "\u001b/"
     },
     "when": "terminalFocus"
+  },
+
+  {
+    "key": "cmd+]",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[93;9u" },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "cmd+[",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[91;9u" },
+    "when": "terminalFocus"
   }
 ]
