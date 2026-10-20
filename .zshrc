@@ -544,14 +544,10 @@ browse() {
 
 # alias cd so that, if no argument provided, uses my custom file browser
 cd() {
-  local directory="$1"
-  if [[ -z "$directory" ]]; then
+  if (($# == 0)); then
     builtin cd "$(browse --no-multi --group-directories-first)"
-  elif [[ ! -d "$directory" ]]; then
-    echo "cd: no such directory: $directory" >&2
-    return 1
-  else;
-    builtin cd "$directory"
+  else
+    builtin cd "$@" # pass through so special arguments like `-`, `-2` and `-P` still work
   fi
 }
 

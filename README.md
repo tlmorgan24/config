@@ -92,7 +92,7 @@ Search and navigation:
 * `browse` - opens interactive file browser. Type to fuzzy search, navigate within directory with up/down arrows, navigate out/into directories with left/right. Press enter to send highlighted file/directory to stdout. E.g. `vim "$(browse)"` lets you interactively choose a file to edit. Can also select multiple entries with tab (enter to send all of them as separate lines of stdout).
 * `cd` (no arguments) - as with `browse`, but press enter to change directory to the highlighted directory (no multi-select).
 * `z <directory-substring>` - changes to most likely directory based on substring and your previous directory changes.
-* `z -` - changes to previous working directory
+* `z -` or `cd -` - changes to previous working directory
 * `zi` - similar to my custom `cd`, but rank according to `z`'s likelihood, without changing order based off the search input. Also, lists all directories rather than a navigable tree.
 
 Utilities:
