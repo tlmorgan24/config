@@ -106,6 +106,8 @@ Utilities:
 * `ff [fd args] <code>` - "for each file": runs arbitrary shell code for each file/directory `fd` finds, with the path in `$f`. E.g. `ff -e md 'echo "$f"; head -1 "$f"'` prints each Markdown file's name and first line.
 * `fr <sep> <code> [files]` - "for each record": like `ff`, but for records split on a regex (as with `p -R`), with the record (excluding separator) in `$r` and the separator that ended it in `$s`. Reads stdin if no files given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`.
 * `fl <code> [files]` - "for each line": `fr` with a newline separator, so the line is in `$r`. E.g. `fl 'mkdir "$r"' names.txt` makes a directory for each line.
+* `mkcd <dir>` - like `cd`, but creates the directory first if does not exist.
+* `mkcp [flags] <source>... <dest>` / `mkmv [flags] <source>... <dest>` - like `cp`/`mv`, but creates the destination directory first if does not exist. As per `cp`/`mv`'s rules, the directory is `dest` itself if it ends in `/` or there are multiple sources, otherwise its parent (or the directory given to GNU's `-t`).
 * `gogo [module name]` - quickly run a draft Go program: inits a module (named `draft` by default), opens a hello world `main.go` in vim for you to edit, then formats, tidies modules and runs. Exits early if `main.go` already exists. Quit vim with `:cq` to skip running (loses unsaved changes).
 
 Git 1:
@@ -181,7 +183,7 @@ Every command run in an interactive shell is recorded by `cmdlog` (a Go program 
 # Future work
 
 * Check for macOS at start of install.sh, exit if not macOS
-* `cp`, `mv` and `>` with automatic `mkdir -p`.
+* `>` with automatic `mkdir -p` (like `mkcp`/`mkmv`).
 * Create interactive rebase tool that has a similar display to my interactive switch/checkout tools, allowing user to mark each commit as pick/edit/fixup etc and choose the base without having to know it upfront.
 * Create shortcut for my browse function to populate the file(s) into the command line instead of always stdout
 * Enable shift + click to expand selection from old cursor position to new cursor position in vim

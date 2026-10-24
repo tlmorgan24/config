@@ -38,6 +38,81 @@ alias v='pbpaste'
 autoload -U zcalc # REPL calculator which removes need for `echo $((...))` whilst still being able to work with shell's variables, command substitution etc
 alias calc='zcalc -f' # so, simply execute `calc` to enter the zcalc REPL calculator (Ctrl-D to exit), uses -f to make everything a float (prevent 3/4 = 0 etc)
 
+# cd with automatic mkdir.
+mkcd() {
+  mkdir -p "$1" && cd "$1"
+}
+# Directory that mkcp/mkmv must create, given the command (cp or mv) and its args, same rule as cp/mv themselves:
+# with GNU's -t DIR it's DIR, otherwise the destination (last operand) is a directory if it ends in / or there are
+# multiple sources, else it's a file path, so take its parent.
+# Flags are passed through to cp/mv, so aren't counted as operands, and nor are flag values. GNU's -t/--target-directory
+# and -S/--suffix take a value, but no BSD flag does (BSD cp has an unrelated -S that takes none), hence checking which we have.
+_mkdestdir() {
+  local cmd=$1; shift
+  local gnu=0
+  command $cmd --version &>/dev/null && gnu=1 # BSD rejects --version
+  local -a operands
+  local arg name val target i
+  for (( i = 1; i <= $#; i++ )); do
+    arg="${@[i]}"
+    if [[ "$arg" == -- ]]; then
+      operands+=("${@[i+1,-1]}")
+      break
+    elif [[ "$arg" != -?* ]]; then
+      operands+=("$arg")
+    elif (( ! gnu )); then
+      continue
+    elif [[ "$arg" == --* ]]; then
+      # GNU accepts any unambiguous prefix of a long option, e.g. --target for --target-directory
+      name="${arg%%=*}"
+      if (( ${#name} >= 3 )) && [[ --target-directory == "$name"* ]]; then
+        if [[ "$arg" == *=* ]]; then target="${arg#*=}"; else target="${@[++i]}"; fi
+      elif (( ${#name} >= 4 )) && [[ --suffix == "$name"* && "$arg" != *=* ]]; then
+        (( i++ ))
+      fi
+    elif [[ "$arg" =~ '^-[^tS]*([tS])(.*)$' ]]; then
+      # short flags can be bundled, and the value attached, e.g. -vt DIR or -vtDIR
+      val="${match[2]}"
+      [[ -z "$val" ]] && val="${@[++i]}"
+      [[ "${match[1]}" == t ]] && target="$val"
+    fi
+  done
+  if [[ -n "$target" ]]; then
+    print -r -- "$target"
+  elif [[ "${operands[-1]}" == */ ]] || (( ${#operands} > 2 )); then
+    print -r -- "${operands[-1]}"
+  else
+    print -r -- "${operands[-1]:h}"
+  fi
+}
+# Runs cp or mv ($1) on the remaining args, first creating the directory they need. If the command fails, the
+# directories this created are removed again, but only while empty (rmdir), so anything it did manage to copy/move stays.
+_mkrun() {
+  local cmd=$1; shift
+  local dir="$(_mkdestdir $cmd "$@")"
+  local -a created # deepest first, so rmdir empties each one's parent before reaching it
+  local d="$dir"
+  while [[ ! -e "$d" ]]; do
+    created+=("$d")
+    d="${d:h}"
+  done
+  mkdir -p -- "$dir" || return
+  command $cmd "$@" && return
+  local ret=$?
+  (( ${#created} )) && rmdir -- "${created[@]}" 2>/dev/null
+  return $ret
+}
+# cp with automatic mkdir.
+mkcp() {
+  (( $# >= 2 )) || { echo 'usage: mkcp [flags] source... destination' >&2; return 1 }
+  _mkrun cp "$@"
+}
+# mv with automatic mkdir.
+mkmv() {
+  (( $# >= 2 )) || { echo 'usage: mkmv [flags] source... destination' >&2; return 1 }
+  _mkrun mv "$@"
+}
+
 # replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first)
 alias sed='gsed -E' # -E to always use extended regex, gsed to allow e.g. -i without providing a backup file
 alias head='ghead' # for e.g. head -n -N file to get all except the last N lines
