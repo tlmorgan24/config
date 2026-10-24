@@ -112,6 +112,12 @@ mkmv() {
   (( $# >= 2 )) || { echo 'usage: mkmv [flags] source... destination' >&2; return 1 }
   _mkrun mv "$@"
 }
+# Creates the parent directory of file path $1, then prints the path.
+# Useful for redirecting to with automatic mkdir,  e.g. cmd > "$(mkp out/sub/file)".
+mkp() {
+  (( $# == 1 )) || { echo 'usage: mkp path' >&2; return 1 }
+  mkdir -p -- "${1:h}" && print -r -- "$1"
+}
 
 # replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first)
 alias sed='gsed -E' # -E to always use extended regex, gsed to allow e.g. -i without providing a backup file
