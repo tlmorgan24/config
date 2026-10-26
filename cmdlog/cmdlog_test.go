@@ -90,3 +90,29 @@ func TestCleanOutput(t *testing.T) {
 		}
 	}
 }
+
+func TestHighlighter(t *testing.T) {
+	// A stand-in for highlight-commands.zsh that "colours" each command by prefixing its directory
+	t.Setenv("CMDLOG_HIGHLIGHT", `while IFS= read -r -d '' dir && IFS= read -r -d '' cmd; do printf '%s: %s\0' "$dir" "$cmd"; done`)
+	h := startHighlighter()
+	defer h.close()
+	for _, command := range []string{"ls", "echo a\necho b", ""} {
+		if got, ok := h.highlight("/tmp", command); !ok || got != "/tmp: "+command {
+			t.Fatalf("%q: got %q %v", command, got, ok)
+		}
+	}
+}
+
+func TestHighlighterFailures(t *testing.T) {
+	t.Setenv("CMDLOG_HIGHLIGHT", "")
+	if _, ok := startHighlighter().highlight("/tmp", "ls"); ok {
+		t.Fatal("coloured without a highlighter")
+	}
+	t.Setenv("CMDLOG_HIGHLIGHT", "exit 1") // one that dies straight away
+	h := startHighlighter()
+	for range 2 { // and keeps failing, rather than crashing
+		if _, ok := h.highlight("/tmp", "ls"); ok {
+			t.Fatal("coloured by a highlighter that exited")
+		}
+	}
+}

@@ -9,6 +9,8 @@
 //	cmdlog show <id>        print a command's details and output (for fzf's preview)
 //	cmdlog get <id>         print a command exactly as it was typed
 //
+// search and show colour commands as zsh does if $CMDLOG_HIGHLIGHT is set (see highlight.go).
+//
 // Each is a separate, independent process: the only thing they share is the database.
 package main
 

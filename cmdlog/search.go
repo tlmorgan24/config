@@ -31,6 +31,7 @@ const (
 // Newlines in a command are shown as ↵ (and tabs as spaces) so each command stays on one line;
 // `cmdlog get <id>` then gives back the command exactly as typed.
 // With --here, only commands run in the current directory are included.
+// Commands are coloured as zsh colours them if $CMDLOG_HIGHLIGHT is set (see highlight.go).
 func search(args []string) error {
 	dir := "" // empty means any directory
 	switch {
@@ -52,7 +53,7 @@ func search(args []string) error {
 	defer db.Close()
 
 	rows, err := db.Query(`
-		SELECT c.id, c.started, c.status, c.command
+		SELECT c.id, c.started, c.status, c.command, c.dir
 		FROM commands c JOIN (SELECT max(id) AS id FROM commands WHERE ?1 = '' OR dir = ?1 GROUP BY command) latest ON c.id = latest.id
 		ORDER BY c.id DESC`, dir)
 	if err != nil {
@@ -60,15 +61,20 @@ func search(args []string) error {
 	}
 	defer rows.Close()
 
+	h := startHighlighter()
+	defer h.close()
 	out := bufio.NewWriter(os.Stdout)
 	defer out.Flush()
 	for rows.Next() {
 		var id int64
 		var started float64
 		var status sql.NullInt64
-		var command string
-		if err := rows.Scan(&id, &started, &status, &command); err != nil {
+		var command, commandDir string
+		if err := rows.Scan(&id, &started, &status, &command, &commandDir); err != nil {
 			return err
+		}
+		if coloured, ok := h.highlight(commandDir, command); ok {
+			command = coloured
 		}
 		command = strings.NewReplacer("\r\n", " ↵ ", "\n", " ↵ ", "\t", " ").Replace(command)
 		fmt.Fprintf(out, "%d\t%s%s%s\t%s\t%s\n", id, dim, formatTime(started, "2006-01-02 15:04"), reset, statusSymbol(status), command)
@@ -76,7 +82,8 @@ func search(args []string) error {
 	return rows.Err()
 }
 
-// show prints a command's details, then its output (for fzf's preview)
+// show prints a command's details, then its output (for fzf's preview).
+// The command is coloured as zsh colours it if $CMDLOG_HIGHLIGHT is set (see highlight.go).
 func show(args []string) error {
 	db, id, err := openForID(args)
 	if err != nil {
@@ -96,6 +103,14 @@ func show(args []string) error {
 		return err
 	}
 
+	h := startHighlighter()
+	if coloured, ok := h.highlight(dir, command); ok {
+		fmt.Println(coloured)
+	} else {
+		fmt.Printf("%s%s%s%s\n", bold, rosewater, command, reset)
+	}
+	h.close()
+
 	if home, err := os.UserHomeDir(); err == nil && (dir == home || strings.HasPrefix(dir, home+"/")) {
 		dir = "~" + dir[len(home):]
 	}
@@ -104,7 +119,6 @@ func show(args []string) error {
 		details = append(details, formatDuration(ended.Float64-started))
 	}
 
-	fmt.Printf("%s%s%s%s\n", bold, rosewater, command, reset)
 	fmt.Printf("%s%s%s%s · %s%s  %s\n\n", mauve, dir, reset, dim, strings.Join(details, " · "), reset, statusText(status, ended.Valid))
 	if interactive {
 		fmt.Printf("%s(interactive program: only output after it exited is kept)%s\n", dim, reset)
