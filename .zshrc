@@ -306,16 +306,18 @@ concat() {
 
 alias python='python3'
 
-# gogo - quickly run a draft Go program: init a module in CWD, create boilerplate main.go to edit in vim, then automatically format, tidy modules and run.
-#   gogo [module name]
-# The module name defaults to draft. Refuses to run if main.go already exists, so an existing program isn't overwritten.
+# gogo - quickly run a draft Go program: mkcd into the directory, init a module there, create boilerplate main.go to edit in vim, then automatically format, tidy modules and run.
+#   gogo [directory [module name]]
+# The directory defaults to CWD (pass "" to give a module name without changing directory) and the module name defaults to draft.
+# Refuses to run if main.go already exists in the directory, so an existing program isn't overwritten.
 # Vim opens on the Println line. Quit with :cq to skip formatting and running (loses unsaved changes).
 gogo() {
-  if [[ -e main.go ]]; then
-    echo "gogo: main.go already exists" >&2
+  local dir="${1:-.}"
+  if [[ -e "$dir/main.go" ]]; then
+    echo "gogo: $dir/main.go already exists" >&2
     return 1
   fi
-  go mod init "${1:-draft}" &&
+  mkcd "$dir" && go mod init "${2:-draft}" &&
     printf 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, world!")\n}\n' > main.go &&
     vim +6 main.go && go fmt && go mod tidy && go run .
 }
