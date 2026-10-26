@@ -80,7 +80,7 @@ brew install python # but executable is python3 (I alias it back to python in .z
 brew install --cask font-jetbrains-mono-nerd-font # my preferred font (alternative: `brew install --cask font-fira-code-nerd-font`)
 brew install --cask ghostty # my preferred terminal
 brew install starship # my preferred prompt customiser (i.e. to replace "user@MacBook") - powerlevel10k is an alternative, but not actively maintained
-brew install zsh-syntax-highlighting # colours the command as it's typed (e.g. options vs arguments)
+brew install zsh-syntax-highlighting
 brew install zsh-autopair # auto-closes quotes and brackets as they're typed
 brew install --cask visual-studio-code # my preferred IDE
 
