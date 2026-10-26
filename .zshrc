@@ -1161,3 +1161,44 @@ ZSH_HIGHLIGHT_STYLES[arg0]='fg=#f5e0dc' # command names the other styles don't c
 ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#cba6f7' # | ; && ||
 ZSH_HIGHLIGHT_STYLES[path_pathseparator]='fg=#cba6f7,underline' # the / in paths
 ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]='fg=#cba6f7,underline' # the / in paths for a path that's still being typed
+
+# Underline quoted paths too. zsh-syntax-highlighting recognises "/etc/hosts" as a path, but colours it as a string afterwards,
+# which replaces the path's underline rather than adding to it. This highlighter runs straight after the main one and redraws
+# any part of a path that was recoloured (e.g. a quoted string) in that colour plus underline.
+# It reads the main highlighter's results from the plugin's internal (undocumented) cache variable, so a plugin upgrade could
+# stop it working - in which case quoted paths just aren't underlined.
+# Tested with zsh-syntax-highlighting 0.8.0 and zsh 5.9 (zsh controls the "start end style" format of the cached entries).
+# If an upgrade breaks it, go back to 0.8.0 and `brew pin zsh-syntax-highlighting`.
+_zsh_highlight_highlighter_pathunderline_predicate() { _zsh_highlight_highlighter_main_predicate }
+_zsh_highlight_highlighter_pathunderline_paint() {
+  emulate -L zsh
+  local entry
+  local -a fields paths
+  for entry in $_zsh_highlight__highlighter_main_cache; do # entries are "start end style ..."
+    fields=(${(s: :)entry})
+    if [[ ${fields[3]%,} == ($ZSH_HIGHLIGHT_STYLES[path]|$ZSH_HIGHLIGHT_STYLES[path_prefix]) ]]; then
+      paths+=($fields[1] $fields[2])
+    fi
+  done
+  (( $#paths )) || return
+  local -i i
+  local -a separators
+  for entry in $_zsh_highlight__highlighter_main_cache; do
+    fields=(${(s: :)entry})
+    for (( i = 1; i < $#paths; i += 2 )); do
+      if (( fields[1] >= paths[i] && fields[2] <= paths[i+1] )); then
+        if [[ ${fields[3]%,} == ($ZSH_HIGHLIGHT_STYLES[path_pathseparator]|$ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]) ]]; then
+          separators+=("$fields[1] $fields[2] ${fields[3]%,}, memo=zsh-syntax-highlighting")
+        elif [[ $fields[3] != *underline* ]]; then
+          region_highlight+=("$fields[1] $fields[2] ${fields[3]%,},underline, memo=zsh-syntax-highlighting")
+        fi
+        break
+      fi
+    done
+  done
+  # Re-add the /s' own highlights last, as the redrawn strings above would otherwise cover them
+  region_highlight+=($separators)
+}
+# after main, so it can override main's colours. This also replaces the theme's (main cursor), dropping its cursor highlighter,
+# which colours the character under the cursor differently to the rest
+ZSH_HIGHLIGHT_HIGHLIGHTERS=(main pathunderline)
