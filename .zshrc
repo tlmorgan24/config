@@ -26,7 +26,6 @@ export EDITOR=vim
 export VISUAL=vim
 
 eval "$(starship init zsh)" # after `brew install starship`
-zle_highlight=('default:fg=#f5e0dc') # sets colour of typed command
 
 ## Aliases ##
 
@@ -793,6 +792,20 @@ if [[ "$TERM_PROGRAM" == vscode ]]; then
   precmd_functions+=(_vscode_reset_cursor_precmd)
 fi
 
+## Auto-pairing quotes and brackets ##
+
+# Auto-pair quotes and brackets (typing " inserts "", typing the closing " skips over it, backspace between "" deletes both),
+# after `brew install zsh-autopair`. It normally binds those keys (and backspace) itself, which would replace the
+# selection-aware typing/backspace widgets below, so stop it binding anything and call its widgets from those instead.
+# Its fallback widgets are set to zle's own, since mine (which would otherwise be picked up) call autopair's.
+AUTOPAIR_INHIBIT_INIT=1
+AUTOPAIR_SPC_WIDGET=self-insert
+AUTOPAIR_BKSPC_WIDGET=backward-delete-char
+source /opt/homebrew/share/zsh-autopair/autopair.zsh
+zle -N autopair-insert
+zle -N autopair-close
+zle -N autopair-delete
+
 ## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##
 # Coded based off either:
 # the exact key sequences Ghostty & VS Code send when pressing the shortcuts at the time of writing (so far, both always agree with each other, but may not work with other terminals/configs).
@@ -946,18 +959,26 @@ delete-selection-or-backspace() {
     delete-active-selection
     zle redisplay
   else
-    zle backward-delete-char
+    zle autopair-delete # backward-delete-char, but also deletes the closing half of an empty pair, e.g. "|"
   fi
 }
 zle -N delete-selection-or-backspace
 bindkey '^?' delete-selection-or-backspace
 
-# Typing: delete selection if there is one, then insert the typed character
+# Typing: delete selection if there is one, then insert the typed character (auto-paired, if it's a quote or bracket)
 self-insert-or-replace-selection() {
+  # autopair is written for zsh's default word splitting, and SH_WORD_SPLIT (set at the top) would make it drop a typed space
+  setopt local_options no_sh_word_split
   if (( REGION_ACTIVE )); then
     delete-active-selection
   fi
-  zle self-insert
+  if [[ -n ${AUTOPAIR_PAIRS[$KEYS]} ]]; then
+    zle autopair-insert # opening character (quotes, brackets, and space - which pairs to { | } inside brackets)
+  elif (( ${${(v)AUTOPAIR_PAIRS}[(Ie)$KEYS]} )); then
+    zle autopair-close # closing bracket
+  else
+    zle self-insert
+  fi
 }
 zle -N self-insert-or-replace-selection
 bindkey -R ' '-'~' self-insert-or-replace-selection # printable ASCII characters
@@ -1116,3 +1137,21 @@ bindkey $'\e[120;9u' cut-selection-to-clipboard
 # undo/redo
 #bindkey '^_' undo # commented out as undo is already the response to '^_'
 bindkey '^[/' redo
+
+## Syntax highlighting of the command being typed ##
+
+zle_highlight=('default:fg=#f5e0dc') # Zsh default colour (fallback for anything zsh-syntax-highlighting doesn't colour)
+# After `brew install zsh-syntax-highlighting`. Must stay at the very end of this file (its docs require it to be sourced
+# after everything else that defines zle widgets).
+# Colours come from the official Catppuccin Mocha theme (matching Ghostty's theme), which must be sourced before the plugin.
+# The theme file is copied from https://github.com/catppuccin/zsh-syntax-highlighting (themes/, at commit ad3dcb5) into the
+# .zsh/ folder of this repo.
+source ~/.zsh/catppuccin_mocha-zsh-syntax-highlighting.zsh
+source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# My overrides of the theme
+ZSH_HIGHLIGHT_STYLES[default]='fg=#f5e0dc' # positional arguments etc
+ZSH_HIGHLIGHT_STYLES[arg0]='fg=#f5e0dc' # command names the other styles don't cover
+ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#cba6f7' # | ; && ||
+ZSH_HIGHLIGHT_STYLES[path_pathseparator]='fg=#cba6f7,underline' # the / in paths
+ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]='fg=#cba6f7,underline' # the / in paths for a path that's still being typed
