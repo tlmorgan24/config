@@ -11,8 +11,8 @@ rm -r config
 ```
 
 This runs the two separate scripts required to set everything up. You can run them separately if you prefer:
-* `./install.sh` - install the tools I use and add them to PATH
-* `./copy.sh` - to copy the associated config files into their appropriate places in your home directory (assumes same structure as on my mac).
+* `./install.sh` - install the tools I use and add them to PATH.
+* `./copy.sh` - to copy the associated config files into their appropriate places in your home directory (assumes same structure as on my mac), and apply any app settings that are set with commands rather than config files.
 
 WARNING: the copying of files into the appropriate places in your home directory will overwrite any file that already exists at the same filepath. If you have parts of an existing config file you want to preserve, copy them into the repo files before running `./setup.sh` or `./copy.sh`.
 
@@ -171,6 +171,12 @@ Thanks to extensions:
 * ... and more markdown conveniences.
 
 Extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`.
+
+### Maccy (clipboard history)
+
+* Cmd+Shift+v - open clipboard history. Type to fuzzy search, navigate with up/down arrows, press enter to paste the chosen item (without formatting).
+
+Maccy's settings are applied by `./copy.sh` with `defaults write` (see the Maccy section there).
 
 # cmdlog
 

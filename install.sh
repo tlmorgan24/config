@@ -62,6 +62,7 @@ brew install eza # more visual ls
 brew install bat # more user-friendly cat
 brew install zoxide # cd to most likely directory (command is `z`) - pair with `eval "$(zoxide init zsh)"` in ~/.zshrc
 brew install fzf # fuzzy find
+brew install --cask maccy # clipboard history
 
 # GNU utilities to use instead of macOS's default BSD utilities (e.g. gsed for GNU sed instead of BSD sed)
 brew install gnu-sed
