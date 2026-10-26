@@ -306,20 +306,20 @@ concat() {
 
 alias python='python3'
 
-# gogo - quickly run a draft Go program: mkcd into the directory, init a module there, create boilerplate main.go to edit in vim, then automatically format, tidy modules and run.
-#   gogo [directory [module name]]
+# govi - quickly run a draft Go program: mkcd into the directory, init a module there, create boilerplate main.go to edit in vim, then automatically format, tidy modules and run.
+#   govi [directory [module name]]
 # The directory defaults to CWD (pass "" to give a module name without changing directory) and the module name defaults to draft.
 # Refuses to run if main.go already exists in the directory, so an existing program isn't overwritten.
 # Vim opens on the Println line. Quit with :cq to skip formatting and running (loses unsaved changes).
-gogo() {
-  _gogoinit gogo "$@" && vim +6 main.go && go fmt && go mod tidy && go run .
+govi() {
+  _goinit govi "$@" && vim +6 main.go && go fmt && go mod tidy && go run .
 }
-# gogoc - like gogo, but opens the directory in VS Code for more in-depth work, and doesn't run anything.
-gogoc() {
-  _gogoinit gogoc "$@" && code . -g main.go:6
+# goco - like govi, but opens the directory in VS Code for more in-depth work, and doesn't run anything.
+goco() {
+  _goinit goco "$@" && code . -g main.go:6
 }
-# Shared setup for gogo and gogoc: mkcd, init the module and create main.go. First argument is the caller's name, for errors.
-_gogoinit() {
+# Shared setup for govi and goco: mkcd, init the module and create main.go. First argument is the caller's name, for errors.
+_goinit() {
   local name=$1; shift
   local dir="${1:-.}"
   if [[ -e "$dir/main.go" ]]; then
