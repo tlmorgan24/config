@@ -55,11 +55,15 @@ if [ -d /Applications/Maccy.app ]; then
 
   # Restart Maccy so it picks up the settings
   killall Maccy 2>/dev/null || true
-  # killall doesn't wait for Maccy to quit, and opening it while it's still quitting fails (LaunchServices error -600),
-  # so wait (up to 5 seconds) for it to be gone first
-  for _ in {1..50}; do
-    pgrep -xq Maccy || break
+  # Opening Maccy straight after killing it can fail with LaunchServices error -600, even once its process has exited
+  # (LaunchServices can briefly still treat it as running), so retry for up to 5 seconds
+  attempts=0
+  until open -a Maccy 2>/dev/null; do
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge 50 ]; then
+      open -a Maccy # final attempt, letting its error show
+      break
+    fi
     sleep 0.1
   done
-  open -a Maccy
 fi
