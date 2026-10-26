@@ -12,6 +12,12 @@ setopt interactive_comments # interpret '#' as comment, even interactively (i.e.
 setopt SH_WORD_SPLIT # word splitting on whitespace, for same behaviour as Bash
 setopt EXTENDED_GLOB
 
+# Freeze terminal modes, so zsh puts them back after every command instead of keeping whatever a command left behind.
+# E.g. in `head -n 10 $(fzf) | bat`, fzf and less run at the same time: less saves fzf's raw mode as the mode to restore,
+# so after it exits every later command's output stair-steps (no carriage return after newlines) and ctrl+c stops working.
+# To change modes on purpose: `ttyctl -u; stty ...; ttyctl -f`
+ttyctl -f
+
 # command history
 HISTFILE=~/.zsh_history
 HISTSIZE=10000
