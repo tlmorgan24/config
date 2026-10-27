@@ -5,6 +5,7 @@
 zle_highlight=(
   'default:fg=#cdd6f4' # Zsh default colour (fallback for anything zsh-syntax-highlighting doesn't colour)
   'region:none' # the selection: coloured by my selection highlighter below instead
+  'paste:none' # pasted/yanked text: likewise
 )
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
@@ -70,6 +71,7 @@ ZSH_HIGHLIGHT_STYLES[assign]='fg=#cdd6f4' # text: var=value
 ZSH_HIGHLIGHT_STYLES[history-expansion]='fg=#cba6f7' # mauve: !! !$ etc
 ZSH_HIGHLIGHT_STYLES[comment]='fg=#9399b2' # overlay 2
 ZSH_HIGHLIGHT_STYLES[selection]='bg=#45475a' # surface 1 (as Vim's selection), added to the selected text's own style
+ZSH_HIGHLIGHT_STYLES[paste]='bg=#313244' # surface 0, fainter than the selection, added to pasted/yanked text's own style
 # Errors: red
 ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=#f38ba8' # e.g. a command that doesn't exist
 ZSH_HIGHLIGHT_STYLES[single-quoted-argument-unclosed]='fg=#f38ba8'
@@ -246,40 +248,56 @@ _zsh_highlight_highlighter_parameter_paint() {
 # highlighting (zle_highlight's region) can't do this: zle draws each character in the style of the last highlight covering
 # it, rather than combining them, so a background-only highlight would also turn the selected text plain. Hence zsh's default
 # for it is to invert the colours instead. This highlighter runs last, and redraws each selected character in the style the
-# other highlighters left it in, plus the background
+# other highlighters left it in, plus the background. Text just pasted or yanked gets the same treatment, with a fainter
+# background, in place of zsh's default of inverting it too
 _zsh_highlight_highlighter_selection_predicate() { true } # the selection can change without the command line changing
 _zsh_highlight_highlighter_selection_paint() {
   emulate -L zsh
-  (( REGION_ACTIVE )) || return
-  # The selection's bounds, worked out as zsh-syntax-highlighting does for zle_highlight's region
-  integer min max i
-  if (( MARK > CURSOR )); then
-    min=$CURSOR max=$MARK
-  else
-    min=$MARK max=$CURSOR
+  (( REGION_ACTIVE || YANK_ACTIVE )) || return
+  # The ranges to give a background, as "start end style", the selection last so it wins where they overlap. lo and hi
+  # cover them all
+  integer min max lo=$#BUFFER hi=0 i
+  local -a ranges
+  if (( YANK_ACTIVE )); then
+    (( min = YANK_START < YANK_END ? YANK_START : YANK_END, max = YANK_START + YANK_END - min ))
+    ranges+=("$min $max paste")
+    (( lo = min < lo ? min : lo, hi = max > hi ? max : hi ))
   fi
-  if (( REGION_ACTIVE == 1 )); then
-    [[ $KEYMAP == vicmd ]] && (( max++ ))
-  elif (( REGION_ACTIVE == 2 )); then # a whole-line selection (vi's V), not including the newline
-    (( min = ${BUFFER[(Ib:min:)$'\n']} ))
-    (( max = ${BUFFER[(ib:max:)$'\n']} - 1 ))
+  if (( REGION_ACTIVE )); then
+    # The selection's bounds, worked out as zsh-syntax-highlighting does for zle_highlight's region
+    if (( MARK > CURSOR )); then
+      min=$CURSOR max=$MARK
+    else
+      min=$MARK max=$CURSOR
+    fi
+    if (( REGION_ACTIVE == 1 )); then
+      [[ $KEYMAP == vicmd ]] && (( max++ ))
+    elif (( REGION_ACTIVE == 2 )); then # a whole-line selection (vi's V), not including the newline
+      (( min = ${BUFFER[(Ib:min:)$'\n']} ))
+      (( max = ${BUFFER[(ib:max:)$'\n']} - 1 ))
+    fi
+    ranges+=("$min $max selection")
+    (( lo = min < lo ? min : lo, hi = max > hi ? max : hi ))
   fi
   # The style of each character, from the highlighters before this one (the last highlight covering a character wins)
-  local highlighter entry style
+  local highlighter entry range style
   local -a fields styles
   for highlighter in $ZSH_HIGHLIGHT_HIGHLIGHTERS; do
     [[ $highlighter == selection ]] && break
     for entry in "${(@P)${:-_zsh_highlight__highlighter_${highlighter}_cache}}"; do # entries are "start end style ..."
       fields=(${(s: :)entry})
-      for (( i = (fields[1] > min ? fields[1] : min) + 1; i <= (fields[2] < max ? fields[2] : max); i++ )); do
+      for (( i = (fields[1] > lo ? fields[1] : lo) + 1; i <= (fields[2] < hi ? fields[2] : hi); i++ )); do
         styles[i]=${fields[3]%,}
       done
     done
   done
-  for (( i = min + 1; i <= max; i++ )); do
-    style=${styles[i]:-none}
-    [[ $style == none ]] && style=${${zle_highlight[(r)default:*]#default:}:-none}
-    region_highlight+=("$(( i - 1 )) $i ${style/#none/},$ZSH_HIGHLIGHT_STYLES[selection], memo=zsh-syntax-highlighting")
+  for range in $ranges; do
+    fields=(${(s: :)range})
+    for (( i = fields[1] + 1; i <= fields[2]; i++ )); do
+      style=${styles[i]:-none}
+      [[ $style == none ]] && style=${${zle_highlight[(r)default:*]#default:}:-none}
+      region_highlight+=("$(( i - 1 )) $i ${style/#none/},$ZSH_HIGHLIGHT_STYLES[$fields[3]], memo=zsh-syntax-highlighting")
+    done
   done
 }
 
