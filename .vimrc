@@ -9,6 +9,16 @@ augroup shellsyntax
   autocmd!
   autocmd FileType sh,bash setlocal syntax=zsh
 augroup END
+" Go: turn on the extra highlighting in Vim's Go syntax (/usr/share/vim/vim91/syntax/go.vim), all off by default. Their
+" colours are adjusted to match VS Code in ~/.vim/after/syntax/go.vim
+let g:go_highlight_functions = 1  " names in func declarations, and receiver types
+let g:go_highlight_function_parameters = 1  " parameter names, in the declaration only (VS Code also knows them in the body)
+let g:go_highlight_function_calls = 1
+let g:go_highlight_types = 1  " names in type declarations, and Foo{ composite literals
+let g:go_highlight_extra_types = 1  " a few common library types, e.g. io.Reader, context.Context
+let g:go_highlight_operators = 1
+let g:go_highlight_format_strings = 0  " on by default, but VS Code leaves %d etc the colour of the string
+" not turned on: go_highlight_fields (VS Code doesn't colour fields), and the error highlighting of whitespace
 set number  " line numbers (only one space away from start of line, unfortunately no way to customise spacing)
 hi LineNr ctermfg=8  " very low contrast with background, helps prevent line numbers from intruding on actual text
 

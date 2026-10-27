@@ -43,6 +43,7 @@
             "foreground": "#89dceb"
           }
         },
+
         // shell scripts: to match my Zsh command-line highlighting (~/.zsh/syntax-highlighting.zsh) and Vim
         {
           "scope": [ // && and & (|| and | are keyword.operators already)
@@ -115,7 +116,16 @@
       ]
     }
   },
-  // override colours other than editor syntax 
+
+  // Go: semantic highlighting from the language server, rather than simple regex-based textmate, so that e.g.
+  // parameters stay maroon italic inside the function body, not just in the declaration (as Pylance does for Python)
+  "gopls": {
+    "ui.semanticTokens": true,
+    // leave strings and numbers to textmate, which keeps escapes (\n) pink, and runes ('x') green rather than peach
+    "ui.semanticTokenTypes": { "string": false, "number": false }
+  },
+
+  // override colours other than editor syntax
   // some borders and backgrounds are mauve ("#cba6f7") in theme default, which I find can stick out too much
   "workbench.colorCustomizations": {
     "button.background": "#45475a", // default: "#cba6f7"
