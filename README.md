@@ -141,6 +141,7 @@ Git 2:
 * `merge-origin <branch>` - merges chosen remote branch into current branch. The remote branch is automatically fetched before the merge.
 * `merge-main` - equivalent to `merge-origin main`
 * `pr [filepath]` - pushes current branch and creates PR to merge it into main. The provided .md file is parsed to use its level-1 header (e.g. `# My PR title`) as the PR title and the rest of the file as the body (assuming no other level-1 headers). If filepath not provided, will be prompted to enter title and body manually.
+* `repo [gh repo create options] <path>` - creates a private GitHub repo (unless `--public`/`--internal` passed) set as the origin of the directory specified by `<path>`. If directory exists (e.g. `.`), it is `git init`ed (if not already), and any commits are pushed. If the directory doesn't exist, it is created and `git init`ed.
 * `switch` - interactive `git switch` that previews the logs of each branch. Type to fuzzy search, navigate with up/down arrows. Choose the branch to switch to by pressing enter.
 * `checkout` - interactive `git checkout` that previews the log of each commit and its surroundings.
 

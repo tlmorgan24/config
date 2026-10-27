@@ -505,6 +505,57 @@ pr() {
   }
 }
 
+# Create a GitHub repo, set as the origin of the directory specified by `<path>` (and named as the part of the absolute path after the final `/`).
+# Usage: repo [gh repo create options] <path>
+# Private by default: pass --public or --internal to override. Other options are passed to `gh repo create`.
+# If the path is an existing directory (e.g. `.`), it's git initialised (if not already), and any commits are pushed to the new GitHub repo.
+# If the path doesn't exist, the new GitHub repo is cloned to that location.
+# gh doesn't allow --license, --gitignore or --template in the former case.
+# In either case, the CWD becomes the directory specified by <path> (i.e., the repo clone).
+repo() {
+  local dir="$argv[-1]"
+  if [[ $# -eq 0 || "$dir" == -* ]]; then
+    echo "repo: must supply a path as the last argument" >&2
+    return 1
+  fi
+  local -a opts=("${argv[1,-2][@]}")
+  local abs="${dir:a}"
+  local name="${abs:t}"
+
+  local visibility=--private
+  local opt
+  for opt in "${opts[@]}"; do
+    if [[ "$opt" == --public || "$opt" == --private || "$opt" == --internal ]]; then
+      visibility=""
+    fi
+  done
+  opts=(${visibility:+"$visibility"} "${opts[@]}")
+
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "Not authenticated - follow steps below to log in..."
+    if ! gh auth login; then
+      echo "repo: failed to authenticate. Either the login failed or you have not installed gh" >&2
+      return 1
+    fi
+  fi
+
+  if [[ ! -e "$abs" ]]; then
+    # gh clones into ./name, so run it from the parent directory
+    mkdir -p "${abs:h}" && (cd "${abs:h}" && gh repo create "$name" --clone "${opts[@]}") && cd "$abs"
+  elif [[ -d "$abs" ]]; then
+    if [[ "$(git -C "$abs" rev-parse --show-toplevel 2>/dev/null)" != "${abs:A}" ]]; then
+      git -C "$abs" init || return 1
+    fi
+    if git -C "$abs" rev-parse -q --verify HEAD >/dev/null; then
+      opts+=(--push)
+    fi
+    gh repo create "$name" --source="$abs" "${opts[@]}" && cd "$abs"
+  else
+    echo "repo: $dir exists but isn't a directory" >&2
+    return 1
+  fi
+}
+
 ## zoxide and fzf ##
 
 # Custom fzf configuration
