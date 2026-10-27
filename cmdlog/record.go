@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -25,6 +26,10 @@ var typed atomic.Int64
 
 // how long to wait for the rest of a possible marker before passing the held-back bytes to the terminal
 const flushDelay = 20 * time.Millisecond
+
+// how often to check which process is in the foreground, to keep VS Code's terminal title up to date
+// (the same as VS Code itself checks)
+const titleInterval = 200 * time.Millisecond
 
 // record runs the shell under a pty, sitting between it and the terminal:
 //
@@ -133,13 +138,24 @@ func record(args []string) error {
 	w := newWriter(db, session)
 	parser := &markerParser{secret: secret}
 	var running *command // the command currently running, if any
+	var lastOutput time.Time
 
 	output := func(data []byte) {
 		writeAll(os.Stdout, data)
+		lastOutput = time.Now()
 		if running != nil {
 			running.capture(data)
 		}
 	}
+
+	// VS Code names a terminal after the process in the foreground of its pty, which is always this one
+	// (cmdlog). So tell it the name of the process in the foreground of the shell's pty instead, as a title
+	// sequence, which VS Code shows when its terminal.integrated.tabs.title setting is "${sequence}".
+	var titleTicker <-chan time.Time
+	if os.Getenv("TERM_PROGRAM") == "vscode" {
+		titleTicker = time.Tick(titleInterval)
+	}
+	title := "" // the title last sent
 
 	var flushTimer, exitTimer <-chan time.Time
 loop:
@@ -178,6 +194,15 @@ loop:
 		case <-flushTimer:
 			output(parser.flush())
 			flushTimer = nil
+		case <-titleTicker:
+			// only once output has paused, so the title can't land in the middle of the program's own escape sequences
+			if time.Since(lastOutput) < titleInterval/4 || len(parser.pending) > 0 {
+				continue
+			}
+			if name := strings.Map(dropControl, foregroundName(ptmx)); name != "" && name != title {
+				title = name
+				writeAll(os.Stdout, []byte("\x1b]2;"+name+"\a"))
+			}
 		case <-shellDone:
 			// normally the pty closes straight after, ending the loop. But a background job that is
 			// still running can keep the pty open, so don't wait for it for long
@@ -214,6 +239,14 @@ func writeAll(f *os.File, data []byte) {
 		}
 		data = data[n:]
 	}
+}
+
+// dropControl (for strings.Map) removes control characters, which could end a title sequence early
+func dropControl(r rune) rune {
+	if r < 0x20 || r == 0x7f {
+		return -1
+	}
+	return r
 }
 
 func randomHex(n int) string {
