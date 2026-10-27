@@ -250,6 +250,7 @@
 
   "terminal.integrated.cursorStyle": "line", // default: "block"
   "terminal.integrated.cursorBlinking": true, // default: false
+  "terminal.integrated.macOptionIsMeta": true, // default: false. When true, option+key sends alt+key
   // default: "${process}", which would always be "cmdlog" (my command recorder, see .zshrc). cmdlog instead sends
   // the name of the process running inside it (zsh, python etc) as a title sequence. Falls back to the process if no title is set.
   "terminal.integrated.tabs.title": "${sequence}",
