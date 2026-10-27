@@ -18,6 +18,99 @@
           "settings": {
             "fontStyle": "" // non-italicised, instead of theme's default (italicised)
           }
+        },
+        {
+          // operators, in all languages: sky (as in Catppuccin's style guide, and Vim's Catppuccin theme), instead of theme's teal.
+          // These are all the theme's teal scopes that are operators (teal is otherwise the guide's colour for enum members)
+          "scope": [
+            "keyword.operator", // the scopes from here to punctuation.separator.key-value are the theme's "Punctuation" group
+            "punctuation.accessor",
+            "punctuation.definition.generic",
+            "meta.function.closure punctuation.section.parameters",
+            "punctuation.definition.tag",
+            "punctuation.separator.key-value",
+            "keyword.operator.quantifier.regexp",
+            "keyword.declaration.function.arrow.js",
+            "storage.type.function.arrow.ts",
+            "storage.modifier.reference.cpp",
+            "punctuation.separator.operator.css",
+            "storage.type.operator.haskell",
+            "storage.type.operator.infix.haskell",
+            "entity.name.function.infix.haskell",
+            "punctuation.backtick.haskell"
+          ],
+          "settings": {
+            "foreground": "#89dceb"
+          }
+        },
+        // shell scripts: to match my Zsh command-line highlighting (~/.zsh/syntax-highlighting.zsh) and Vim
+        {
+          "scope": [ // && and & (|| and | are keyword.operators already)
+            "punctuation.separator.statement.and.shell",
+            "punctuation.separator.statement.background.shell"
+          ],
+          "settings": {
+            "foreground": "#89dceb" // sky (operators)
+          }
+        },
+        {
+          "scope": "support.function.builtin.shell", // echo, cd etc
+          "settings": {
+            "foreground": "#89b4fa" // blue, like other commands, instead of theme's red (builtins)
+          }
+        },
+        {
+          "scope": [ // unquoted arguments, e.g. foo and out.txt in `cat foo > out.txt`
+            "string.unquoted.argument.shell",
+            "string.unquoted.shell"
+          ],
+          "settings": {
+            "foreground": "#cdd6f4" // text, instead of green (strings), so only quoted strings are green
+          }
+        },
+        {
+          "scope": "source.shell constant.other.option", // -la, --color=auto etc
+          "settings": {
+            "foreground": "#fab387" // peach, instead of the green it otherwise gets from being in an argument
+          }
+        },
+        {
+          // $var, ${var}, $? etc. Positional parameters ($1, ${1}, $@) keep the theme's maroon italic (parameters)
+          "scope": [
+            "variable.other.normal.shell",
+            "string.quoted.double.shell variable.other.normal.shell", // overrides the theme's rule (text) for $var inside "..."
+            "variable.language.special.shell",
+            "punctuation.definition.variable.shell",
+            "source.shell meta.parameter-expansion"
+          ],
+          "settings": {
+            "foreground": "#f5e0dc" // rosewater (the guide's colour for macros, which like variables get replaced before running)
+          }
+        },
+        {
+          "scope": [ // * ? etc
+            "variable.language.special.wildcard.shell",
+            "keyword.operator.glob.shell"
+          ],
+          "settings": {
+            "foreground": "#f5c2e7" // pink (the guide's colour for patterns), instead of text and sky (operators)
+          }
+        },
+        {
+          "scope": "string.interpolated.process-substitution.shell", // <(command)
+          "settings": {
+            "foreground": "#cdd6f4" // text (the commands inside get their own colours), instead of green (strings)
+          }
+        },
+        {
+          "scope": [ // the ` ` around `command`, and the <( ) around <(command)
+            "punctuation.definition.evaluation.backticks.shell",
+            "source.shell punctuation.section.interpolation",
+            "string.interpolated.process-substitution.shell punctuation.definition.string"
+          ],
+          "settings": {
+            "foreground": "#9399b2" // overlay 2 (delimiters), like the $( ) around $(command), instead of teal and green
+          }
         }
       ]
     }

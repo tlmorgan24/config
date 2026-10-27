@@ -25,13 +25,14 @@ ZSH_HIGHLIGHT_STYLES[global-alias]='fg=#89b4fa'
 ZSH_HIGHLIGHT_STYLES[precommand]='fg=#89b4fa,italic' # sudo, exec, etc
 ZSH_HIGHLIGHT_STYLES[autodirectory]='fg=#fab387,italic' # peach: a directory typed as a command (to cd into it)
 # Control flow: mauve (the guide's colour for keywords)
-ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#cba6f7' # if, for, do, etc
-ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#cba6f7' # | ; && || - these join commands, much like then/do, so they're not sky like operators
+ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#cba6f7' # if, for, do, etc (and return, break, continue and in, via my keywords highlighter below)
 # Options
 ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=#fab387' # peach
 ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=#fab387' # peach
 # Operators: sky
 ZSH_HIGHLIGHT_STYLES[redirection]='fg=#89dceb' # > < >> etc
+ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#89dceb' # | && || & (as logical operators are in other languages). ; is recoloured below
+ZSH_HIGHLIGHT_STYLES[assign-operator]='fg=#89dceb' # the = in var=value (used by my separators highlighter below)
 ZSH_HIGHLIGHT_STYLES[numeric-fd]='fg=#fab387' # peach (numbers): the 2 in 2>&1
 ZSH_HIGHLIGHT_STYLES[named-fd]='fg=#cdd6f4' # text: the fd in {fd}>file
 # Strings: green
@@ -42,6 +43,9 @@ ZSH_HIGHLIGHT_STYLES[command-substitution-quoted]='fg=#a6e3a1' # "$(command)"
 # Variables: rosewater (the guide's colour for macros, which like variables get replaced by something else before running)
 ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=#f5e0dc' # $var inside "..."
 ZSH_HIGHLIGHT_STYLES[parameter]='fg=#f5e0dc' # $var elsewhere (used by my parameter and arithmetic highlighters below)
+# Positional parameters ($1, ${1}, $@): maroon, italic (the guide's colour for parameters, styled as VS Code does them in all
+# languages). Used by my parameter and arithmetic highlighters below
+ZSH_HIGHLIGHT_STYLES[positional-parameter]='fg=#eba0ac,italic'
 # Escape sequences and patterns: pink
 ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=#f5c2e7' # \" \$ etc inside "..."
 ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]='fg=#f5c2e7' # \n \t etc inside $'...'
@@ -53,6 +57,16 @@ ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter]='fg=#9399b2' # the $( ) aro
 ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter-unquoted]='fg=#9399b2' # the $( ) around $(command) in an unquoted argument
 ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter-quoted]='fg=#9399b2' # the $( ) around "$(command)"
 ZSH_HIGHLIGHT_STYLES[process-substitution-delimiter]='fg=#9399b2' # the <( ) around <(command)
+ZSH_HIGHLIGHT_STYLES[statement-terminator]='fg=#9399b2' # ; (as in other languages), which the plugin colours as a commandseparator (used by my separators highlighter below)
+# Brackets, by how deeply they're nested: the guide's rainbow colours, as VS Code's bracket pair colouring uses (used by my
+# rainbow highlighter below). Deeper brackets start again from the first
+ZSH_HIGHLIGHT_STYLES[bracket-depth-1]='fg=#f38ba8' # red
+ZSH_HIGHLIGHT_STYLES[bracket-depth-2]='fg=#fab387' # peach
+ZSH_HIGHLIGHT_STYLES[bracket-depth-3]='fg=#f9e2af' # yellow
+ZSH_HIGHLIGHT_STYLES[bracket-depth-4]='fg=#a6e3a1' # green
+ZSH_HIGHLIGHT_STYLES[bracket-depth-5]='fg=#74c7ec' # sapphire
+ZSH_HIGHLIGHT_STYLES[bracket-depth-6]='fg=#cba6f7' # mauve
+ZSH_HIGHLIGHT_STYLES[bracket-unexpected]='fg=#eba0ac' # maroon: a ) ] or } that doesn't close anything (as in VS Code)
 # Paths: text, underlined
 ZSH_HIGHLIGHT_STYLES[path]='fg=#cdd6f4,underline'
 ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=#cdd6f4,underline' # a path that's still being typed
@@ -67,9 +81,11 @@ ZSH_HIGHLIGHT_STYLES[arithmetic-bracket]='fg=#9399b2' # overlay 2
 ZSH_HIGHLIGHT_STYLES[arithmetic-operator]='fg=#89dceb' # sky: + - * / == etc
 ZSH_HIGHLIGHT_STYLES[arithmetic-number]='fg=#fab387' # peach
 # Other
-ZSH_HIGHLIGHT_STYLES[assign]='fg=#cdd6f4' # text: var=value
+# var=value. "none" shows as text, like "fg=#cdd6f4" would, but lets my separators highlighter below tell an assignment apart
+# from an argument that just contains an = (echo a=b)
+ZSH_HIGHLIGHT_STYLES[assign]='none'
 ZSH_HIGHLIGHT_STYLES[history-expansion]='fg=#cba6f7' # mauve: !! !$ etc
-ZSH_HIGHLIGHT_STYLES[comment]='fg=#9399b2' # overlay 2
+ZSH_HIGHLIGHT_STYLES[comment]='fg=#9399b2,italic' # overlay 2, italic as in VS Code
 ZSH_HIGHLIGHT_STYLES[selection]='bg=#45475a' # surface 1 (as Vim's selection), added to the selected text's own style
 ZSH_HIGHLIGHT_STYLES[paste]='bg=#313244' # surface 0, fainter than the selection, added to pasted/yanked text's own style
 # Errors: red
@@ -164,6 +180,7 @@ _zsh_highlight_highlighter_arithmetic_paint() {
 # the main highlighter coloured it
 _zsh_highlight_arithmetic_contents() {
   local -i i=$1 j depth
+  local REPLY
   while (( i <= $2 )); do
     case $BUFFER[i] in
       ([0-9]) # e.g. 42, 1.5, 0x1f, 16#ff
@@ -182,7 +199,8 @@ _zsh_highlight_arithmetic_contents() {
           : # a nested $(( )): the loop over expansions colours its delimiters, so just move past the $
         else # a variable, with or without a $
           j=i; while (( j < $2 )) && [[ $BUFFER[j+1] == [[:alnum:]_] ]]; do (( j++ )); done
-          _zsh_highlight_add_highlight $(( i - 1 )) $j parameter
+          _zsh_highlight_parameter_style $i $j
+          _zsh_highlight_add_highlight $(( i - 1 )) $j $REPLY
           i=j
         fi ;;
       ('`') # `command`: skip to its end
@@ -198,21 +216,31 @@ _zsh_highlight_arithmetic_contents() {
 }
 
 # Colour $variables in arguments, which zsh-syntax-highlighting leaves the same as the rest of the argument (it only colours
-# them inside "..."). Like the highlighters above, this relies on the main highlighter's cache: it looks in the entries for
-# plain arguments, skipping any part that has its own entry (a quoted string, a $(command), etc), as those are coloured already.
+# them inside "...", and there only the simplest ones, like $var and ${var}, not ${arr[@]} or ${var:-default}). Like the
+# highlighters above, this relies on the main highlighter's cache: it looks in the entries for plain arguments and "..."
+# strings, skipping any part that has its own entry (a quoted string, a $(command), etc), as those are coloured already.
 # A $variable used as a command isn't affected, as the main highlighter colours it as whatever command it runs
 _zsh_highlight_highlighter_parameter_predicate() { _zsh_highlight_highlighter_main_predicate }
 _zsh_highlight_highlighter_parameter_paint() {
   emulate -L zsh
-  local entry inner
+  local entry inner REPLY
   local -a fields inner_fields
   local -A covered # the positions in the argument that have their own entry
   local -i i j depth
   for entry in $_zsh_highlight__highlighter_main_cache; do # entries are "start end style ..."
     fields=(${(s: :)entry})
-    [[ ${fields[3]%,} == $ZSH_HIGHLIGHT_STYLES[default] ]] || continue
+    # The $variables the plugin colours inside "..." include positional parameters, which get their own style
+    if [[ ${fields[3]%,} == $ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument] ]]; then
+      _zsh_highlight_parameter_style $(( fields[1] + 1 )) $fields[2]
+      [[ $REPLY == positional-parameter ]] && _zsh_highlight_add_highlight $fields[1] $fields[2] $REPLY
+      continue
+    fi
+    # ("..." shares its style with '...', so is told apart by its first character)
+    [[ ${fields[3]%,} == $ZSH_HIGHLIGHT_STYLES[default] ||
+       ${fields[3]%,} == $ZSH_HIGHLIGHT_STYLES[double-quoted-argument] && $BUFFER[fields[1]+1] == '"' ]] || continue
     covered=()
     for inner in $_zsh_highlight__highlighter_main_cache; do
+      [[ $inner == $entry ]] && continue
       inner_fields=(${(s: :)inner})
       if (( inner_fields[1] >= fields[1] && inner_fields[2] <= fields[2] )) &&
          [[ ${inner_fields[3]%,} != $ZSH_HIGHLIGHT_STYLES[default] ]]; then
@@ -238,9 +266,114 @@ _zsh_highlight_highlighter_parameter_paint() {
         ([*@#?\$!-]) ;; # special parameters like $? and $#
         (*) continue ;; # not a variable, e.g. a $ on its own
       esac
-      _zsh_highlight_add_highlight $(( i - 1 )) $j parameter
+      _zsh_highlight_parameter_style $i $j
+      _zsh_highlight_add_highlight $(( i - 1 )) $j $REPLY
       i=j
     done
+  done
+}
+# The style for the parameter $BUFFER[$1,$2], in $REPLY: positional-parameter for $1, ${1}, ${1:-default}, $@ etc (as VS Code
+# does), and parameter for any other
+_zsh_highlight_parameter_style() {
+  emulate -L zsh -o extended_glob
+  [[ $BUFFER[$1,$2] == ('$'([0-9]##|@)|'${'[[:space:]]#[0-9]*) ]] && REPLY=positional-parameter || REPLY=parameter
+}
+
+# Colour return, break and continue as keywords (as they are in other languages) rather than as builtins, and the in of
+# for/select/foreach/case, which zsh-syntax-highlighting leaves uncoloured. Like the highlighters above, this relies on the
+# main highlighter's cache
+_zsh_highlight_highlighter_keywords_predicate() { _zsh_highlight_highlighter_main_predicate }
+_zsh_highlight_highlighter_keywords_paint() {
+  emulate -L zsh
+  local entry text style
+  local -a fields
+  local -i expect_in=0 # whether an in is due (after a for, select, foreach or case)
+  for entry in $_zsh_highlight__highlighter_main_cache; do # entries are "start end style ..."
+    fields=(${(s: :)entry})
+    text=$BUFFER[fields[1]+1,fields[2]] style=${fields[3]%,}
+    if [[ $style == $ZSH_HIGHLIGHT_STYLES[reserved-word] ]]; then
+      [[ $text == (for|select|foreach|case) ]] && expect_in=1 || expect_in=0
+    elif [[ $style == $ZSH_HIGHLIGHT_STYLES[builtin] && $text == (return|break|continue) ]]; then
+      _zsh_highlight_add_highlight $fields[1] $fields[2] reserved-word
+    elif (( expect_in )) && [[ $style == $ZSH_HIGHLIGHT_STYLES[default] && $text == in ]]; then
+      _zsh_highlight_add_highlight $fields[1] $fields[2] reserved-word
+      expect_in=0
+    elif [[ $style == $ZSH_HIGHLIGHT_STYLES[commandseparator] ]]; then
+      expect_in=0
+    fi
+  done
+}
+
+# Colour ; as punctuation, rather than as an operator like && and || (zsh-syntax-highlighting styles them all as
+# commandseparators), and the = (or +=) of an assignment as an operator. Assignments are found by their assign style (see
+# above), or as the name=value arguments of export, local etc, which the plugin colours as plain arguments. Like the
+# highlighters above, this relies on the main highlighter's cache
+_zsh_highlight_highlighter_separators_predicate() { _zsh_highlight_highlighter_main_predicate }
+_zsh_highlight_highlighter_separators_paint() {
+  emulate -L zsh -o extended_glob
+  local entry text style
+  local -a fields match mbegin mend
+  local -i declaring=0 # whether in the arguments of export, local etc
+  for entry in $_zsh_highlight__highlighter_main_cache; do # entries are "start end style ..."
+    fields=(${(s: :)entry})
+    text=$BUFFER[fields[1]+1,fields[2]] style=${fields[3]%,}
+    if [[ $style == $ZSH_HIGHLIGHT_STYLES[commandseparator] ]]; then
+      declaring=0
+      [[ $text == \;* ]] && _zsh_highlight_add_highlight $fields[1] $fields[2] statement-terminator # incl. case's ;; ;& ;|
+    elif [[ $style == $ZSH_HIGHLIGHT_STYLES[reserved-word] ]]; then
+      [[ $text == (export|local|typeset|declare|readonly|integer|float|private) ]] && declaring=1 || declaring=0
+    elif [[ $style == $ZSH_HIGHLIGHT_STYLES[assign] ]] || { (( declaring )) && [[ $style == $ZSH_HIGHLIGHT_STYLES[default] ]] }; then
+      # name, or name[subscript], then = or +=
+      [[ $text == (#b)([[:IDENT:]]##(\[[^]]#\])#)(+|)=* ]] &&
+        _zsh_highlight_add_highlight $(( fields[1] + $#match[1] )) $(( fields[1] + $#match[1] + $#match[3] + 1 )) assign-operator
+    fi
+  done
+}
+
+# Colour brackets by how deeply they're nested, as VS Code does (its bracket pair colouring). As in VS Code, brackets in strings
+# and comments don't count, nor do those in plain arguments (e.g. in the glob *.[ch] or the brace expansion {a,b}), which VS
+# Code's shell grammar treats as strings - except those of a ${...} in one, and the ] of [ ... ]. Like the highlighters above,
+# this relies on the main highlighter's cache (and the parameter highlighter's, for ${...})
+_zsh_highlight_highlighter_rainbow_predicate() { _zsh_highlight_highlighter_main_predicate }
+_zsh_highlight_highlighter_rainbow_paint() {
+  emulate -L zsh
+  local entry style text char
+  local -a fields stack # stack: the positions of the brackets still open
+  # For each position: whether it's in a string or comment, the style and text of the last entry covering it (the one zle
+  # shows), and whether it's in a ${...}
+  local -a quoted last last_text parameter
+  local -i i
+  for entry in $_zsh_highlight__highlighter_main_cache; do # entries are "start end style ..."
+    fields=(${(s: :)entry})
+    style=${fields[3]%,} text=$BUFFER[fields[1]+1,fields[2]]
+    for (( i = fields[1] + 1; i <= fields[2]; i++ )); do
+      # Strings (which share one style) and comments, including unclosed strings (styled as errors, so told apart by their
+      # first character)
+      if [[ $style == ($ZSH_HIGHLIGHT_STYLES[double-quoted-argument]|$ZSH_HIGHLIGHT_STYLES[comment]) ||
+            $style == $ZSH_HIGHLIGHT_STYLES[double-quoted-argument-unclosed] && $text == (\'|\"|\$\')* ]]; then
+        quoted[i]=1
+      fi
+      last[i]=$style last_text[i]=$text
+    done
+  done
+  for entry in $_zsh_highlight__highlighter_parameter_cache; do
+    fields=(${(s: :)entry})
+    for (( i = fields[1] + 1; i <= fields[2]; i++ )); do parameter[i]=1; done
+  done
+  for (( i = 1; i <= $#BUFFER; i++ )); do
+    char=$BUFFER[i]
+    [[ $char == [\(\)\[\]\{\}] ]] || continue
+    (( quoted[i] )) && continue
+    [[ $last[i] == $ZSH_HIGHLIGHT_STYLES[default] ]] && (( ! parameter[i] )) && [[ $last_text[i] != ']' ]] && continue
+    if [[ $char == [\(\[\{] ]]; then
+      stack+=($i)
+      _zsh_highlight_add_highlight $(( i - 1 )) $i bracket-depth-$(( ($#stack - 1) % 6 + 1 ))
+    elif (( $#stack )) && [[ $BUFFER[stack[-1]]$char == ('()'|'[]'|'{}') ]]; then
+      _zsh_highlight_add_highlight $(( i - 1 )) $i bracket-depth-$(( ($#stack - 1) % 6 + 1 ))
+      stack[-1]=()
+    else
+      _zsh_highlight_add_highlight $(( i - 1 )) $i bracket-unexpected
+    fi
   done
 }
 
@@ -302,4 +435,4 @@ _zsh_highlight_highlighter_selection_paint() {
 }
 
 # after main, so they can override main's colours (and selection last, as it needs everything else's colours)
-ZSH_HIGHLIGHT_HIGHLIGHTERS=(main pathunderline arithmetic parameter selection)
+ZSH_HIGHLIGHT_HIGHLIGHTERS=(main pathunderline arithmetic parameter keywords separators rainbow selection)

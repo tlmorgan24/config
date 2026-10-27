@@ -1,6 +1,14 @@
 set termguicolors
 syntax on  " syntax highlighting
 colorscheme catppuccin_mocha
+hi Comment gui=italic cterm=italic  " italic comments, as in VS Code's Catppuccin theme
+" zsh scripts' colours are adjusted to match my zsh command line and VS Code, in ~/.vim/after/syntax/zsh.vim
+" Other shell scripts (sh, bash) use the same zsh syntax rather than Vim's sh one, so all are coloured the same way (as in VS
+" Code, which has one grammar for all of them). Their filetype stays sh, for everything else that depends on it
+augroup shellsyntax
+  autocmd!
+  autocmd FileType sh,bash setlocal syntax=zsh
+augroup END
 set number  " line numbers (only one space away from start of line, unfortunately no way to customise spacing)
 hi LineNr ctermfg=8  " very low contrast with background, helps prevent line numbers from intruding on actual text
 
