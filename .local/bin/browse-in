@@ -12,6 +12,6 @@ path="$1"
 if [[ -d "$path" ]]; then
   printf 'reload(provide-contents'
   printf ' %q' "${options[@]}"
-  printf ' {1})+first\n'
+  printf ' {1})+first+change-border-label()\n' # (clears the label, in case this ends a search - see browse-search)
 fi
 # if highlighted entry is not a directory, do nothing (makes no sense to navigate into a file)

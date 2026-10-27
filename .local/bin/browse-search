@@ -1,0 +1,33 @@
+#!/bin/bash
+# usage: browse-search <highlighted entry's full path>
+# intended as private helper for my custom `browse` function
+# toggles between browsing the directory in which the highlighted entry sits, and searching every file below it
+# the border label is only shown while searching, and doubles as the memory of which mode is on
+
+options=()
+while [[ $# -gt 1 ]]; do
+  options+=("$1")
+  shift
+done
+
+path="$1"
+if [[ -z "$path" ]]; then
+  exit # nothing highlighted (e.g. nothing matches the query), so no directory to toggle in
+fi
+
+# get current directory (i.e., the directory in which the highlighted entry sits), as in browse-out
+if [[ "$path" == */ && "$path" != / ]]; then
+  cur="${path%/}" # empty-directory placeholder entry (see provide-contents)
+else
+  cur="${path%/*}" # normal entry
+fi
+[[ -z "$cur" ]] && cur=/
+
+if [[ "$FZF_BORDER_LABEL" == " all files below "* ]]; then # searching, so go back to browsing
+  printf 'reload(provide-contents'
+  printf ' %q' "${options[@]}"
+  printf ' %q)+first+change-border-label()\n' "$cur"
+else # browsing, so search
+  # (the label is set with the `:` form, as the last action, so a directory name containing brackets can't break it)
+  printf 'reload(provide-all-contents %q)+first+change-border-label: all files below %s \n' "$cur" "${cur/#$HOME/~}"
+fi

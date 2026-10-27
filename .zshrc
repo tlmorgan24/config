@@ -581,6 +581,7 @@ source <(fzf --zsh) # after `brew install fzf` and option configuration, to enab
 # If initial directory not provided, assumes current working directory.
 # From the initial directory, can interactively browse by pressing
 # left to come out of the directory, right to go into the highlighted directory
+# Press ctrl+f to instead search every file below the directory, and again to browse the highlighted entry's directory
 browse() {
   local group=false
   local multi=true
@@ -627,6 +628,7 @@ browse() {
     --with-nth=2.. # only use the pretty path for display/search
     --accept-nth=1 # only output the full path
     --bind="right:transform(browse-in ${BROWSE_OPTS_STR} {1}),left:transform(browse-out ${BROWSE_OPTS_STR} {1})"
+    --bind="ctrl-f:transform(browse-search ${BROWSE_OPTS_STR} {1})"
     --preview="display-contents {1}" # pass the full path for displaying contents
     --ansi # preserve colours
   )
@@ -646,6 +648,19 @@ cd() {
     builtin cd "$@" # pass through so special arguments like `-`, `-2` and `-P` still work
   fi
 }
+
+# ctrl+f: choose file(s) with my file browser, and insert them into the command line at the cursor (like fzf's ctrl+t)
+browse-widget() {
+  local selected=( ${(f)"$(browse)"} ) # one entry per line (empty if cancelled)
+  if (( ${#selected} )); then
+    LBUFFER+="${(j: :)${(@q-)selected}} " # quote each path only if needed, then join with spaces
+  fi
+  zle reset-prompt
+}
+zle -N browse-widget
+bindkey -M emacs '^F' browse-widget
+bindkey -M viins '^F' browse-widget
+bindkey -M vicmd '^F' browse-widget
 
 # Custom git branch switcher that previews the log of each branch
 switch() {

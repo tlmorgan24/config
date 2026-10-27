@@ -21,5 +21,5 @@ parent=$(dirname -- "$cur") # parent of current directory (to navigate to)
 
 printf 'reload(provide-contents'
 printf ' %q' "${options[@]}"
-printf ' %q)+first\n' "$parent"
+printf ' %q)+first+change-border-label()\n' "$parent" # (clears the label, in case this ends a search - see browse-search)
 # for simplicity, highlights first item of list instead of trying to highlight the directory just exited

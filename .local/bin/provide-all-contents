@@ -1,0 +1,28 @@
+#!/bin/bash
+# Usage: provide-all-contents directory
+# dependencies: fd
+# like provide-contents, but for every file and directory below the directory (at any depth), not just its own entries
+# field 1 is the full path, field 2 the path relative to the directory (coloured by fd), tab-separated
+# hidden and git-ignored entries are left out (fd's defaults)
+# if nothing is found, prints <directory>/<TAB><NEWLINE>, as provide-contents does, so browse-out etc still know where we are
+
+directory="$1"
+if [[ ! -d "$directory" ]]; then
+  echo "provide-all-contents: directory must be provided" >&2
+  exit 1
+fi
+directory=$(realpath -- "$directory")
+
+# fd's output is streamed (rather than collected first, as in provide-contents), as there can be many entries
+# The full path is the relative path with fd's colours (and the trailing / it gives directories) removed, after the directory
+fd --color=always --base-directory "$directory" |
+  DIRECTORY="$directory" awk '
+    BEGIN { prefix = ENVIRON["DIRECTORY"]; if (prefix != "/") prefix = prefix "/" }
+    {
+      path = $0
+      gsub(/\033\[[0-9;]*m/, "", path)
+      sub(/\/$/, "", path)
+      print prefix path "\t" $0
+    }
+    END { if (NR == 0) print prefix "\t" }
+  '
