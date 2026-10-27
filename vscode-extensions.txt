@@ -12,3 +12,4 @@ ms-toolsai.datawrangler
 mechatroner.rainbow-csv
 tomoki1207.pdf # show pdfs as images rather than code
 yzhang.markdown-all-in-one # markdown shortcuts, table formatting, table of contents
+xadillax.viml # vim script highlighting for .vimrc and .vim files (VS Code has none built in)
