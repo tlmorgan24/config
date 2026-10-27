@@ -336,20 +336,20 @@ _goinit() {
 }
 
 # convenient git shortcuts
-alias gc='git commit -m'
-alias gca='git commit -am'
 alias gaa='git add -u' # add tracked files (like the -a in git commit -a)
 alias gad='git add .'
-alias gaar='git add -u && git restore --staged'
-alias gadr='git add . && git restore --staged'
-alias gcd='git add . && git commit -m' # gcd stands for 'git commit directory' or 'git commit dot', as commits entire current directory (except .gitignored files)
+alias gaar='gaa && git restore --staged'
+alias gadr='gad && git restore --staged'
+alias gc='git commit -m'
+alias gca='gaa && gc'
+alias gcd='gad && gc' # gcd stands for 'git commit directory' or 'git commit dot', as commits entire current directory (except .gitignored files)
 alias gcf='git commit --amend --no-edit' # gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
-alias gci='git add . && git restore --staged .gitignore && git commit -m' # so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
-alias gcaf='git commit -a --amend --no-edit'
-alias gcdf='git add . && git commit --amend --no-edit'
-alias gcif='git add . && git restore --staged .gitignore && git commit --amend --no-edit'
+alias gci='gadr .gitignore && gc' # so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
+alias gcaf='gcf -a'
+alias gcdf='gad && gcf'
+alias gcif='gadr .gitignore && gcf'
 alias gl='git log --oneline'
-alias gt='git log --graph --oneline --all' # tree view of all commits
+alias gt='gl --graph --all' # tree view of all commits
 
 # pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream)
 push() {

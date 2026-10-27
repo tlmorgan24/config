@@ -116,13 +116,13 @@ Utilities:
 * `goco [directory [module name]]` - like `govi`, but opens the directory in VS Code for more in-depth work, and doesn't format/tidy/run automatically.
 
 Git 1:
-* `gc` - alias for `git commit -m`
-* `gca` - alias for `git commit -am`
-* `gaa` - alias for `git add -u` - adds tracked files (like the -a in git commit -a)
+* `gaa` - alias for `git add -u` - adds tracked files (like the -a in `git commit -a`)
 * `gad` - alias for `git add .`
 * `gaar` - alias for `git add -u && git restore --staged`
 * `gadr` - alias for `git add . && git restore --staged`
-* `gcd` - alias for `git add . && git commit -m` - gcd stands for 'git commit directory', as commits entire current directory (except .gitignored files)
+* `gc` - alias for `git commit -m`
+* `gca` - alias for `git add -u && git commit -m` (like `git commit -am`)
+* `gcd` - alias for `git add . && git commit -m` - gcd stands for 'git commit directory' or 'git commit dot', as commits entire current directory (except .gitignored files)
 * `gcf` - alias for `git commit --amend --no-edit` - gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
 * `gci` - alias for `git add . && git restore --staged .gitignore && git commit -m` - so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
 * `gcaf` - alias for `git commit -a --amend --no-edit`
