@@ -19,7 +19,8 @@ const (
 	green  = "\x1b[32m"
 	yellow = "\x1b[33m"
 
-	// exact colours from my terminal's Catppuccin Mocha theme (24-bit, as the theme's 16 ANSI colours don't include them)
+	// Exact colours from my terminal's Catppuccin Mocha theme (24-bit, as the theme's 16 ANSI colours don't include
+	// them)
 	rosewater = "\x1b[38;2;245;224;220m" // #f5e0dc
 	mauve     = "\x1b[38;2;203;166;247m" // #cba6f7
 )
@@ -28,15 +29,14 @@ const (
 //
 //	id<TAB>time<TAB>status<TAB>command
 //
-// Newlines in a command are shown as ↵ (and tabs as spaces) so each command stays on one line;
-// `cmdlog get <id>` then gives back the command exactly as typed.
-// With --here, only commands run in the current directory are included.
+// Newlines in a command are shown as ↵ (and tabs as spaces) so each command stays on one line; `cmdlog get <id>` then
+// gives back the command exactly as typed. With --here, only commands run in the current directory are included.
 // Commands are coloured as zsh colours them if $CMDLOG_HIGHLIGHT is set (see highlight.go).
 func search(args []string) error {
-	dir := "" // empty means any directory
+	dir := "" // Empty means any directory.
 	switch {
 	case len(args) == 1 && args[0] == "--here":
-		// Getwd gives $PWD when it's valid, so this matches the directory zsh recorded (e.g. /tmp, not /private/tmp)
+		// Getwd gives $PWD when it's valid, so this matches the directory zsh recorded (e.g. /tmp, not /private/tmp).
 		wd, err := os.Getwd()
 		if err != nil {
 			return err
@@ -82,8 +82,8 @@ func search(args []string) error {
 	return rows.Err()
 }
 
-// show prints a command's details, then its output (for fzf's preview).
-// The command is coloured as zsh colours it if $CMDLOG_HIGHLIGHT is set (see highlight.go).
+// show prints a command's details, then its output (for fzf's preview). The command is coloured as zsh colours it if
+// $CMDLOG_HIGHLIGHT is set (see highlight.go).
 func show(args []string) error {
 	db, id, err := openForID(args)
 	if err != nil {
@@ -134,7 +134,7 @@ func show(args []string) error {
 	return nil
 }
 
-// get prints a command exactly as it was typed (to put back on the command line)
+// get prints a command exactly as it was typed (to put back on the command line).
 func get(args []string) error {
 	db, id, err := openForID(args)
 	if err != nil {

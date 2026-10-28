@@ -1,28 +1,33 @@
 #!/bin/bash
-# usage: display-logs <branch>
-# intended as private helper for my custom `switch` and `checkout` functions
-# shows a graph view of the logs of all branches, while cropping to and highlighting the branch provided
-# can provide a commit hash instead of a branch, and the program works without adjustment (though the naming uses "branch" throughout)
+# Usage: `display-logs <branch>`
+#
+# Intended as a private helper for my custom `switch` and `checkout` functions. Show a graph view of the logs of all
+# branches, while cropping to and highlighting the branch provided. Can provide a commit hash instead of a branch, and
+# the program works without adjustment (though the naming uses "branch" throughout).
 
-branch="$1" # name of fzf's highlighted branch
+branch="$1"  # Name of fzf's highlighted branch
 [ -n "$branch" ] || exit 1
-escaped_branch=$(printf '%s\n' "$branch" | gsed 's#[][\\.*^$/+?(){}|]#\\&#g') # escapes all characters special to sed's extended regex pattern - includes special regex characters plus the usual sed delimiter '/'
+# Escape all characters special to sed's extended regex pattern, i.e. the special regex characters plus the usual sed
+# delimiter '/'.
+escaped_branch=$(printf '%s\n' "$branch" | gsed 's#[][\\.*^$/+?(){}|]#\\&#g')
 
-# we want the colour version of git log, however the colour escape codes interfere with regex, which was a pain initially.
-# however, it is a blessing in disguise, because the branch is ALWAYS coloured differently to the characters either side of it.
-# so, we can do the regex search for the colour sequence, followed by the branch, followed by the colour sequence.
+# We want the colour version of git log, however the colour escape codes interfere with regex, which was a pain
+# initially. However, it is a blessing in disguise, because the branch is ALWAYS coloured differently to the characters
+# either side of it. So, we can do the regex search for the colour sequence, followed by the branch, followed by the
+# colour sequence.
 ESC=$(printf '\033')
 ANSI="${ESC}\[[0-9;]*m"
 
-# special highlighted for selected branch in preview
+# Specially highlight the selected branch in the preview.
 if [[ "$branch" == origin/* ]]; then
-  START_HIGHLIGHT="${ESC}[1;30;101m" # bold "black" text on "bright red" background
+  START_HIGHLIGHT="${ESC}[1;30;101m"  # Bold "black" text on "bright red" background
 else
-  START_HIGHLIGHT="${ESC}[1;30;104m" # bold "black" text on "bright blue" background
+  START_HIGHLIGHT="${ESC}[1;30;104m"  # Bold "black" text on "bright blue" background
 fi
 END_HIGHLIGHT="${ESC}[m"
 
-# delete all lines prior to selected branch, then substitute the branch name with its special highlight
-git -c color.ui=always log --graph --all --oneline --decorate | # --decorate to explicitly display '(branch)', which is otherwise hidden when piping
+# Delete all lines prior to the selected branch, then substitute the branch name with its special highlight. --decorate
+# explicitly displays '(branch)', which is otherwise hidden when piping. The sed address must use 0 instead of 1, as
+# otherwise there are issues if the match is on the 1st line. This consequently requires GNU sed rather than BSD sed.
+git -c color.ui=always log --graph --all --oneline --decorate |
   gsed -E "0,/$ANSI$escaped_branch$ANSI/{ /$ANSI$escaped_branch$ANSI/!d; }; s/$ANSI($escaped_branch)$ANSI/$START_HIGHLIGHT\1$END_HIGHLIGHT/"
-  # must use 0 instead of 1, as otherwise if match is on 1st line, there are issues. This consequently requires GNU sed rather than BSD sed

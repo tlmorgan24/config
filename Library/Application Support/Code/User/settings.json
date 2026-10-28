@@ -1,29 +1,33 @@
-// can be opened in VS Code via Preferences: Open Settings (JSON)
+// Can be opened in VS Code via Preferences: Open Settings (JSON).
 {
-  // ### THEME ###
-  // install with "Catppuccin for VS Code" extension: https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc
-  "workbench.colorTheme": "Catppuccin Mocha", // good base, from which I override selected parts below
-  // install with "Catppuccin Icons for VS Code" extension: https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc-icons
-  "workbench.iconTheme": "catppuccin-mocha", // file icons
-  // override editor syntax highlighting
+  // Install with "Catppuccin for VS Code" extension:
+  // https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc.
+  "workbench.colorTheme": "Catppuccin Mocha",  // Good base, from which I override selected parts below
+  // Install with "Catppuccin Icons for VS Code" extension:
+  // https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc-icons.
+  "workbench.iconTheme": "catppuccin-mocha",  // File icons
+  // Override editor syntax highlighting.
   "editor.tokenColorCustomizations": {
     "[Catppuccin Mocha]": {
       "textMateRules": [
         {
-          "scope": [ // methods and functions
+          "scope": [  // Methods and functions
             "entity.name.function",
-            "meta.function-call.generic.python", // in Python, function calls considered different scope to function declarations
+            // In Python, function calls considered different scope to function declarations
+            "meta.function-call.generic.python",
             "support.function"
           ],
           "settings": {
-            "fontStyle": "" // non-italicised, instead of theme's default (italicised)
+            "fontStyle": ""  // Non-italicised, instead of theme's default (italicised)
           }
         },
         {
-          // operators, in all languages: sky (as in Catppuccin's style guide, and Vim's Catppuccin theme), instead of theme's teal.
-          // These are all the theme's teal scopes that are operators (teal is otherwise the guide's colour for enum members)
+          // Operators, in all languages: sky (as in Catppuccin's style guide, and Vim's Catppuccin theme), instead of
+          // theme's teal. These are all the theme's teal scopes that are operators (teal is otherwise the guide's
+          // colour for enum members).
           "scope": [
-            "keyword.operator", // the scopes from here to punctuation.separator.key-value are the theme's "Punctuation" group
+            // The scopes from here to punctuation.separator.key-value are the theme's "Punctuation" group.
+            "keyword.operator",
             "punctuation.accessor",
             "punctuation.definition.generic",
             "meta.function.closure punctuation.section.parameters",
@@ -44,73 +48,77 @@
           }
         },
 
-        // shell scripts: to match my Zsh command-line highlighting (~/.zsh/syntax-highlighting.zsh) and Vim
+        // Shell scripts: to match my Zsh command-line highlighting (~/.zsh/syntax-highlighting.zsh) and Vim
         {
-          "scope": [ // && and & (|| and | are keyword.operators already)
+          "scope": [  // `&&` and `&` (`||` and `|` are keyword.operators already).
             "punctuation.separator.statement.and.shell",
             "punctuation.separator.statement.background.shell"
           ],
           "settings": {
-            "foreground": "#89dceb" // sky (operators)
+            "foreground": "#89dceb"  // Sky (operators)
           }
         },
         {
-          "scope": "support.function.builtin.shell", // echo, cd etc
+          "scope": "support.function.builtin.shell",  // echo, cd etc
           "settings": {
-            "foreground": "#89b4fa" // blue, like other commands, instead of theme's red (builtins)
+            "foreground": "#89b4fa"  // Blue, like other commands, instead of theme's red (builtins)
           }
         },
         {
-          "scope": [ // unquoted arguments, e.g. foo and out.txt in `cat foo > out.txt`
+          "scope": [  // Unquoted arguments, e.g. foo and out.txt in `cat foo > out.txt`
             "string.unquoted.argument.shell",
             "string.unquoted.shell"
           ],
           "settings": {
-            "foreground": "#cdd6f4" // text, instead of green (strings), so only quoted strings are green
+            "foreground": "#cdd6f4"  // Text, instead of green (strings), so only quoted strings are green.
           }
         },
         {
-          "scope": "source.shell constant.other.option", // -la, --color=auto etc
+          "scope": "source.shell constant.other.option",  // `-la`, `--color=auto` etc
           "settings": {
-            "foreground": "#fab387" // peach, instead of the green it otherwise gets from being in an argument
+            "foreground": "#fab387"  // Peach, instead of the green it otherwise gets from being in an argument
           }
         },
         {
-          // $var, ${var}, $? etc. Positional parameters ($1, ${1}, $@) keep the theme's maroon italic (parameters)
+          // `$var`, `${var}`, `$?` etc. Positional parameters (`$1`, `${1}`, `$@`) keep the theme's maroon italic
+          // (parameters).
           "scope": [
             "variable.other.normal.shell",
-            "string.quoted.double.shell variable.other.normal.shell", // overrides the theme's rule (text) for $var inside "..."
+            // Override the theme's rule (text) for `$var` inside `"..."`.
+            "string.quoted.double.shell variable.other.normal.shell",
             "variable.language.special.shell",
             "punctuation.definition.variable.shell",
             "source.shell meta.parameter-expansion"
           ],
           "settings": {
-            "foreground": "#f5e0dc" // rosewater (the guide's colour for macros, which like variables get replaced before running)
+            // Rosewater (the guide's colour for macros, which like variables get replaced before running)
+            "foreground": "#f5e0dc"
           }
         },
         {
-          "scope": [ // * ? etc
+          "scope": [  // `*` `?` etc
             "variable.language.special.wildcard.shell",
             "keyword.operator.glob.shell"
           ],
           "settings": {
-            "foreground": "#f5c2e7" // pink (the guide's colour for patterns), instead of text and sky (operators)
+            "foreground": "#f5c2e7"  // Pink (the guide's colour for patterns), instead of text and sky (operators)
           }
         },
         {
-          "scope": "string.interpolated.process-substitution.shell", // <(command)
+          "scope": "string.interpolated.process-substitution.shell",  // `<(command)`
           "settings": {
-            "foreground": "#cdd6f4" // text (the commands inside get their own colours), instead of green (strings)
+            "foreground": "#cdd6f4"  // Text (the commands inside get their own colours), instead of green (strings).
           }
         },
         {
-          "scope": [ // the ` ` around `command`, and the <( ) around <(command)
+          "scope": [  // The backquotes around a backquoted command, and the `<( )` around `<(command)`
             "punctuation.definition.evaluation.backticks.shell",
             "source.shell punctuation.section.interpolation",
             "string.interpolated.process-substitution.shell punctuation.definition.string"
           ],
           "settings": {
-            "foreground": "#9399b2" // overlay 2 (delimiters), like the $( ) around $(command), instead of teal and green
+            // Overlay 2 (delimiters), like the `$( )` around `$(command)`, instead of teal and green
+            "foreground": "#9399b2"
           }
         }
       ]
@@ -118,78 +126,76 @@
   },
 
   // Go: semantic highlighting from the language server, rather than simple regex-based textmate, so that e.g.
-  // parameters stay maroon italic inside the function body, not just in the declaration (as Pylance does for Python)
+  // parameters stay maroon italic inside the function body, not just in the declaration (as Pylance does for Python).
   "gopls": {
     "ui.semanticTokens": true,
-    // leave strings and numbers to textmate, which keeps escapes (\n) pink, and runes ('x') green rather than peach
+    // Leave strings and numbers to textmate, which keeps escapes (`\n`) pink, and runes (`'x'`) green rather than
+    // peach.
     "ui.semanticTokenTypes": { "string": false, "number": false }
   },
 
-  // override colours other than editor syntax
-  // some borders and backgrounds are mauve ("#cba6f7") in theme default, which I find can stick out too much
+  // Override colours other than editor syntax. Some borders and backgrounds are mauve ("#cba6f7") in theme default,
+  // which I find can stick out too much.
   "workbench.colorCustomizations": {
-    "button.background": "#45475a", // default: "#cba6f7"
-    "button.hoverBackground": "#585b70", // default: "#dec7fa"
-    "button.border": "#00000000", // default: "#00000000" (hack for "no border")
-    "button.foreground": "#cdd6f4", // default: "11111b"
-    "button.secondaryBackground": "#45475a", // default: "#585b70"
-    "button.secondaryHoverBackground": "#585b70", // default: "#686b84" 
-    "button.secondaryBorder": "#00000000", // default: "#cba6f7"
-    "button.secondaryForeground": "#cdd6f4", // default: "#cdd6f4"
+    "button.background": "#45475a",  // Default: "#cba6f7"
+    "button.hoverBackground": "#585b70",  // Default: "#dec7fa"
+    "button.border": "#00000000",  // Default: "#00000000" (hack for "no border")
+    "button.foreground": "#cdd6f4",  // Default: "11111b"
+    "button.secondaryBackground": "#45475a",  // Default: "#585b70"
+    "button.secondaryHoverBackground": "#585b70",  // Default: "#686b84"
+    "button.secondaryBorder": "#00000000",  // Default: "#cba6f7"
+    "button.secondaryForeground": "#cdd6f4",  // Default: "#cdd6f4"
 
-    "badge.background": "#45475a", // default: "#45475a"
-    "badge.foreground": "#cdd6f4", // default: "#cdd6f4"
-    "activityBarBadge.background": "#45475a", // default: "#cba6f7"
-    "activityBarBadge.foreground": "#cdd6f4", // default: "#11111b"
+    "badge.background": "#45475a",  // Default: "#45475a"
+    "badge.foreground": "#cdd6f4",  // Default: "#cdd6f4"
+    "activityBarBadge.background": "#45475a",  // Default: "#cba6f7"
+    "activityBarBadge.foreground": "#cdd6f4",  // Default: "#11111b"
 
-    "extensionButton.background": "#45475a", // default: "#585b70"
-    "extensionButton.hoverBackground": "#585b70", // default: "#686b84" 
-    "extensionButton.border": "#00000000", // default: "#cba6f7"
-    "extensionButton.foreground": "#cdd6f4", // default: "#cdd6f4"
-    "extensionButton.prominentBackground": "#cba6f7", // default: "#cba6f7"
-    "extensionButton.prominentHoverBackground": "#dec7fa", // default: "#dec7fa"
-    "extensionButton.prominentForeground": "#11111b", // default: "#11111b"
-    // no 'extensionButton.prominentBorder' setting exists, so forced to have same border for regular
-    // extension buttons as for prominent ones
+    "extensionButton.background": "#45475a",  // Default: "#585b70"
+    "extensionButton.hoverBackground": "#585b70",  // Default: "#686b84"
+    "extensionButton.border": "#00000000",  // Default: "#cba6f7"
+    "extensionButton.foreground": "#cdd6f4",  // Default: "#cdd6f4"
+    "extensionButton.prominentBackground": "#cba6f7",  // Default: "#cba6f7"
+    "extensionButton.prominentHoverBackground": "#dec7fa",  // Default: "#dec7fa"
+    "extensionButton.prominentForeground": "#11111b",  // Default: "#11111b"
+    // No 'extensionButton.prominentBorder' setting exists, so forced to have same border for regular extension buttons
+    // as for prominent ones.
 
-    "notifications.border": "#6c7086", // default: "#cba6f7"
-    "notificationToast.border": "#6c7086", // default: "#cba6f7"
-    "notificationCenter.border": "#6c7086", // default: "#cba6f7"
-    "notifications.background": "#1e1e2e", // default: "#181825"
-    "notificationCenterHeader.background": "#1e1e2e", // default: "#181825"
+    "notifications.border": "#6c7086",  // Default: "#cba6f7"
+    "notificationToast.border": "#6c7086",  // Default: "#cba6f7"
+    "notificationCenter.border": "#6c7086",  // Default: "#cba6f7"
+    "notifications.background": "#1e1e2e",  // Default: "#181825"
+    "notificationCenterHeader.background": "#1e1e2e",  // Default: "#181825"
 
-    "focusBorder": "#9399b2" // default: "#cba6f7"
+    "focusBorder": "#9399b2"  // Default: "#cba6f7"
   },
 
-  // ### FONT ###
-  // install with: brew install --cask font-jetbrains-mono-nerd-font
-  "editor.fontFamily": "'JetBrainsMono Nerd Font'", // fontname with whitespace has to be single-quoted
-  "editor.fontLigatures": true, // e.g. '>' followed by '=' formats as '≥'
-  "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font'", // fontname with whitespace has to be single-quoted
-  // alternative - install with: brew install --cask font-fira-code-nerd-font
-  /*
-  "editor.fontFamily": "'FiraCode Nerd Font'", // fontname with whitespace has to be single-quoted
-  "editor.fontLigatures": true, // e.g. '>' followed by '=' formats as '≥'
-  "terminal.integrated.fontFamily": "'FiraCode Nerd Font'", // fontname with whitespace has to be single-quoted
-  */
+  // Install with `brew install --cask font-jetbrains-mono-nerd-font`.
+  "editor.fontFamily": "'JetBrainsMono Nerd Font'",  // Fontname with whitespace has to be single-quoted.
+  "editor.fontLigatures": true,  // E.g. `>` followed by `=` formats as `≥`.
+  "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font'",  // Fontname with whitespace has to be single-quoted.
+  // Alternative font, installed with `brew install --cask font-fira-code-nerd-font`.
+  //
+  // "editor.fontFamily": "'FiraCode Nerd Font'",  // Fontname with whitespace has to be single-quoted.
+  // "editor.fontLigatures": true,  // E.g. `>` followed by `=` formats as `≥`.
+  // "terminal.integrated.fontFamily": "'FiraCode Nerd Font'",  // Fontname with whitespace has to be single-quoted.
   "window.zoomLevel": 0.5,
   "editor.fontSize": 13,
   "editor.letterSpacing": 0,
   "editor.smoothScrolling": true,
 
-  // ### INSERT SPACES WHEN PRESS TAB ###
+  // Insert spaces when tab is pressed.
   "editor.insertSpaces": true,
-  // Exceptions for languages which prefer tabs over spaces:
+  // Exceptions for languages which prefer tabs over spaces.
   "[go]": {
     "editor.insertSpaces": false
   },
   "[makefile]": {
-    "editor.insertSpaces": false // already VS Code's default, but listed for completeness
+    "editor.insertSpaces": false  // Already VS Code's default, but listed for completeness
   },
 
-  // ### TAB SIZING ###
-  "editor.tabSize": 4, // default (overrides to 2 specified below)
-  "[shellscript]": { // eg bash (see files.associations)
+  "editor.tabSize": 4,  // Default (overrides to 2 specified below)
+  "[shellscript]": {  // E.g. bash (see files.associations)
     "editor.tabSize": 2
   },
   "[html]": {
@@ -201,7 +207,7 @@
   "[json]": {
     "editor.tabSize": 2
   },
-  "[jsonc]": { // json with comments (this settings.json file is actually JSONC, hence why I can comment!)
+  "[jsonc]": {  // JSON with comments (this settings.json file is actually JSONC, hence why I can comment!).
     "editor.tabSize": 2
   },
   "[yaml]": {
@@ -244,21 +250,21 @@
     ".profile": "shellscript",
   },
 
-  // ### OTHER ###
-  "editor.guides.indentation": true, // vertical line guides for indentation
+  "editor.guides.indentation": true,  // Vertical line guides for indentation
   "notebook.lineNumbers": "on",
 
-  "terminal.integrated.cursorStyle": "line", // default: "block"
-  "terminal.integrated.cursorBlinking": true, // default: false
-  "terminal.integrated.macOptionIsMeta": true, // default: false. When true, option+key sends alt+key
-  // default: "${process}", which would always be "cmdlog" (my command recorder, see .zshrc). cmdlog instead sends
-  // the name of the process running inside it (zsh, python etc) as a title sequence. Falls back to the process if no title is set.
+  "terminal.integrated.cursorStyle": "line",  // Default: "block"
+  "terminal.integrated.cursorBlinking": true,  // Default: false
+  "terminal.integrated.macOptionIsMeta": true,  // Default: false (when true, option+key sends alt+key).
+  // Default: "${process}", which would always be "cmdlog" (my command recorder, see .zshrc). cmdlog instead sends the
+  // name of the process running inside it (zsh, python etc) as a title sequence. Falls back to the process if no title
+  // is set.
   "terminal.integrated.tabs.title": "${sequence}",
-  
+
   "workbench.editor.empty.hint": "hidden",
   "security.workspace.trust.untrustedFiles": "open",
   "github.copilot.enable": {
-    "*": false, // prevent code autocomplete suggestions
+    "*": false,  // Prevent code autocomplete suggestions.
   },
 
 }

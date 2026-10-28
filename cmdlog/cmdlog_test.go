@@ -7,7 +7,7 @@ import (
 
 const testSecret = "s3cret"
 
-// run feeds the stream to a parser split at the given positions, returning the output and markers
+// run feeds the stream to a parser split at the given positions, returning the output and markers.
 func run(stream string, splits ...int) (string, []*marker) {
 	p := &markerParser{secret: testSecret}
 	var out strings.Builder
@@ -108,9 +108,9 @@ func TestHighlighterFailures(t *testing.T) {
 	if _, ok := startHighlighter().highlight("/tmp", "ls"); ok {
 		t.Fatal("coloured without a highlighter")
 	}
-	t.Setenv("CMDLOG_HIGHLIGHT", "exit 1") // one that dies straight away
+	t.Setenv("CMDLOG_HIGHLIGHT", "exit 1") // One that dies straight away
 	h := startHighlighter()
-	for range 2 { // and keeps failing, rather than crashing
+	for range 2 { // And keeps failing, rather than crashing.
 		if _, ok := h.highlight("/tmp", "ls"); ok {
 			t.Fatal("coloured by a highlighter that exited")
 		}

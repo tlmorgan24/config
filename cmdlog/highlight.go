@@ -18,7 +18,7 @@ type highlighter struct {
 	out *bufio.Reader
 }
 
-// startHighlighter returns nil (so commands aren't coloured) if $CMDLOG_HIGHLIGHT isn't set or can't be started
+// startHighlighter returns nil (so commands aren't coloured) if $CMDLOG_HIGHLIGHT isn't set or can't be started.
 func startHighlighter() *highlighter {
 	command := os.Getenv("CMDLOG_HIGHLIGHT")
 	if command == "" {
@@ -26,8 +26,9 @@ func startHighlighter() *highlighter {
 	}
 	cmd := exec.Command("/bin/sh", "-c", command)
 	// In its own session, so it has no terminal. Otherwise, run from fzf (whose preview and reload commands are in a
-	// background process group), the terminal stops it as soon as it touches the terminal, which zsh's `read -d` does even
-	// when reading a pipe. (If cmdlog is killed, e.g. by fzf moving to another preview, it still exits, as its input closes.)
+	// background process group), the terminal stops it as soon as it touches the terminal, which zsh's `read -d` does
+	// even when reading a pipe. (If cmdlog is killed, e.g. by fzf moving to another preview, it still exits, as its
+	// input closes.)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	in, err := cmd.StdinPipe()
 	if err != nil {
@@ -43,8 +44,8 @@ func startHighlighter() *highlighter {
 	return &highlighter{cmd: cmd, in: in, out: bufio.NewReader(out)}
 }
 
-// highlight returns the coloured command (each of its lines ending in a reset), or false if it couldn't be coloured. After
-// a failure, it stops trying.
+// highlight returns the coloured command (each of its lines ending in a reset), or false if it couldn't be coloured.
+// After a failure, it stops trying.
 func (h *highlighter) highlight(dir, command string) (string, bool) {
 	if h == nil || h.cmd == nil {
 		return "", false

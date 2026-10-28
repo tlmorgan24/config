@@ -1,7 +1,6 @@
-// can be opened in VS Code via Preferences: Open Keyboard Shortcuts (JSON)
+// Can be opened in VS Code via Preferences: Open Keyboard Shortcuts (JSON).
 [
-
-  // keybindings for terminal shortcuts whose key sequences are intercepted by VS Code
+  // Keybindings for terminal shortcuts whose key sequences are intercepted by VS Code
   {
     "key": "cmd+shift+left",
     "command": "workbench.action.terminal.sendSequence",
@@ -44,10 +43,14 @@
   },
 
   {
-    "key": "cmd+shift+c", // intention: copy command-line program's current selection to clipboard (would use cmd+c, but VS Code already uses this to copy it's OWN selection, e.g. following mouse drag)
+    // Intention: copy command-line program's current selection to clipboard (would use cmd+c, but VS Code already uses
+    // this to copy its OWN selection, e.g. following mouse drag).
+    "key": "cmd+shift+c",
     "command": "workbench.action.terminal.sendSequence",
     "args": {
-      "text": "\u001b[99;9u" // cmd+shift+c would technically be 10u (9u is for cmd+c), but I still expect programs to expect cmd+c, hence use of 9u here
+      // cmd+shift+c would technically be 10u (9u is for cmd+c), but I still expect programs to expect cmd+c, hence use
+      // of 9u here.
+      "text": "\u001b[99;9u"
     },
     "when": "terminalFocus"
   },

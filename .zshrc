@@ -1,61 +1,68 @@
-# Record every command (and its output) with my cmdlog program (source in the cmdlog/ folder of my config repo).
-# It has to sit between the terminal and zsh, so this shell replaces itself with `cmdlog record`, which starts a new zsh
-# (that re-reads this file, with CMDLOG_SESSION set so it doesn't do this again). Done first, so nothing below runs twice.
-# If cmdlog can't record, it starts the shell anyway (unrecorded). To stop recording, delete ~/.local/bin/cmdlog.
+# Record every command (and its output) with my cmdlog program (source in the cmdlog/ folder of my config repo). It has
+# to sit between the terminal and zsh, so this shell replaces itself with `cmdlog record`, which starts a new zsh (that
+# re-reads this file, with CMDLOG_SESSION set so it doesn't do this again). Done first, so nothing below runs twice. If
+# cmdlog can't record, it starts the shell anyway (unrecorded). To stop recording, delete ~/.local/bin/cmdlog.
 if [[ -o interactive && -t 0 && -t 1 && "$TERM" != dumb && -z "$CMDLOG_SESSION" ]] && (( $+commands[cmdlog] )); then
-  # VS Code's shell integration script is in a temporary folder only known to this shell, so pass its location on (see cmdlog section below)
+  # VS Code's shell integration script is in a temporary folder only known to this shell, so pass its location on (see
+  # cmdlog section below).
   [[ -n "$VSCODE_ZDOTDIR" ]] && export CMDLOG_VSCODE_RC="$VSCODE_ZDOTDIR/.zshrc"
   exec cmdlog record "${commands[zsh]:-/bin/zsh}"
 fi
 
-setopt interactive_comments # interpret '#' as comment, even interactively (i.e. outside scripts)
-setopt SH_WORD_SPLIT # word splitting on whitespace, for same behaviour as Bash
+setopt interactive_comments  # Interpret '#' as comment, even interactively (i.e. outside scripts).
+setopt SH_WORD_SPLIT  # Split words on whitespace, for same behaviour as Bash.
 setopt EXTENDED_GLOB
 
 # Freeze terminal modes, so zsh puts them back after every command instead of keeping whatever a command left behind.
-# E.g. in `head -n 10 $(fzf) | bat`, fzf and less run at the same time: less saves fzf's raw mode as the mode to restore,
-# so after it exits every later command's output stair-steps (no carriage return after newlines) and ctrl+c stops working.
-# To change modes on purpose: `ttyctl -u; stty ...; ttyctl -f`
+# E.g. in `head -n 10 $(fzf) | bat`, fzf and less run at the same time: less saves fzf's raw mode as the mode to
+# restore, so after it exits every later command's output stair-steps (no carriage return after newlines) and ctrl+c
+# stops working. To change modes on purpose: `ttyctl -u; stty ...; ttyctl -f`.
 ttyctl -f
 
-# command history
+# Configure command history.
 HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
-setopt INC_APPEND_HISTORY # write to history file on each command, instead of batching commands to write when shell is closed
-setopt HIST_IGNORE_ALL_DUPS # discard older duplicate commands in in-memory history
-setopt HIST_SAVE_NO_DUPS # discard older duplicate commands when saving to history file
-setopt HIST_FIND_NO_DUPS # if, despite the above, there are still duplicates, do not show them in history search (otherwise pain to scroll back to find the command you want)
+# Write to history file on each command, instead of batching commands to write when shell is closed.
+setopt INC_APPEND_HISTORY
+setopt HIST_IGNORE_ALL_DUPS  # Discard older duplicate commands in in-memory history.
+setopt HIST_SAVE_NO_DUPS  # Discard older duplicate commands when saving to history file.
+# If, despite the above, there are still duplicates, do not show them in history search (otherwise pain to scroll back
+# to find the command you want).
+setopt HIST_FIND_NO_DUPS
 
-# editor
+# Set the editor.
 export EDITOR=vim
 export VISUAL=vim
 
-eval "$(starship init zsh)" # after `brew install starship`
-
-## Aliases ##
+eval "$(starship init zsh)"  # After `brew install starship`
 
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 alias c='pbcopy'
 alias v='pbpaste'
-autoload -U zcalc # REPL calculator which removes need for `echo $((...))` whilst still being able to work with shell's variables, command substitution etc
-alias calc='zcalc -f' # so, simply execute `calc` to enter the zcalc REPL calculator (Ctrl-D to exit), uses -f to make everything a float (prevent 3/4 = 0 etc)
+# zcalc is a REPL calculator which removes the need for `echo $((...))`, whilst still being able to work with the
+# shell's variables, command substitution etc.
+autoload -U zcalc
+# So, simply execute `calc` to enter the zcalc REPL calculator (Ctrl-D to exit). Use -f to make everything a float
+# (prevent 3/4 = 0 etc).
+alias calc='zcalc -f'
 
-# cd with automatic mkdir.
+# cd with automatic mkdir
 mkcd() {
   mkdir -p "$1" && cd "$1"
 }
-# Directory that mkcp/mkmv must create, given the command (cp or mv) and its args, same rule as cp/mv themselves:
-# with GNU's -t DIR it's DIR, otherwise the destination (last operand) is a directory if it ends in / or there are
-# multiple sources, else it's a file path, so take its parent.
-# Flags are passed through to cp/mv, so aren't counted as operands, and nor are flag values. GNU's -t/--target-directory
-# and -S/--suffix take a value, but no BSD flag does (BSD cp has an unrelated -S that takes none), hence checking which we have.
+
+# Print the directory that mkcp/mkmv must create, given the command (cp or mv) and its args, using the same rule as
+# cp/mv themselves: with GNU's -t DIR it's DIR, otherwise the destination (last operand) is a directory if it ends in /
+# or there are multiple sources, else it's a file path, so take its parent. Flags are passed through to cp/mv, so aren't
+# counted as operands, and nor are flag values. GNU's -t/--target-directory and -S/--suffix take a value, but no BSD
+# flag does (BSD cp has an unrelated -S that takes none), hence checking which we have.
 _mkdestdir() {
   local cmd=$1; shift
   local gnu=0
-  command $cmd --version &>/dev/null && gnu=1 # BSD rejects --version
+  command $cmd --version &>/dev/null && gnu=1  # BSD rejects --version.
   local -a operands
   local arg name val target i
   for (( i = 1; i <= $#; i++ )); do
@@ -68,7 +75,7 @@ _mkdestdir() {
     elif (( ! gnu )); then
       continue
     elif [[ "$arg" == --* ]]; then
-      # GNU accepts any unambiguous prefix of a long option, e.g. --target for --target-directory
+      # GNU accepts any unambiguous prefix of a long option, e.g. --target for --target-directory.
       name="${arg%%=*}"
       if (( ${#name} >= 3 )) && [[ --target-directory == "$name"* ]]; then
         if [[ "$arg" == *=* ]]; then target="${arg#*=}"; else target="${@[++i]}"; fi
@@ -76,7 +83,7 @@ _mkdestdir() {
         (( i++ ))
       fi
     elif [[ "$arg" =~ '^-[^tS]*([tS])(.*)$' ]]; then
-      # short flags can be bundled, and the value attached, e.g. -vt DIR or -vtDIR
+      # Short flags can be bundled, and the value attached, e.g. -vt DIR or -vtDIR.
       val="${match[2]}"
       [[ -z "$val" ]] && val="${@[++i]}"
       [[ "${match[1]}" == t ]] && target="$val"
@@ -90,12 +97,13 @@ _mkdestdir() {
     print -r -- "${operands[-1]:h}"
   fi
 }
-# Runs cp or mv ($1) on the remaining args, first creating the directory they need. If the command fails, the
-# directories this created are removed again, but only while empty (rmdir), so anything it did manage to copy/move stays.
+
+# Run cp or mv ($1) on the remaining args, first creating the directory they need. If the command fails, the directories
+# this created are removed again, but only while empty (rmdir), so anything it did manage to copy/move stays.
 _mkrun() {
   local cmd=$1; shift
   local dir="$(_mkdestdir $cmd "$@")"
-  local -a created # deepest first, so rmdir empties each one's parent before reaching it
+  local -a created  # Deepest first, so rmdir empties each one's parent before reaching it.
   local d="$dir"
   while [[ ! -e "$d" ]]; do
     created+=("$d")
@@ -107,58 +115,62 @@ _mkrun() {
   (( ${#created} )) && rmdir -- "${created[@]}" 2>/dev/null
   return $ret
 }
-# cp with automatic mkdir.
+
+# cp with automatic mkdir
 mkcp() {
   (( $# >= 2 )) || { echo 'usage: mkcp [flags] source... destination' >&2; return 1 }
   _mkrun cp "$@"
 }
-# mv with automatic mkdir.
+
+# mv with automatic mkdir
 mkmv() {
   (( $# >= 2 )) || { echo 'usage: mkmv [flags] source... destination' >&2; return 1 }
   _mkrun mv "$@"
 }
-# Creates the parent directory of file path $1, then prints the path.
-# Useful for redirecting to with automatic mkdir,  e.g. cmd > "$(mkp out/sub/file)".
+
+# Create the parent directory of file path $1, then print the path. Useful for redirecting to with automatic mkdir, e.g.
+# `cmd > "$(mkp out/sub/file)"`.
 mkp() {
   (( $# == 1 )) || { echo 'usage: mkp path' >&2; return 1 }
   mkdir -p -- "${1:h}" && print -r -- "$1"
 }
 
-# replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first)
-alias sed='gsed -E' # -E to always use extended regex, gsed to allow e.g. -i without providing a backup file
-alias head='ghead' # for e.g. head -n -N file to get all except the last N lines
-alias grep='ggrep -E' # -E to always use extended regex, ggrep to allow GNU-specific features (but still prefer rg most of the time)
-alias find='gfind' # (but still prefer fd most of the time)
+# Replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first).
+alias sed='gsed -E'  # -E to always use extended regex, gsed to allow e.g. -i without providing a backup file
+alias head='ghead'  # For e.g. head -n -N file to get all except the last N lines
+# -E to always use extended regex, ggrep to allow GNU-specific features (but still prefer rg most of the time).
+alias grep='ggrep -E'
+alias find='gfind'  # But still prefer fd most of the time.
 alias tac='gtac'
 
 alias ls='eza -1 --icons=auto'
 alias lst='eza -1 --tree --icons=auto'
 
-alias rg='rg -P' # -P to always use PCRE (maximal regex features)
-# Note fd does not support this, but still has most features except backreferences & lookarounds
+# -P to always use PCRE (maximal regex features). Note fd does not support this, but still has most features except
+# backreferences & lookarounds.
+alias rg='rg -P'
 
-# Alias for perl -ane, while still allowing extra flags to be passed without -e swallowing them.
-# Note, can still provide -p as a flag (effectively overwrites -n).
+# Alias for perl -ane, while still allowing extra flags to be passed without -e swallowing them. Note, can still provide
+# -p as a flag (effectively overwrites -n).
 #
-# Also takes -R<sep> for a custom record separator, acting as the record counterpart of -F:
-# <sep> is always a perl regex, optionally written /like this/, so e.g. a literal | is -R'\|'.
-# It must not be able to match the empty string, and can't be combined with -0 (or used by pp).
+# Also accept `-R<sep>` for a custom record separator, acting as the record counterpart of -F: <sep> is always a perl
+# regex, optionally written `/like this/`, so e.g. a literal | is `-R'\|'`. It must not be able to match the empty
+# string, and can't be combined with -0 (or used by pp).
 #
-# A separator with no regex metacharacters just uses perl's own $/; anything else is extra custom work,
-# as not supported by Perl. Neither loads whole files into memory. Both end up with $., eof, -p, etc
-# working as expected.
+# A separator with no regex metacharacters just uses perl's own $/; anything else is extra custom work, as not supported
+# by Perl. Neither loads whole files into memory. Both end up with $., eof, -p, etc working as expected.
 #
-# With -R, $_ keeps its separator unless -l is given. With -l, the separator is stripped from $_
-# and put back by every print (including -p's). This is the exact matched separator the record had, or
-# nothing for a final unterminated record. In END blocks, -l prints end in "\n" instead.
+# With -R, $_ keeps its separator unless -l is given. With -l, the separator is stripped from $_ and put back by every
+# print (including -p's). This is the exact matched separator the record had, or nothing for a final unterminated
+# record. In END blocks, -l prints end in "\n" instead.
 p() {
   local -a args=() flags=()
   local rs= has_rs=0 has_0=0 regex=0 fs= nl=0 inplace= ip=0 b plain c
   while [[ $1 == -* ]]; do
     [[ $1 == -- ]] && { shift; break; }
     args+=("$1")
-    # Split a switch bundle the way perl does: argless switches combine, and a switch
-    # that takes a value (-i, -F, -e, -M, ...) uses up the rest of the bundle.
+    # Split a switch bundle the way perl does: argless switches combine, and a switch that takes a value (-i, -F, -e,
+    # -M, ...) uses up the rest of the bundle.
     b=${1#-} plain=
     while [[ -n $b ]]; do
       c=${b:0:1}; b=${b:1}
@@ -176,26 +188,30 @@ p() {
     [[ -n $plain ]] && flags+=("-$plain")
     shift
   done
-  if ((!has_rs)); then
+  if (( !has_rs )); then
     perl -an "${args[@]}" -e "$1" "${@:2}"
     return
   fi
 
-  ((has_0)) && { echo "p: -R can't be combined with -0" >&2; return 2; }
+  (( has_0 )) && { echo "p: -R can't be combined with -0" >&2; return 2; }
   [[ $rs == /*/ && ${#rs} -ge 2 ]] && rs=${rs:1:${#rs}-2}
   [[ -z $rs ]] && { echo "p: -R separator can't be empty" >&2; return 2; }
   [[ $rs =~ '[][\\^$.|?*+(){}]' ]] && regex=1
-  if ((ip)); then
-    if ((regex)); then [[ -z $inplace ]] && inplace=.prs$$
-    else flags+=("-i$inplace"); inplace=; fi
+  if (( ip )); then
+    if (( regex )); then
+      [[ -z $inplace ]] && inplace=.prs$$
+    else
+      flags+=("-i$inplace")
+      inplace=
+    fi
   fi
   local split='our @F = length $PRS::FS ? split(/$PRS::FS/) : split(" ");'
-  local endfix=';END { $\ = "\n" if $ENV{PRS_L}; select STDOUT }' # runs before user END blocks
+  local endfix=';END { $\ = "\n" if $ENV{PRS_L}; select STDOUT }'  # Runs before user END blocks.
 
-  if ((!regex)); then
+  if (( !regex )); then
     PRS_RS=$rs PRS_FS=$fs PRS_L=$nl perl -n "${flags[@]}" -e '
 BEGIN { $/ = $ENV{PRS_RS}; ($PRS::FS = $ENV{PRS_FS}) =~ s{^/(.*)/$}{$1}s }
-if ($ENV{PRS_L}) { my $o = $_; chomp; $\ = substr $o, length } # put back exactly what chomp removed
+if ($ENV{PRS_L}) { my $o = $_; chomp; $\ = substr $o, length }  # Put back exactly what chomp removed.
 '"$split" -e "$1" -e "$endfix" "${@:2}"
     return
   fi
@@ -204,14 +220,14 @@ if ($ENV{PRS_L}) { my $o = $_; chomp; $\ = substr $o, length } # put back exactl
   perl -n -Mopen=IN,':via(PRS)' "${flags[@]}" -e '
 BEGIN {
   package PRS;
-  our $S = "\x{1E}PRS\x{1E}"; # sentinel that becomes $/
+  our $S = "\x{1E}PRS\x{1E}";  # Sentinel that becomes $/
   our $RS = qr/$ENV{PRS_RS}/;
   if ("" =~ $RS) { warn "p: separator /$ENV{PRS_RS}/ can match the empty string\n"; exit 2 }
   ($PRS::FS = $ENV{PRS_FS}) =~ s{^/(.*)/$}{$1}s;
-  # A flush (which perl does to every handle before system, fork, etc) drops whatever is left of
-  # the result of the last FILL, so FILL hands out one record at a time and nothing is left over.
-  sub PUSHED { bless ["", []], shift } # [unscanned input, marked records waiting to be handed out]
-  sub FILL { # mark separators; hold back incomplete tail
+  # A flush (which perl does to every handle before system, fork, etc) drops whatever is left of the result of the last
+  # FILL, so FILL hands out one record at a time and nothing is left over.
+  sub PUSHED { bless ["", []], shift }  # [unscanned input, marked records waiting to be handed out]
+  sub FILL {  # Mark separators and hold back incomplete tail.
     my ($self, $fh) = @_;
     my ($buf, $q) = (\$self->[0], $self->[1]);
     while (1) {
@@ -222,8 +238,8 @@ BEGIN {
       my $keep = 0;
       while ($$buf =~ /\G(.*?)($RS)/gcs) {
         my ($rec, $sep) = ($1, $2);
-        last if !$at_eof && $+[0] >= length $$buf; # match might extend further
-        last if !length $sep; # ignore empty matches
+        last if !$at_eof && $+[0] >= length $$buf;  # Match might extend further.
+        last if !length $sep;  # Ignore empty matches.
         push @$q, $rec . $sep . "\0" . length($sep) . $S;
         $keep = $+[0];
       }
@@ -232,11 +248,11 @@ BEGIN {
       return undef if $at_eof && !@$q;
     }
   }
-  # stdin must be opened by name so the layer applies
+  # stdin must be opened by name so the layer applies.
   @ARGV = ("-") unless @ARGV;
   our %name;
   for (@ARGV) { if ($_ eq "-") { $_ = "/dev/stdin"; $name{$_} = "-" } }
-  # -i emulation: read from a renamed copy, write to the original name
+  # Emulate -i: read from a renamed copy, write to the original name.
   our ($I, @tmp) = ($ENV{PRS_I});
   if (length $I) {
     for (@ARGV) {
@@ -261,69 +277,76 @@ if ($ARGV ne $PRS::cur) {
   }
 }
 if (s/\0(\d+)\Q$PRS::S\E\z//) { $\ = substr($_, -$1, $1, "") if $ENV{PRS_L} }
-elsif ($ENV{PRS_L}) { $\ = "" } # final record had no separator, so nothing to put back
+elsif ($ENV{PRS_L}) { $\ = "" }  # Final record had no separator, so nothing to put back.
 '"$split" -e "$1" -e "$endfix" "${@:2}"
 }
 
-# Like p, but slurps the whole input as one record (-0777).
+# Like p, but slurp the whole input as one record (-0777).
 pp() { p -0777 "$@"; }
 
-# ff - stands for "For each File" or "For each output of Fd"
-# Like fd -x, but runs arbitrary shell code for each file found, with the path in $f.
-#   ff [fd args] <code>
-# The code comes last, everything before it goes to fd. Single-quote the code so 
-# treated as one argument and so shell does not expand $f before it reaches the function. 
-# And, double-quote the $f as normal if want to avoid word splitting.
-# E.g. `ff -e md 'echo "$f"; head -1 "$f"'`
-# Runs in the current shell (aliases, functions and variables all work), reading fd's output from fd 3
-# so commands in the code that read stdin don't swallow the file list.
+# Usage: `ff [fd args] <code>`
+#
+# ff stands for "For each File" or "For each output of Fd".
+#
+# Like fd -x, but run arbitrary shell code for each file found, with the path in $f. The code comes last, everything
+# before it goes to fd. Single-quote the code so it's treated as one argument and so the shell does not expand $f before
+# it reaches the function. And, double-quote the $f as normal if want to avoid word splitting. E.g.
+# `ff -e md 'echo "$f"; head -1 "$f"'`. Run in the current shell (aliases, functions and variables all work), reading
+# fd's output from fd 3 so commands in the code that read stdin don't swallow the file list.
 ff() {
   local cmd=${@[-1]} f
   while IFS= read -r -d '' f <&3; do eval "$cmd"; done 3< <(fd -0 "${@[1,-2]}")
 }
 
-# fr - stands for "For each Record"
-# Like ff, but for records split on a regex (via p -R), with the record in $r and the exact
-# separator that ended it in $s (empty for a final unterminated record).
-#   fr <sep> <code> [files]
-# <sep> is anything p -R takes, e.g. '\n\n+' or /,\s*/. Reads stdin if no files are given.
-# E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`
-# Same quoting rules and current-shell behaviour as ff. Records containing NUL bytes get split there.
+# Usage: `fr <sep> <code> [files]`
+#
+# fr stands for "For each Record".
+#
+# Like ff, but for records split on a regex (via p -R), with the record in $r and the exact separator that ended it in
+# $s (empty for a final unterminated record). <sep> is anything p -R takes, e.g. `'\n\n+'` or `/,\s*/`. Read stdin if no
+# files are given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`. Same quoting rules and current-shell behaviour as ff.
+# Records containing NUL bytes get split there.
 fr() {
   local sep=$1 cmd=$2 r s; shift 2
   while IFS= read -r -d '' r <&3 && IFS= read -r -d '' s <&3; do eval "$cmd"; done \
     3< <(p -l -R"$sep" 'printf "%s\0%s\0", $_, $\' "$@")
 }
 
-# fl - stands for "For each Line"
-# fr with a newline separator, so the line is in $r ($s is a newline, or empty for an unterminated last line).
-#   fl <code> [files]
-# E.g. `fl 'mkdir "$r"' names.txt`
-# A literal newline (rather than '\n') lets p use perl's own $/, skipping the slower regex splitting.
+# Usage: `fl <code> [files]`
+#
+# fl stands for "For each Line".
+#
+# fr with a newline separator, so the line is in $r ($s is a newline, or empty for an unterminated last line). E.g.
+# `fl 'mkdir "$r"' names.txt`. A literal newline (rather than '\n') lets p use perl's own $/, skipping the slower regex
+# splitting.
 fl() { fr $'\n' "$@"; }
 
-# Like echo, but arguments end up joined without a space separating them.
-# E.g. `concat hello world` --> helloworld
-# whereas `echo hello world` --> hello world
+# Like echo, but arguments end up joined without a space separating them. E.g. `concat hello world` gives `helloworld`,
+# whereas `echo hello world` gives `hello world`.
 concat() {
-    printf '%s' "$@"
+  printf '%s' "$@"
 }
 
 alias python='python3'
 
-# govi - quickly run a draft Go program: mkcd into the directory, init a module there, create boilerplate main.go to edit in vim, then automatically format, tidy modules and run.
-#   govi [directory [module name]]
-# The directory defaults to CWD (pass "" to give a module name without changing directory) and the module name defaults to draft.
-# Refuses to run if main.go already exists in the directory, so an existing program isn't overwritten.
-# Vim opens on the Println line. Quit with :cq to skip formatting and running (loses unsaved changes).
+# Usage: `govi [directory [module name]]`
+#
+# Quickly run a draft Go program: mkcd into the directory, init a module there, create boilerplate main.go to edit in
+# vim, then automatically format, tidy modules and run. The directory defaults to CWD (pass "" to give a module name
+# without changing directory) and the module name defaults to draft. Refuse to run if main.go already exists in the
+# directory, so an existing program isn't overwritten. Vim opens on the Println line. Quit with :cq to skip formatting
+# and running (loses unsaved changes).
 govi() {
   _goinit govi "$@" && vim +6 main.go && go fmt && go mod tidy && go run .
 }
-# goco - like govi, but opens the directory in VS Code for more in-depth work, and doesn't run anything.
+
+# Like govi, but open the directory in VS Code for more in-depth work, and don't run anything.
 goco() {
   _goinit goco "$@" && code . -g main.go:6
 }
-# Shared setup for govi and goco: mkcd, init the module and create main.go. First argument is the caller's name, for errors.
+
+# Shared setup for govi and goco: mkcd, init the module and create main.go. First argument is the caller's name, for
+# errors.
 _goinit() {
   local name=$1; shift
   local dir="${1:-.}"
@@ -335,23 +358,29 @@ _goinit() {
     printf 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, world!")\n}\n' > main.go
 }
 
-# convenient git shortcuts
-alias gaa='git add -u' # add tracked files (like the -a in git commit -a)
+# Convenient git shortcuts
+alias gaa='git add -u'  # Add tracked files (like the -a in `git commit -a`).
 alias gad='git add .'
 alias gaar='gaa && git restore --staged'
 alias gadr='gad && git restore --staged'
 alias gc='git commit -m'
 alias gca='gaa && gc'
-alias gcd='gad && gc' # gcd stands for 'git commit directory' or 'git commit dot', as commits entire current directory (except .gitignored files)
-alias gcf='git commit --amend --no-edit' # gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
-alias gci='gadr .gitignore && gc' # so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
+# gcd stands for 'git commit directory' or 'git commit dot', as commits entire current directory (except .gitignored
+# files).
+alias gcd='gad && gc'
+# gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit.
+alias gcf='git commit --amend --no-edit'
+# So you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore
+# itself.
+alias gci='gadr .gitignore && gc'
 alias gcaf='gcf -a'
 alias gcdf='gad && gcf'
 alias gcif='gadr .gitignore && gcf'
 alias gl='git log --oneline'
-alias gt='gl --graph --all' # tree view of all commits
+alias gt='gl --graph --all'  # Tree view of all commits
 
-# pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream)
+# Push current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the
+# upstream).
 push() {
   if git rev-parse '@{u}' >/dev/null 2>&1; then
     git push
@@ -360,7 +389,7 @@ push() {
   fi
 }
 
-# merges current branch's remote into local (assuming remote source is called "origin")
+# Merge current branch's remote into local (assuming remote source is called "origin").
 pull() {
   local branch="$(git branch --show-current)"
   if [[ -z "$branch" ]]; then
@@ -371,25 +400,26 @@ pull() {
   git pull origin "$branch"
 }
 
-# Resets chosen local branch to its corresponding remote branch (assumes remote source is called "origin").
-# The remote branch is automatically fetched
-# Usage: reset-origin <branch>
-# If specified branch is current branch, uses `git reset --hard`
-# If specified branch is NOT current branch, uses `git branch -f`
+# Usage: `reset-origin <branch>`
+#
+# Reset chosen local branch to its corresponding remote branch (assumes remote source is called "origin"). The remote
+# branch is automatically fetched. If specified branch is current branch, use `git reset --hard`. If specified branch is
+# NOT current branch, use `git branch -f`.
 reset-origin() {
   local target="$1"
   if [[ -z "$target" ]]; then
     echo "reset-origin: must explicitly supply a branch" >&2
     return 1
-  fi;
-  
-  local current_branch="$(git branch --show-current)" # empty if not currently on a branch
+  fi
+
+  local current_branch="$(git branch --show-current)"  # Empty if not currently on a branch
   if [[ "$target" == HEAD && -n "$current_branch" ]]; then
-    target="$current_branch" # must use full branch name, not HEAD, as origin/HEAD refers to origin/main, not necessarily the intended branch
+    # Must use full branch name, not HEAD, as origin/HEAD refers to origin/main, not necessarily the intended branch.
+    target="$current_branch"
   elif [[ "$target" == HEAD ]]; then
     echo "reset-origin: supplied HEAD as the branch, but not currently on any branch" >&2
     return 1
-  fi;
+  fi
 
   git fetch origin "$target" || { echo "reset-origin: no remote branch fetched" >&2; return 1; }
   if [[ "$target" == "$current_branch" ]]; then
@@ -399,64 +429,68 @@ reset-origin() {
   fi
 }
 
-reset-main() { 
+reset-main() {
   reset-origin main
 }
 
-# Rebases current branch onto chosen remote branch (assumes remote source is called "origin").
-# The remote branch is automatically fetched before the rebase
-# Usage: rebase-origin <branch>
+# Usage: `rebase-origin <branch>`
+#
+# Rebase current branch onto chosen remote branch (assumes remote source is called "origin"). The remote branch is
+# automatically fetched before the rebase.
 rebase-origin() {
   local target="$1"
   if [[ -z "$target" ]]; then
     echo "rebase-origin: must explicitly supply a target branch" >&2
     return 1
-  fi;
-  
-  local current_branch="$(git branch --show-current)" # empty if not currently on a branch
+  fi
+
+  local current_branch="$(git branch --show-current)"  # Empty if not currently on a branch
   if [[ -z "$current_branch" ]]; then
     echo "rebase-origin: not currently on any branch" >&2
     return 1
-  fi;
+  fi
 
   git fetch origin "$target" || { echo "rebase-origin: no remote branch fetched" >&2; return 1; }
   git rebase "origin/$target"
 }
 
-rebase-main() { 
+rebase-main() {
   rebase-origin main
 }
 
-# Merges chosen remote branch into current branch (assumes remote source is called "origin").
-# The remote branch is automatically fetched before the merge
-# Usage: merge-origin <branch>
+# Usage: `merge-origin <branch>`
+#
+# Merge chosen remote branch into current branch (assumes remote source is called "origin"). The remote branch is
+# automatically fetched before the merge.
 merge-origin() {
   local source="$1"
   if [[ -z "$source" ]]; then
     echo "merge-origin: must explicitly supply a source branch" >&2
     return 1
-  fi;
-  
-  local current_branch="$(git branch --show-current)" # empty if not currently on a branch
+  fi
+
+  local current_branch="$(git branch --show-current)"  # Empty if not currently on a branch
   if [[ -z "$current_branch" ]]; then
     echo "merge-origin: not currently on any branch" >&2
     return 1
-  fi;
+  fi
 
   git fetch origin "$source" || { echo "merge-origin: no remote branch fetched" >&2; return 1; }
   git merge "origin/$source"
 }
 
-merge-main() { 
+merge-main() {
   merge-origin main
 }
 
-export GH_EXPERIMENTAL_PROMPTER=1 # make gh CLI prompt inputs more natural (otherwise, sending escape sequences like alt+backspace causes crash)
+# Make gh CLI prompt inputs more natural (otherwise, sending escape sequences like alt+backspace causes a crash).
+export GH_EXPERIMENTAL_PROMPTER=1
 
-# Push current branch and create PR for it using provided .md file, using its level-1 header as the PR title
-# Usage: pr [filepath]
-# If filepath not provided, will be prompted to enter title and body manually
-# The branch to merge into will be the value of gh-merge-base git branch config. If not configured, the repository's default branch (i.e. main) will be used.
+# Usage: `pr [filepath]`
+#
+# Push current branch and create PR for it using provided .md file, using its level-1 header as the PR title. If
+# filepath not provided, will be prompted to enter title and body manually. The branch to merge into will be the value
+# of gh-merge-base git branch config. If not configured, the repository's default branch (i.e. main) will be used.
 pr() {
   local filepath="$1"
 
@@ -469,15 +503,15 @@ pr() {
   fi
 
   if [[ -z "$filepath" ]]; then
-    # use gh's default prompt to ask for title/body
+    # Use gh's default prompt to ask for title/body.
     push || return 1
     gh pr create
     return 0
   fi
 
-  local tmp # temporary file with title removed, to use as PR body
+  local tmp  # Temporary file with title removed, to use as PR body
   tmp=$(mktemp) || return 1
-  #trap 'rm -f "$tmp"' RETURN # not valid Zsh syntax, use `always` construct instead
+  # Remove tmp afterwards with the `always` construct (`trap 'rm -f "$tmp"' RETURN` isn't valid zsh syntax).
   {
     local title=""
     local line
@@ -505,13 +539,14 @@ pr() {
   }
 }
 
-# Create a GitHub repo, set as the origin of the directory specified by `<path>` (and named as the part of the absolute path after the final `/`).
-# Usage: repo [gh repo create options] <path>
-# Private by default: pass --public or --internal to override. Other options are passed to `gh repo create`.
-# If the path is an existing directory (e.g. `.`), it's git initialised (if not already), and any commits are pushed to the new GitHub repo.
-# If the path doesn't exist, the new GitHub repo is cloned to that location.
-# gh doesn't allow --license, --gitignore or --template in the former case.
-# In either case, the CWD becomes the directory specified by <path> (i.e., the repo clone).
+# Usage: `repo [gh repo create options] <path>`
+#
+# Create a GitHub repo, set as the origin of the directory specified by `<path>` (and named as the part of the absolute
+# path after the final `/`). Private by default: pass --public or --internal to override. Other options are passed to
+# `gh repo create`. If the path is an existing directory (e.g. `.`), it's git initialised (if not already), and any
+# commits are pushed to the new GitHub repo. If the path doesn't exist, the new GitHub repo is cloned to that location.
+# gh doesn't allow --license, --gitignore or --template in the former case. In either case, the CWD becomes the
+# directory specified by <path> (i.e., the repo clone).
 repo() {
   local dir="$argv[-1]"
   if [[ $# -eq 0 || "$dir" == -* ]]; then
@@ -540,7 +575,7 @@ repo() {
   fi
 
   if [[ ! -e "$abs" ]]; then
-    # gh clones into ./name, so run it from the parent directory
+    # gh clones into ./name, so run it from the parent directory.
     mkdir -p "${abs:h}" && (cd "${abs:h}" && gh repo create "$name" --clone "${opts[@]}") && cd "$abs"
   elif [[ -d "$abs" ]]; then
     if [[ "$(git -C "$abs" rev-parse --show-toplevel 2>/dev/null)" != "${abs:A}" ]]; then
@@ -556,12 +591,10 @@ repo() {
   fi
 }
 
-## zoxide and fzf ##
-
-# Custom fzf configuration
+# Configure fzf.
 export FZF_DEFAULT_OPTS="\
 --border=sharp
---height=80% 
+--height=80%
 --layout=reverse
 --tabstop=2
 --info=hidden
@@ -579,28 +612,24 @@ export FZF_DEFAULT_OPTS="\
 --color=info:#a6adc8
 --color=border:#585b70"
 
-# Additional fzf configuration for zoxide's `zi` command.
+# Additional fzf configuration for zoxide's `zi` command
 #
-# zoxide passes entries as:
-#   <score> <directory>
-# We hide the score from the list, and keep only the directory as the searchable/displayed field. 
-# The score is still used for zoxide's ranking, which it uses to pass entries to fzf in rank order.
-# --with-nth=2.. hides zoxide's score (the first field)
-# --bind=start:change-nth(1) overrides zoxide's default fzf config to ensure fzf searches the new 1st field
+# zoxide passes entries as `<score> <directory>`. We hide the score from the list, and keep only the directory as the
+# searchable/displayed field. The score is still used for zoxide's ranking, which it uses to pass entries to fzf in rank
+# order. `--with-nth=2..` hides zoxide's score (the first field). `--bind=start:change-nth(1)` overrides zoxide's
+# default fzf config to ensure fzf searches the new 1st field.
 #
-# --no-sort prevents fzf from reordering the inputs based on fuzzy match score, 
-# because zoxide already passes the directories in its ranked order, and
-# fzf's fuzzy score reordering would not consider the original ranking.
-# --exact prevents fuzzy search, i.e., must be a substring rather than subsequence. 
-# This is needed because, with --no-sort, fzf will not change the ranking based on search likelihood. 
-# E.g. if have folders called "Downloads" and "was", with "Downloads" ranking higher, typing "was" 
-# (without --exact) would still match "Downloads" (because it still has the "was" subsequence), and 
-# "Downloads" would still take priority as a match, even though "was" is unlikely to refer to "Downloads".
+# --no-sort prevents fzf from reordering the inputs based on fuzzy match score, because zoxide already passes the
+# directories in its ranked order, and fzf's fuzzy score reordering would not consider the original ranking. --exact
+# prevents fuzzy search, i.e., must be a substring rather than subsequence. This is needed because, with --no-sort, fzf
+# will not change the ranking based on search likelihood. E.g. if have folders called "Downloads" and "was", with
+# "Downloads" ranking higher, typing "was" (without --exact) would still match "Downloads" (because it still has the
+# "was" subsequence), and "Downloads" would still take priority as a match, even though "was" is unlikely to refer to
+# "Downloads".
 #
-# `lsc` is my custom command for displaying the contents of the previewed directory. 
-# zoxide normally uses `ls`, but its column formatting produces inconsistent spacing.
-# lsc is more compact (hence the 'c')
-# `{2..}` is fzf syntax for passing the second field onward (i.e. pass the directory, not the score, to lsc).
+# `lsc` is my custom command for displaying the contents of the previewed directory. zoxide normally uses `ls`, but its
+# column formatting produces inconsistent spacing. lsc is more compact (hence the 'c'). `{2..}` is fzf syntax for
+# passing the second field onward (i.e. pass the directory, not the score, to lsc).
 export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
 --exact
 --no-sort
@@ -612,27 +641,28 @@ export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
 --preview-window=down,30%,sharp
 --exit-0"
 
-# options for fzf's own ctrl+R shortcut to fuzzy search through shell history
-# (only used if cmdlog isn't installed, as otherwise my cmdlog-history-widget replaces it - see the cmdlog section below)
+# Set options for fzf's own ctrl+R shortcut to fuzzy search through shell history (only used if cmdlog isn't installed,
+# as otherwise my cmdlog-history-widget replaces it, see the cmdlog section below).
 export FZF_CTRL_R_OPTS="\
 --with-nth=2..
 --layout=default"
 
 export BAT_THEME="Catppuccin Mocha"
-eval "$(zoxide init zsh)" # after `brew install zoxide`
-source <(fzf --zsh) # after `brew install fzf` and option configuration, to enable shortcuts (fzf still runnable without this)
+eval "$(zoxide init zsh)"  # After `brew install zoxide`
+# Enable fzf's shortcuts (fzf is still runnable without this), after `brew install fzf` and option configuration.
+source <(fzf --zsh)
 
-# Custom file browser.
-# Usage: browse [options] [directory]
-# Output: full path to the chosen file/directory
-# By default, allows multi-select (select with tab, confirm selection with enter, sent as separate lines of stdout)
+# Usage: `browse [options] [directory]`
+#
+# Custom file browser. Output: full path to the chosen file/directory. By default, allow multi-select (select with tab,
+# confirm selection with enter, sent as separate lines of stdout). If initial directory not provided, assume current
+# working directory. From the initial directory, can interactively browse by pressing left to come out of the directory,
+# right to go into the highlighted directory. Press ctrl+f to instead search every file below the directory, and again
+# to browse the highlighted entry's directory.
+#
 # Options:
-  # --group-directories-first - self explanatory.
-  # --no-multi - opt out of multi-select.
-# If initial directory not provided, assumes current working directory.
-# From the initial directory, can interactively browse by pressing
-# left to come out of the directory, right to go into the highlighted directory
-# Press ctrl+f to instead search every file below the directory, and again to browse the highlighted entry's directory
+#   - `--group-directories-first`: self explanatory
+#   - `--no-multi`: opt out of multi-select.
 browse() {
   local group=false
   local multi=true
@@ -674,14 +704,14 @@ browse() {
   local BROWSE_OPTS_STR
   printf -v BROWSE_OPTS_STR '%q ' "${BROWSE_OPTS[@]}"
 
-  local FZF_OPTS=( # fzf options specific to this browse function, in addition to FZF_DEFAULT_OPTS
-    --delimiter=$'\t' # fzf is provided full_path<TAB>pretty_path fields
-    --with-nth=2.. # only use the pretty path for display/search
-    --accept-nth=1 # only output the full path
+  local FZF_OPTS=(  # fzf options specific to this browse function, in addition to FZF_DEFAULT_OPTS
+    --delimiter=$'\t'  # fzf is provided `full_path<TAB>pretty_path` fields.
+    --with-nth=2..  # Only use the pretty path for display/search.
+    --accept-nth=1  # Only output the full path.
     --bind="right:transform(browse-in ${BROWSE_OPTS_STR} {1}),left:transform(browse-out ${BROWSE_OPTS_STR} {1})"
     --bind="ctrl-f:transform(browse-search ${BROWSE_OPTS_STR} {1})"
-    --preview="display-contents {1}" # pass the full path for displaying contents
-    --ansi # preserve colours
+    --preview="display-contents {1}"  # Pass the full path for displaying contents.
+    --ansi  # Preserve colours
   )
 
   if [[ "$multi" == true ]]; then
@@ -691,23 +721,24 @@ browse() {
   provide-contents "${PROVIDE_OPTS[@]}" "$directory" | fzf "${FZF_OPTS[@]}"
 }
 
-# alias cd so that, if no argument provided, uses my custom file browser
+# Wrap cd so that, if no argument is provided, it uses my custom file browser.
 cd() {
-  if (($# == 0)); then
+  if (( $# == 0 )); then
     builtin cd "$(browse --no-multi --group-directories-first)"
   else
-    builtin cd "$@" # pass through so special arguments like `-`, `-2` and `-P` still work
+    builtin cd "$@"  # Pass through so special arguments like `-`, `-2` and `-P` still work.
   fi
 }
 
-# ctrl+f: choose file(s) with my file browser, and insert them into the command line at the cursor (like fzf's ctrl+t)
+# Ctrl+f: choose file(s) with my file browser, and insert them into the command line at the cursor (like fzf's ctrl+t).
 browse-widget() {
-  local selected=( ${(f)"$(browse)"} ) # one entry per line (empty if cancelled)
+  local selected=( ${(f)"$(browse)"} )  # One entry per line (empty if cancelled)
   if (( ${#selected} )); then
-    LBUFFER+="${(j: :)${(@q-)selected}} " # quote each path only if needed, then join with spaces
+    LBUFFER+="${(j: :)${(@q-)selected}} "  # Quote each path only if needed, then join with spaces.
   fi
   zle reset-prompt
 }
+
 zle -N browse-widget
 bindkey -M emacs '^F' browse-widget
 bindkey -M viins '^F' browse-widget
@@ -716,7 +747,7 @@ bindkey -M vicmd '^F' browse-widget
 # Custom git branch switcher that previews the log of each branch
 switch() {
   local branches=$(git branch --format='%(refname:short)')
-  if (($? != 0)); then
+  if (( $? != 0 )); then
     echo 'switch: git branch failed: perhaps you are not in a git repository' >&2
     return 1
   elif [[ -z "$branches" ]]; then
@@ -724,10 +755,10 @@ switch() {
     return 1
   fi
 
-  local FZF_OPTS=( # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
-    --height=100% # take up entire terminal window
-    --preview="display-logs {}" # where {} injects the branch name currently selected
-    --preview-window=down,99%,sharp # make preview window take up as much horizontal and vertical space as possible
+  local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
+    --height=100%  # Take up entire terminal window
+    --preview="display-logs {}"  # `{}` injects the branch name currently selected.
+    --preview-window=down,99%,sharp  # Make preview window take up as much horizontal and vertical space as possible
   )
 
   git switch $(echo "$branches" | fzf "${FZF_OPTS[@]}")
@@ -735,8 +766,9 @@ switch() {
 
 # Custom git checkout that previews the logs of surrounding commits
 checkout() {
-  local commits=$(git log --all --format='%h') # use short hashes, to exactly match the git log --oneline used in the preview
-  if (($? != 0)); then
+  # Use short hashes, to exactly match the git log --oneline used in the preview.
+  local commits=$(git log --all --format='%h')
+  if (( $? != 0 )); then
     echo 'checkout: git log failed: perhaps you are not in a git repository' >&2
     return 1
   elif [[ -z "$commits" ]]; then
@@ -744,30 +776,30 @@ checkout() {
     return 1
   fi
 
-  local FZF_OPTS=( # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
-    --height=100% # take up entire terminal window
-    --preview="display-logs {}" # where {} injects the commit hash currently selected (can use the same program as for branches!)
-    --preview-window=down,99%,sharp # make preview window take up as much horizontal and vertical space as possible
+  local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
+    --height=100%  # Take up entire terminal window
+    # `{}` injects the commit hash currently selected (can use the same program as for branches!).
+    --preview="display-logs {}"
+    --preview-window=down,99%,sharp  # Make preview window take up as much horizontal and vertical space as possible
   )
 
   git checkout $(echo "$commits" | fzf "${FZF_OPTS[@]}")
 }
 
-## Command recording (cmdlog) ##
-# See the top of this file for how cmdlog gets started.
-# The hooks below print invisible "markers" telling cmdlog where each command's output starts and ends.
-# Each marker contains a secret only this shell and its cmdlog know, so program output can't fake one.
-# cmdlog removes the markers before passing output on to the terminal.
+# Set up command recording with cmdlog. See the top of this file for how cmdlog gets started. The hooks below print
+# invisible "markers" telling cmdlog where each command's output starts and ends. Each marker contains a secret only
+# this shell and its cmdlog know, so program output can't fake one. cmdlog removes the markers before passing output on
+# to the terminal.
 
-# Keep the secret as an unexported variable, so programs run from this shell never see it
+# Keep the secret as an unexported variable, so programs run from this shell never see it.
 if [[ -n "$CMDLOG_SECRET" ]]; then
   typeset -g _cmdlog_secret="$CMDLOG_SECRET"
   unset CMDLOG_SECRET
 fi
 
 if [[ -n "$_cmdlog_secret" ]]; then
-  # Percent-encodes the characters that can't appear inside a marker: ';' separates its fields, BEL ends it,
-  # ESC could start another escape sequence, and the terminal would turn a newline into \r\n. Result goes in $REPLY.
+  # Percent-encodes the characters that can't appear inside a marker: ';' separates its fields, BEL ends it, ESC could
+  # start another escape sequence, and the terminal would turn a newline into \r\n. Result goes in $REPLY.
   _cmdlog_encode() {
     REPLY=${1//\%/%25}
     REPLY=${REPLY//;/%3B}
@@ -777,7 +809,7 @@ if [[ -n "$_cmdlog_secret" ]]; then
     REPLY=${REPLY//$'\r'/%0D}
   }
 
-  # Runs just before each command: $1 is the command exactly as typed
+  # Run just before each command, with $1 as the command exactly as typed.
   _cmdlog_preexec() {
     local REPLY dir
     _cmdlog_encode "$PWD"
@@ -787,36 +819,36 @@ if [[ -n "$_cmdlog_secret" ]]; then
     _cmdlog_running=1
   }
 
-  # Runs just before each prompt, so $? is still the exit status of the command that just finished.
-  # Also runs before the first prompt, and after pressing enter on an empty line, when no command ran.
+  # Run just before each prompt, so $? is still the exit status of the command that just finished. Also run before the
+  # first prompt, and after pressing enter on an empty line, when no command ran.
   _cmdlog_precmd() {
     local cmd_status=$?
     if (( _cmdlog_running )); then
       print -rn -- $'\e]7777;'"$_cmdlog_secret;end;$cmd_status"$'\a'
       _cmdlog_running=0
     fi
-    return $cmd_status # leave $? as it was for the other precmd hooks (e.g. starship's, which shows the status)
+    return $cmd_status  # Leave $? as it was for the other precmd hooks (e.g. starship's, which shows the status).
   }
 
-  # Put these hooks first, so the output cmdlog captures doesn't include what other hooks print
+  # Put these hooks first, so the output cmdlog captures doesn't include what other hooks print.
   preexec_functions=(_cmdlog_preexec ${preexec_functions:#_cmdlog_preexec})
   precmd_functions=(_cmdlog_precmd ${precmd_functions:#_cmdlog_precmd})
 fi
 
-# ctrl+r: search the recorded history (replacing fzf's own ctrl+r, set up by `source <(fzf --zsh)` above).
-# Shows each distinct command once (its most recent run), and previews its directory, time, exit status and output.
-# Press enter to put the command on the command line (not run it), as fzf's ctrl+r does.
+# Ctrl+r: search the recorded history (replacing fzf's own ctrl+r, set up by `source <(fzf --zsh)` above). Shows each
+# distinct command once (its most recent run), and previews its directory, time, exit status and output. Press enter to
+# put the command on the command line (not run it), as fzf's ctrl+r does.
 if (( $+commands[cmdlog] )); then
   cmdlog-history-widget() {
-    # Whether the list starts with its commands coloured like the command line (the preview always is). Off, as colouring
-    # takes ~2ms per command, and the history only grows (~13 distinct commands a day, so ~10s for a year's worth), and this
-    # would be paid every time the list is (re)loaded. ctrl+t toggles it.
+    # Whether the list starts with its commands coloured like the command line (the preview always is). Off, as
+    # colouring takes ~2ms per command, and the history only grows (~13 distinct commands a day, so ~10s for a year's
+    # worth), and this would be paid every time the list is (re)loaded. ctrl+t toggles it.
     local colour_rows=0
     # Pressing ctrl+r again toggles between all commands and only those run in the current directory (like atuin), and
-    # ctrl+t toggles colouring the list's commands. Both reload the list. The border label shows which directory is shown
-    # and whether the list's highlighting is on, and doubles as the toggles' memory of these.
-    # (fzf runs this in a new shell, in this directory. The label is set with the `:` form, as the last action, so a
-    # directory name containing brackets can't break it. Setting CMDLOG_HIGHLIGHT to nothing stops cmdlog colouring.)
+    # ctrl+t toggles colouring the list's commands. Both reload the list. The border label shows which directory is
+    # shown and whether the list's highlighting is on, and doubles as the toggles' memory of these. (fzf runs this in a
+    # new shell, in this directory. The label is set with the `:` form, as the last action, so a directory name
+    # containing brackets can't break it. Setting CMDLOG_HIGHLIGHT to nothing stops cmdlog colouring.)
     local toggle=(
       'here=0 plain=0'
       '[[ $FZF_BORDER_LABEL == " all directories"* ]] || here=1'
@@ -828,14 +860,14 @@ if (( $+commands[cmdlog] )); then
     )
     local highlighting=off
     (( colour_rows )) && highlighting=on
-    local FZF_OPTS=( # fzf options specific to this widget, in addition to FZF_DEFAULT_OPTS
-      --delimiter=$'\t' # cmdlog search gives id<TAB>time<TAB>status<TAB>command
-      --with-nth=2.. # hide the id
-      --nth=3.. # only search the command (fields counted after --with-nth, so the 3rd shown field)
-      --accept-nth=1 # only output the id
-      --ansi # preserve colours
+    local FZF_OPTS=(  # fzf options specific to this widget, in addition to FZF_DEFAULT_OPTS
+      --delimiter=$'\t'  # cmdlog search gives `id<TAB>time<TAB>status<TAB>command`.
+      --with-nth=2..  # Hide the id.
+      --nth=3..  # Only search the command (fields counted after --with-nth, so the 3rd shown field).
+      --accept-nth=1  # Only output the id.
+      --ansi  # Preserve colours
       --scheme=history
-      --layout=default # newest commands nearest the command line
+      --layout=default  # Newest commands nearest the command line
       --query="$LBUFFER"
       --preview='cmdlog show {1}'
       --preview-window=up,50%,sharp,wrap
@@ -843,8 +875,9 @@ if (( $+commands[cmdlog] )); then
       --bind="ctrl-r,ctrl-t:transform:${(j:; :)toggle}"
     )
     # cmdlog colours the commands (in the list and the preview) as they're coloured on the command line, using
-    # ~/.zsh/highlight-commands.zsh. That needs this shell's aliases, function names and options, as they decide how commands
-    # are coloured, so save them to a file for it. (Functions starting with _ are left out, as they're mostly completions.)
+    # ~/.zsh/highlight-commands.zsh. That needs this shell's aliases, function names and options, as they decide how
+    # commands are coloured, so save them to a file for it. (Functions starting with _ are left out, as they're mostly
+    # completions.)
     local context=$(mktemp)
     {
       {
@@ -853,7 +886,8 @@ if (( $+commands[cmdlog] )); then
         for f in ${(k)functions:#_*}; do print -r -- "functions[${(q)f}]=:"; done
         print -r -- "typeset -A zsyh_user_options=(${(@qkv)options})"
       } > $context
-      local -x CMDLOG_HIGHLIGHT="zsh -f ${(q)HOME}/.zsh/highlight-commands.zsh ${(q)context}" # for cmdlog, incl. run by fzf
+      # Export for cmdlog, including when run by fzf.
+      local -x CMDLOG_HIGHLIGHT="zsh -f ${(q)HOME}/.zsh/highlight-commands.zsh ${(q)context}"
       local id
       id=$(if (( colour_rows )); then cmdlog search; else CMDLOG_HIGHLIGHT= cmdlog search; fi | fzf "${FZF_OPTS[@]}")
       if [[ -n "$id" ]]; then
@@ -865,8 +899,9 @@ if (( $+commands[cmdlog] )); then
     }
     zle reset-prompt
   }
+
   zle -N cmdlog-history-widget
-  # fzf binds ctrl+r in all three of these keymaps, so replace it in all of them (not just the current one)
+  # fzf binds ctrl+r in all three of these keymaps, so replace it in all of them (not just the current one).
   bindkey -M emacs '^R' cmdlog-history-widget
   bindkey -M viins '^R' cmdlog-history-widget
   bindkey -M vicmd '^R' cmdlog-history-widget
@@ -879,26 +914,25 @@ if [[ -n "$CMDLOG_SESSION" ]]; then
     source "$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration"
   fi
   if [[ "$TERM_PROGRAM" == vscode && -r "$CMDLOG_VSCODE_RC" && -z "$VSCODE_SHELL_INTEGRATION" ]]; then
-    unset VSCODE_INJECTION # otherwise VS Code's script would source this file again
+    unset VSCODE_INJECTION  # Otherwise VS Code's script would source this file again.
     source "$CMDLOG_VSCODE_RC"
   fi
 fi
 
-# Programs like vim can change the cursor shape and leave it changed when they exit. Ghostty's shell integration resets it
-# to a line at each prompt, but VS Code's doesn't, so do that here (\e[5 q = blinking line, matching Ghostty).
+# Programs like vim can change the cursor shape and leave it changed when they exit. Ghostty's shell integration resets
+# it to a line at each prompt, but VS Code's doesn't, so do that here (\e[5 q = blinking line, matching Ghostty).
 if [[ "$TERM_PROGRAM" == vscode ]]; then
   _vscode_reset_cursor_precmd() {
     local cmd_status=$?
     print -n '\e[5 q'
-    return $cmd_status # leave $? as it was for any later precmd hooks
+    return $cmd_status  # Leave $? as it was for any later precmd hooks.
   }
+
   precmd_functions+=(_vscode_reset_cursor_precmd)
 fi
 
-## Auto-pairing quotes and brackets ##
-
-# Auto-pair quotes and brackets (typing " inserts "", typing the closing " skips over it, backspace between "" deletes both),
-# after `brew install zsh-autopair`. It normally binds those keys (and backspace) itself, which would replace the
+# Auto-pair quotes and brackets (typing " inserts "", typing the closing " skips over it, backspace between "" deletes
+# both), after `brew install zsh-autopair`. It normally binds those keys (and backspace) itself, which would replace the
 # selection-aware typing/backspace widgets below, so stop it binding anything and call its widgets from those instead.
 # Its fallback widgets are set to zle's own, since mine (which would otherwise be picked up) call autopair's.
 AUTOPAIR_INHIBIT_INIT=1
@@ -909,15 +943,18 @@ zle -N autopair-insert
 zle -N autopair-close
 zle -N autopair-delete
 
-## Shortcuts to make editing the current terminal command resemble the behaviour of non-terminal text editors ##
-# Coded based off either:
-# the exact key sequences Ghostty & VS Code send when pressing the shortcuts at the time of writing (so far, both always agree with each other, but may not work with other terminals/configs).
-# for key sequences intercepted by the app/terminal before reaching the command-line program, explicitly provided keybindings in VS Code's keybindings.json and Ghostty's config.ghostty.
+# The shortcuts below make editing the current terminal command resemble the behaviour of non-terminal text editors.
+# They are coded based off either:
+#   - The exact key sequences Ghostty & VS Code send when pressing the shortcuts at the time of writing (so far, both
+#     always agree with each other, but may not work with other terminals/configs).
+#   - For key sequences intercepted by the app/terminal before reaching the command-line program, explicitly provided
+#     keybindings in VS Code's keybindings.json and Ghostty's config.ghostty
 
-WORDCHARS=${WORDCHARS//\//} # do not consider '/' as part of a word (word splitting is not impacted)
-# e.g. if command populated with folder/subfolder/file123.txt, deleting word becomes folder/subfolder/
+# Do not consider '/' as part of a word (word splitting is not impacted). E.g. if command populated with
+# folder/subfolder/file123.txt, deleting word becomes folder/subfolder/.
+WORDCHARS=${WORDCHARS//\//}
 
-# shift+left: select previous character
+# Shift+left: select previous character.
 select-backward-char() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -925,10 +962,11 @@ select-backward-char() {
   REGION_ACTIVE=1
   zle backward-char
 }
+
 zle -N select-backward-char
 bindkey $'\e[1;2D' select-backward-char
 
-# shift+right: select next character
+# Shift+right: select next character.
 select-forward-char() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -936,10 +974,11 @@ select-forward-char() {
   REGION_ACTIVE=1
   zle forward-char
 }
+
 zle -N select-forward-char
 bindkey $'\e[1;2C' select-forward-char
 
-# alt+shift+left: select previous word
+# Alt+shift+left: select previous word.
 select-backward-word() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -947,10 +986,11 @@ select-backward-word() {
   REGION_ACTIVE=1
   zle backward-word
 }
+
 zle -N select-backward-word
 bindkey $'\e[1;4D' select-backward-word
 
-# alt+shift+right: select next word
+# Alt+shift+right: select next word.
 select-forward-word() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -958,10 +998,11 @@ select-forward-word() {
   REGION_ACTIVE=1
   zle forward-word
 }
+
 zle -N select-forward-word
 bindkey $'\e[1;4C' select-forward-word
 
-# cmd+shift+left: select to beginning of current line
+# Cmd+shift+left: select to beginning of current line.
 select-backward-line() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -971,10 +1012,11 @@ select-backward-line() {
   CURSOR=$target
   REGION_ACTIVE=1
 }
+
 zle -N select-backward-line
 bindkey $'\e[1;10D' select-backward-line
 
-# cmd+shift+right: select to end of current line
+# Cmd+shift+right: select to end of current line.
 select-forward-line() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -985,10 +1027,11 @@ select-forward-line() {
   CURSOR=$target
   REGION_ACTIVE=1
 }
+
 zle -N select-forward-line
 bindkey $'\e[1;10C' select-forward-line
 
-# shift+up: select up a line (or to the start of the command if already on the first line)
+# Shift+up: select up a line (or to the start of the command if already on the first line).
 select-up-line() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -1000,10 +1043,11 @@ select-up-line() {
     CURSOR=0
   fi
 }
+
 zle -N select-up-line
 bindkey $'\e[1;2A' select-up-line
 
-# shift+down: select down a line (or to the end of the command if already on the last line)
+# Shift+down: select down a line (or to the end of the command if already on the last line).
 select-down-line() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -1015,10 +1059,11 @@ select-down-line() {
     CURSOR=${#BUFFER}
   fi
 }
+
 zle -N select-down-line
 bindkey $'\e[1;2B' select-down-line
 
-# cmd+shift+up: select to beginning of the whole command
+# Cmd+shift+up: select to beginning of the whole command.
 select-to-beginning-of-command() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -1026,10 +1071,11 @@ select-to-beginning-of-command() {
   REGION_ACTIVE=1
   CURSOR=0
 }
+
 zle -N select-to-beginning-of-command
 bindkey $'\e[1;10A' select-to-beginning-of-command
 
-# cmd+shift+down: select to end of the whole command
+# Cmd+shift+down: select to end of the whole command.
 select-to-end-of-command() {
   if (( ! REGION_ACTIVE )); then
     MARK=$CURSOR
@@ -1037,10 +1083,11 @@ select-to-end-of-command() {
   REGION_ACTIVE=1
   CURSOR=${#BUFFER}
 }
+
 zle -N select-to-end-of-command
 bindkey $'\e[1;10B' select-to-end-of-command
 
-# helper
+# Delete the active selection (helper for the widgets below).
 delete-active-selection() {
   local start=$MARK
   local end=$CURSOR
@@ -1056,40 +1103,43 @@ delete-active-selection() {
   REGION_ACTIVE=0
 }
 
-# Backspace: delete selection if there is one, otherwise delete previous character
+# Backspace: delete selection if there is one, otherwise delete previous character.
 delete-selection-or-backspace() {
   if (( REGION_ACTIVE )); then
     delete-active-selection
     zle redisplay
   else
-    zle autopair-delete # backward-delete-char, but also deletes the closing half of an empty pair, e.g. "|"
+    zle autopair-delete  # backward-delete-char, but also deletes the closing half of an empty pair, e.g. `"|"`.
   fi
 }
+
 zle -N delete-selection-or-backspace
 bindkey '^?' delete-selection-or-backspace
 
-# Typing: delete selection if there is one, then insert the typed character (auto-paired, if it's a quote or bracket)
+# Typing: delete selection if there is one, then insert the typed character (auto-paired, if it's a quote or bracket).
 self-insert-or-replace-selection() {
-  # autopair is written for zsh's default word splitting, and SH_WORD_SPLIT (set at the top) would make it drop a typed space
+  # autopair is written for zsh's default word splitting, and SH_WORD_SPLIT (set at the top) would make it drop a typed
+  # space.
   setopt local_options no_sh_word_split
   if (( REGION_ACTIVE )); then
     delete-active-selection
   fi
   if [[ -n ${AUTOPAIR_PAIRS[$KEYS]} ]]; then
-    zle autopair-insert # opening character (quotes, brackets, and space - which pairs to { | } inside brackets)
+    zle autopair-insert  # Opening character (quotes, brackets, and space, which pairs to { | } inside brackets)
   elif (( ${${(v)AUTOPAIR_PAIRS}[(Ie)$KEYS]} )); then
-    zle autopair-close # closing bracket
+    zle autopair-close  # Closing bracket
   else
     zle self-insert
   fi
 }
-zle -N self-insert-or-replace-selection
-bindkey -R ' '-'~' self-insert-or-replace-selection # printable ASCII characters
 
-# Left: collapse the selection if there is one, otherwise move cursor left by one character
+zle -N self-insert-or-replace-selection
+bindkey -R ' '-'~' self-insert-or-replace-selection  # Printable ASCII characters
+
+# Left: collapse the selection if there is one, otherwise move cursor left by one character.
 left-or-cancel-selection() {
   if (( REGION_ACTIVE )); then
-    # Collapse to the left edge of the selection
+    # Collapse to the left edge of the selection.
     if (( CURSOR > MARK )); then
       CURSOR=$MARK
     fi
@@ -1099,13 +1149,14 @@ left-or-cancel-selection() {
     zle backward-char
   fi
 }
+
 zle -N left-or-cancel-selection
 bindkey $'\e[D' left-or-cancel-selection
 
-# Right: collapse the selection if there is one, otherwise move cursor right by one character
+# Right: collapse the selection if there is one, otherwise move cursor right by one character.
 right-or-cancel-selection() {
   if (( REGION_ACTIVE )); then
-    # Collapse to the right edge of the selection
+    # Collapse to the right edge of the selection.
     if (( CURSOR < MARK )); then
       CURSOR=$MARK
     fi
@@ -1115,89 +1166,99 @@ right-or-cancel-selection() {
     zle forward-char
   fi
 }
+
 zle -N right-or-cancel-selection
 bindkey $'\e[C' right-or-cancel-selection
 
-# alt+left: move back one word, cancelling any selection
+# Alt+left: move back one word, cancelling any selection.
 backward-word-cancel-selection() {
   REGION_ACTIVE=0
   zle backward-word
 }
+
 zle -N backward-word-cancel-selection
 bindkey $'\eb' backward-word-cancel-selection
 
-# alt+right: move forward one word, cancelling any selection
+# Alt+right: move forward one word, cancelling any selection.
 forward-word-cancel-selection() {
   REGION_ACTIVE=0
   zle forward-word
 }
+
 zle -N forward-word-cancel-selection
 bindkey $'\ef' forward-word-cancel-selection
 
-# cmd+left: move to start of line, cancelling any selection
+# Cmd+left: move to start of line, cancelling any selection.
 beginning-of-line-cancel-selection() {
   REGION_ACTIVE=0
   zle beginning-of-line
 }
+
 zle -N beginning-of-line-cancel-selection
 bindkey $'^A' beginning-of-line-cancel-selection
 
-# cmd+right: move to end of line, cancelling any selection
+# Cmd+right: move to end of line, cancelling any selection.
 end-of-line-cancel-selection() {
   REGION_ACTIVE=0
   zle end-of-line
 }
+
 zle -N end-of-line-cancel-selection
 bindkey $'^E' end-of-line-cancel-selection
 
-# up: cancel any selection, then move up a line (or to the previous history entry if on the first line)
+# Up: cancel any selection, then move up a line (or to the previous history entry if on the first line).
 up-cancel-selection() {
   REGION_ACTIVE=0
   zle up-line-or-history
 }
+
 zle -N up-cancel-selection
 bindkey $'\e[A' up-cancel-selection
 bindkey $'\eOA' up-cancel-selection
 
-# down: cancel any selection, then move down a line (or to the next history entry if on the last line)
+# Down: cancel any selection, then move down a line (or to the next history entry if on the last line).
 down-cancel-selection() {
   REGION_ACTIVE=0
   zle down-line-or-history
 }
+
 zle -N down-cancel-selection
 bindkey $'\e[B' down-cancel-selection
 bindkey $'\eOB' down-cancel-selection
 
-# cmd+up: move to start of the whole command (not just the current line), cancelling any selection
+# Cmd+up: move to start of the whole command (not just the current line), cancelling any selection.
 beginning-of-command() {
   REGION_ACTIVE=0
   CURSOR=0
 }
+
 zle -N beginning-of-command
 bindkey $'\e[1;9A' beginning-of-command
 
-# cmd+down: move to end of the whole command, cancelling any selection
+# Cmd+down: move to end of the whole command, cancelling any selection.
 end-of-command() {
   REGION_ACTIVE=0
   CURSOR=${#BUFFER}
 }
+
 zle -N end-of-command
 bindkey $'\e[1;9B' end-of-command
 
-# cmd+backspace: delete from cursor to beginning of current line (regardless of active selection)
+# Cmd+backspace: delete from cursor to beginning of current line (regardless of active selection).
 delete-backward-line() {
   local line_start=${BUFFER[1,$CURSOR]##*$'\n'}
   local count=${#line_start}
   if (( count > 0 )); then
-    BUFFER="${BUFFER[1,$((CURSOR-count))]}${BUFFER[$((CURSOR+1)),-1]}"
-    CURSOR=$((CURSOR-count))
+    BUFFER="${BUFFER[1,$((CURSOR - count))]}${BUFFER[$((CURSOR + 1)),-1]}"
+    CURSOR=$((CURSOR - count))
   fi
 }
+
 zle -N delete-backward-line
 bindkey $'^U' delete-backward-line
 
-# cmd+c: copy active selection to clipboard
-# in Ghostty / VS Code, I actually only send if press cmd+shift+c, because cmd+c is already used by them to mean copy TERMINAL's selection (e.g. following mouse drag) rather than ZSH's
+# Cmd+c: copy active selection to clipboard. In Ghostty / VS Code, I actually only send if press cmd+shift+c, because
+# cmd+c is already used by them to mean copy TERMINAL's selection (e.g. following mouse drag) rather than ZSH's.
 copy-selection-to-clipboard() {
   if (( REGION_ACTIVE )); then
     local start=$MARK
@@ -1212,10 +1273,11 @@ copy-selection-to-clipboard() {
     print -rn -- "${BUFFER[start+1,end]}" | pbcopy
   fi
 }
+
 zle -N copy-selection-to-clipboard
 bindkey $'\e[99;9u' copy-selection-to-clipboard
 
-# cmd+x: cut active selection to clipboard
+# Cmd+x: cut active selection to clipboard.
 cut-selection-to-clipboard() {
   if (( REGION_ACTIVE )); then
     local start=$MARK
@@ -1234,15 +1296,13 @@ cut-selection-to-clipboard() {
     REGION_ACTIVE=0
   fi
 }
+
 zle -N cut-selection-to-clipboard
 bindkey $'\e[120;9u' cut-selection-to-clipboard
 
-# undo/redo
-#bindkey '^_' undo # commented out as undo is already the response to '^_'
+# Bind redo (undo is already the response to '^_', so needs no binding).
 bindkey '^[/' redo
 
-## Syntax highlighting of the command being typed ##
-
-# Must stay at the very end of this file (zsh-syntax-highlighting's docs require it to be sourced after everything else
-# that defines zle widgets)
+# Highlight the syntax of the command being typed. This must stay at the very end of this file
+# (zsh-syntax-highlighting's docs require it to be sourced after everything else that defines zle widgets).
 source ~/.zsh/syntax-highlighting.zsh

@@ -1,6 +1,6 @@
-" Additions to Vim's Go syntax highlighting (/usr/share/vim/vim91/syntax/go.vim, with the extra highlighting turned on in
-" .vimrc), which runs before this, so Go is coloured as VS Code colours it (Catppuccin theme, with gopls' semantic tokens).
-" Colours are from the Catppuccin Mocha palette.
+" Additions to Vim's Go syntax highlighting (/usr/share/vim/vim91/syntax/go.vim, with the extra highlighting turned on
+" in .vimrc), which runs before this, so Go is coloured as VS Code colours it (Catppuccin theme, with gopls' semantic
+" tokens). Colours are from the Catppuccin Mocha palette.
 
 " Function calls: blue, like function declarations, instead of yellow (types)
 hi! link goFunctionCall Function
@@ -8,7 +8,7 @@ hi! link goFunctionCall Function
 hi! link goBuiltins Function
 
 " Built-in types (int, string, error etc), and true, false, nil and iota: mauve, as gopls marks them all as built in,
-" instead of yellow (types) and peach (constants)
+" instead of yellow (types) and peach (constants).
 hi! link goType Keyword
 hi! link goSignedInts Keyword
 hi! link goUnsignedInts Keyword
@@ -30,5 +30,5 @@ hi! link goParamName goParamStyle
 
 " case and default: mauve, like other keywords, instead of sapphire (labels)
 hi! link goLabel Keyword
-" Runes ('x'): green, like strings, instead of teal (characters)
+" Runes (`'x'`): green, like strings, instead of teal (characters)
 hi! link goCharacter String

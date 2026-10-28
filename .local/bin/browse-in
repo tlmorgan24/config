@@ -1,6 +1,7 @@
 #!/bin/bash
-# usage: browse-in <highlighted entry's full path>
-# intended as private helper for my custom `browse` function
+# Usage: `browse-in <highlighted entry's full path>`
+#
+# Intended as a private helper for my custom `browse` function
 
 options=()
 while [[ $# -gt 1 ]]; do
@@ -9,9 +10,9 @@ while [[ $# -gt 1 ]]; do
 done
 
 path="$1"
+# If the highlighted entry is not a directory, do nothing (makes no sense to navigate into a file).
 if [[ -d "$path" ]]; then
   printf 'reload(provide-contents'
   printf ' %q' "${options[@]}"
-  printf ' {1})+first+change-border-label()\n' # (clears the label, in case this ends a search - see browse-search)
+  printf ' {1})+first+change-border-label()\n'  # Clear the label, in case this ends a search (see browse-search).
 fi
-# if highlighted entry is not a directory, do nothing (makes no sense to navigate into a file)

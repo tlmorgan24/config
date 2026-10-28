@@ -1,5 +1,5 @@
-// cmdlog records every command run in an interactive zsh session (timestamp, directory, command,
-// exit status and output) into a SQLite database, and serves that history to my fzf-based ctrl+r.
+// cmdlog records every command run in an interactive zsh session (timestamp, directory, command, exit status and
+// output) into a SQLite database, and serves that history to my fzf-based ctrl+r.
 //
 // Usage:
 //
@@ -28,14 +28,14 @@ import (
 const schema = `
 CREATE TABLE IF NOT EXISTS commands (
 	id           INTEGER PRIMARY KEY,
-	session      TEXT NOT NULL,              -- random id of the shell session the command ran in
-	started      REAL NOT NULL,              -- unix time, in seconds
+	session      TEXT NOT NULL,              -- Random id of the shell session the command ran in
+	started      REAL NOT NULL,              -- Unix time, in seconds
 	ended        REAL,                       -- NULL if the command never finished (e.g. its terminal was closed)
-	dir          TEXT NOT NULL,              -- working directory the command was run from
-	command      TEXT NOT NULL,              -- exactly as typed
-	status       INTEGER,                    -- exit status, NULL if the command never finished
-	output       TEXT,                       -- with colour codes kept, for display
-	output_plain TEXT,                       -- without any escape codes, for searching
+	dir          TEXT NOT NULL,              -- Working directory the command was run from
+	command      TEXT NOT NULL,              -- Exactly as typed
+	status       INTEGER,                    -- Exit status, NULL if the command never finished
+	output       TEXT,                       -- With colour codes kept, for display
+	output_plain TEXT,                       -- Without any escape codes, for searching
 	interactive  INTEGER NOT NULL DEFAULT 0, -- 1 if a full-screen/mouse program ran, so only output after it exited was kept
 	truncated    INTEGER NOT NULL DEFAULT 0  -- 1 if the output was too long, so only its end was kept
 );
@@ -72,7 +72,7 @@ func usage() {
 	os.Exit(2)
 }
 
-// dataDir holds the database and the error log: $CMDLOG_DIR, or ~/.local/share/cmdlog
+// dataDir holds the database and the error log: $CMDLOG_DIR, or ~/.local/share/cmdlog.
 func dataDir() (string, error) {
 	if dir := os.Getenv("CMDLOG_DIR"); dir != "" {
 		return dir, nil
@@ -84,8 +84,8 @@ func dataDir() (string, error) {
 	return filepath.Join(home, ".local", "share", "cmdlog"), nil
 }
 
-// openDB opens (creating if needed) the database. Command output can contain secrets,
-// so the directory and database are only readable by the user.
+// openDB opens (creating if needed) the database. Command output can contain secrets, so the directory and database are
+// only readable by the user.
 func openDB() (*sql.DB, error) {
 	dir, err := dataDir()
 	if err != nil {
@@ -102,8 +102,8 @@ func openDB() (*sql.DB, error) {
 		f.Close()
 	}
 
-	// WAL lets ctrl+r read while recorders (one per open terminal) write. busy_timeout makes
-	// concurrent writers wait for each other instead of failing.
+	// WAL lets ctrl+r read while recorders (one per open terminal) write. busy_timeout makes concurrent writers wait
+	// for each other instead of failing.
 	db, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)")
 	if err != nil {
 		return nil, err
@@ -115,8 +115,8 @@ func openDB() (*sql.DB, error) {
 	return db, nil
 }
 
-// openLog sends errors to ~/.local/share/cmdlog/errors.log, as the recorder can't print them
-// without them appearing in the middle of the terminal
+// openLog sends errors to ~/.local/share/cmdlog/errors.log, as the recorder can't print them without them appearing in
+// the middle of the terminal.
 func openLog() {
 	dir, err := dataDir()
 	if err != nil {

@@ -1,6 +1,7 @@
 #!/bin/bash
-# usage: browse-out <highlighted entry's full path>
-# intended as private helper for my custom `browse` function
+# Usage: `browse-out <highlighted entry's full path>`
+#
+# Intended as a private helper for my custom `browse` function
 
 options=()
 while [[ $# -gt 1 ]]; do
@@ -9,17 +10,17 @@ while [[ $# -gt 1 ]]; do
 done
 
 path="$1"
-# get current directory (i.e., the directory in which the highlighted entry sits)
+# Get the current directory (i.e., the directory in which the highlighted entry sits).
 if [[ "$path" == */ && "$path" != / ]]; then
-  cur="${path%/}" # empty-directory placeholder entry (see provide-contents)
+  cur="${path%/}"  # Empty-directory placeholder entry (see provide-contents)
 else
-  cur="${path%/*}" # normal entry
+  cur="${path%/*}"  # Normal entry
 fi
 [[ -z "$cur" ]] && cur=/
 
-parent=$(dirname -- "$cur") # parent of current directory (to navigate to)
+parent=$(dirname -- "$cur")  # Parent of current directory (to navigate to)
 
+# For simplicity, highlight the first item of the list instead of trying to highlight the directory just exited.
 printf 'reload(provide-contents'
 printf ' %q' "${options[@]}"
-printf ' %q)+first+change-border-label()\n' "$parent" # (clears the label, in case this ends a search - see browse-search)
-# for simplicity, highlights first item of list instead of trying to highlight the directory just exited
+printf ' %q)+first+change-border-label()\n' "$parent"  # Clear the label, in case this ends a search (see browse-search).

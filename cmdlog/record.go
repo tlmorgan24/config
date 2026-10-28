@@ -18,29 +18,29 @@ import (
 	"golang.org/x/term"
 )
 
-// the most output kept per command (the end is kept, as that's usually where errors are)
+// The most output kept per command (the end is kept, as that's usually where errors are).
 const maxCapture = 4 << 20
 
-// total bytes typed into the terminal, to tell whether keys were pressed while a command ran
+// Total bytes typed into the terminal, to tell whether keys were pressed while a command ran
 var typed atomic.Int64
 
-// how long to wait for the rest of a possible marker before passing the held-back bytes to the terminal
+// How long to wait for the rest of a possible marker before passing the held-back bytes to the terminal
 const flushDelay = 20 * time.Millisecond
 
-// how often to check which process is in the foreground, to keep VS Code's terminal title up to date
-// (the same as VS Code itself checks)
+// How often to check which process is in the foreground, to keep VS Code's terminal title up to date (the same as VS
+// Code itself checks)
 const titleInterval = 200 * time.Millisecond
 
 // record runs the shell under a pty, sitting between it and the terminal:
 //
 //	terminal  <->  cmdlog record (this)  <->  shell
 //
-// Keystrokes pass to the shell unchanged. Output passes to the terminal unchanged except that markers
-// (see marker.go) are removed: they tell us where each command starts and ends, and while a command
-// runs, its output is captured to be saved to the database when it finishes.
+// Keystrokes pass to the shell unchanged. Output passes to the terminal unchanged except that markers (see marker.go)
+// are removed: they tell us where each command starts and ends, and while a command runs, its output is captured to be
+// saved to the database when it finishes.
 //
-// If anything goes wrong before the shell starts, the shell is run directly instead (unrecorded),
-// so a broken cmdlog never leaves you without a shell.
+// If anything goes wrong before the shell starts, the shell is run directly instead (unrecorded), so a broken cmdlog
+// never leaves you without a shell.
 func record(args []string) error {
 	if len(args) != 1 {
 		return errors.New("usage: cmdlog record <shell>")
@@ -50,7 +50,7 @@ func record(args []string) error {
 
 	fallback := func(err error) error {
 		logger.Printf("recording disabled for this session: %v", err)
-		env := append(os.Environ(), "CMDLOG_SESSION=off") // stops .zshrc from trying to start cmdlog again
+		env := append(os.Environ(), "CMDLOG_SESSION=off") // Stop .zshrc from trying to start cmdlog again.
 		return syscall.Exec(shell, []string{shell}, env)
 	}
 
@@ -72,7 +72,7 @@ func record(args []string) error {
 
 	// From here on, the shell is running: errors are logged, and recording carries on as best it can.
 
-	// keep the shell's window size in step with the terminal's
+	// Keep the shell's window size in step with the terminal's.
 	winch := make(chan os.Signal, 1)
 	signal.Notify(winch, syscall.SIGWINCH)
 	go func() {
@@ -84,8 +84,8 @@ func record(args []string) error {
 	}()
 	winch <- syscall.SIGWINCH
 
-	// raw mode: every keystroke (including ctrl+c etc) goes straight through to the shell's pty,
-	// whose own terminal settings then decide what it means
+	// Switch to raw mode, so every keystroke (including ctrl+c etc) goes straight through to the shell's pty, whose own
+	// terminal settings then decide what it means.
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		logger.Printf("raw mode: %v", err)
@@ -119,7 +119,7 @@ func record(args []string) error {
 			if n > 0 {
 				chunks <- append([]byte(nil), buf[:n]...)
 			}
-			if err != nil { // EIO once the shell (and anything else using its pty) has gone
+			if err != nil { // EIO once the shell (and anything else using its pty) has gone.
 				return
 			}
 		}
@@ -131,13 +131,13 @@ func record(args []string) error {
 		close(shellDone)
 	}()
 
-	// the terminal being closed (SIGHUP), or a request to stop (SIGTERM)
+	// Watch for the terminal being closed (SIGHUP), or a request to stop (SIGTERM).
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGHUP, syscall.SIGTERM)
 
 	w := newWriter(db, session)
 	parser := &markerParser{secret: secret}
-	var running *command // the command currently running, if any
+	var running *command // The command currently running, if any
 	var lastOutput time.Time
 
 	output := func(data []byte) {
@@ -148,14 +148,14 @@ func record(args []string) error {
 		}
 	}
 
-	// VS Code names a terminal after the process in the foreground of its pty, which is always this one
-	// (cmdlog). So tell it the name of the process in the foreground of the shell's pty instead, as a title
-	// sequence, which VS Code shows when its terminal.integrated.tabs.title setting is "${sequence}".
+	// VS Code names a terminal after the process in the foreground of its pty, which is always this one (cmdlog). So
+	// tell it the name of the process in the foreground of the shell's pty instead, as a title sequence, which VS Code
+	// shows when its terminal.integrated.tabs.title setting is "${sequence}".
 	var titleTicker <-chan time.Time
 	if os.Getenv("TERM_PROGRAM") == "vscode" {
 		titleTicker = time.Tick(titleInterval)
 	}
-	title := "" // the title last sent
+	title := "" // The title last sent
 
 	var flushTimer, exitTimer <-chan time.Time
 loop:
@@ -172,7 +172,7 @@ loop:
 				}
 				switch ev.marker.kind {
 				case "start":
-					if running != nil { // its end marker never came: save what we have
+					if running != nil { // Its end marker never came, so save what we have.
 						w.finish(running, nil)
 					}
 					running = w.start(ev.marker.fields[0], ev.marker.fields[1])
@@ -195,7 +195,8 @@ loop:
 			output(parser.flush())
 			flushTimer = nil
 		case <-titleTicker:
-			// only once output has paused, so the title can't land in the middle of the program's own escape sequences
+			// Only set the title once output has paused, so it can't land in the middle of the program's own escape
+			// sequences.
 			if time.Since(lastOutput) < titleInterval/4 || len(parser.pending) > 0 {
 				continue
 			}
@@ -204,8 +205,8 @@ loop:
 				writeAll(os.Stdout, []byte("\x1b]2;"+name+"\a"))
 			}
 		case <-shellDone:
-			// normally the pty closes straight after, ending the loop. But a background job that is
-			// still running can keep the pty open, so don't wait for it for long
+			// Normally the pty closes straight after, ending the loop. But a background job that is still running can
+			// keep the pty open, so don't wait for it for long.
 			shellDone = nil
 			exitTimer = time.After(200 * time.Millisecond)
 		case <-exitTimer:
@@ -241,7 +242,7 @@ func writeAll(f *os.File, data []byte) {
 	}
 }
 
-// dropControl (for strings.Map) removes control characters, which could end a title sequence early
+// dropControl (for strings.Map) removes control characters, which could end a title sequence early.
 func dropControl(r rune) rune {
 	if r < 0x20 || r == 0x7f {
 		return -1
@@ -255,24 +256,24 @@ func randomHex(n int) string {
 	return hex.EncodeToString(b)
 }
 
-// command is a command that has started, whose output is being captured
+// command is a command that has started, whose output is being captured.
 type command struct {
-	id        int64 // row id, only touched by the writer goroutine
+	id        int64 // Row id, only touched by the writer goroutine
 	started   time.Time
-	typedAt   int64 // value of `typed` when the command started
+	typedAt   int64 // Value of `typed` when the command started
 	output    []byte
 	truncated bool
 }
 
 func (c *command) capture(data []byte) {
 	c.output = append(c.output, data...)
-	if len(c.output) > 2*maxCapture { // trim occasionally rather than on every write
+	if len(c.output) > 2*maxCapture { // Trim occasionally rather than on every write.
 		c.output = append([]byte(nil), c.output[len(c.output)-maxCapture:]...)
 		c.truncated = true
 	}
 }
 
-// writer does all database work on its own goroutine, so a slow write can never hold up the terminal
+// writer does all database work on its own goroutine, so a slow write can never hold up the terminal.
 type writer struct {
 	db      *sql.DB
 	session string
@@ -300,7 +301,7 @@ func (w *writer) submit(job func()) {
 	}
 }
 
-// start records a command as soon as it starts, so it's in the history even if it never finishes
+// start records a command as soon as it starts, so it's in the history even if it never finishes.
 func (w *writer) start(dir, cmdline string) *command {
 	c := &command{started: time.Now(), typedAt: typed.Load()}
 	w.submit(func() {
@@ -315,7 +316,7 @@ func (w *writer) start(dir, cmdline string) *command {
 	return c
 }
 
-// finish saves a command's exit status (nil if unknown) and output
+// finish saves a command's exit status (nil if unknown) and output.
 func (w *writer) finish(c *command, status *int) {
 	ended := time.Now()
 	raw := c.output
@@ -327,7 +328,7 @@ func (w *writer) finish(c *command, status *int) {
 	}
 	c.output = nil
 	w.submit(func() {
-		if c.id == 0 { // its start was never saved
+		if c.id == 0 { // Its start was never saved.
 			return
 		}
 		colored, plain, interactive := cleanOutput(raw, keysPressed)
@@ -343,7 +344,7 @@ func (w *writer) finish(c *command, status *int) {
 	})
 }
 
-// close waits for outstanding writes, giving up after a few seconds so the terminal can always close
+// close waits for outstanding writes, giving up after a few seconds so the terminal can always close.
 func (w *writer) close() {
 	close(w.jobs)
 	select {

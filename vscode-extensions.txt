@@ -1,15 +1,15 @@
-# VS Code extensions installed by install.sh (one ID per line, # for comments).
-# Only list top-level extensions: packs/dependencies pull in the rest automatically.
+# VS Code extensions installed by install.sh (one ID per line, # for comments). Only list top-level extensions:
+# packs/dependencies pull in the rest automatically.
 
-catppuccin.catppuccin-vsc # theme
-catppuccin.catppuccin-vsc-icons # file icons
+catppuccin.catppuccin-vsc  # Theme
+catppuccin.catppuccin-vsc-icons  # File icons
 github.vscode-github-actions
-ms-azuretools.vscode-docker # also installs vscode-containers
+ms-azuretools.vscode-docker  # Also installs vscode-containers.
 golang.go
-ms-python.python # also installs pylance, debugpy, python-envs
-ms-toolsai.jupyter # also installs jupyter keymap, renderers, cell-tags, slideshow
+ms-python.python  # Also installs pylance, debugpy, python-envs.
+ms-toolsai.jupyter  # Also installs jupyter keymap, renderers, cell-tags, slideshow.
 ms-toolsai.datawrangler
 mechatroner.rainbow-csv
-tomoki1207.pdf # show pdfs as images rather than code
-yzhang.markdown-all-in-one # markdown shortcuts, table formatting, table of contents
-xadillax.viml # vim script highlighting for .vimrc and .vim files (VS Code has none built in)
+tomoki1207.pdf  # Show pdfs as images rather than code.
+yzhang.markdown-all-in-one  # Markdown shortcuts, table formatting, table of contents
+xadillax.viml  # Vim script highlighting for .vimrc and .vim files (VS Code has none built in)

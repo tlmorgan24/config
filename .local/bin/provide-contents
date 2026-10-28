@@ -1,10 +1,10 @@
 #!/bin/bash
-# Usage: provide-contents [options] directory
-# Options are to pass directly to the eza command
-# dependencies: eza
-# for each entry in the directory, provides field 1 as the full path, and field 2 as the nicely formatted path
-# uses tabs to separate, assumption being that tabs will not appear in any paths
-# if directory is empty, prints <directory>/<TAB><NEWLINE>, so that navigating into the directory is recoverable with browse-out
+# Usage: `provide-contents [options] directory`
+#
+# Options are passed directly to the eza command. Dependencies: eza. For each entry in the directory, provide field 1 as
+# the full path, and field 2 as the nicely formatted path. Use tabs to separate, assumption being that tabs will not
+# appear in any paths. If directory is empty, print `<directory>/<TAB><NEWLINE>`, so that navigating into the directory
+# is recoverable with browse-out.
 
 options=()
 while [[ $# -gt 1 ]]; do
@@ -29,12 +29,13 @@ pretty_paths=$(
   eza "${options[@]}" -1 --no-quotes --color=always --icons=always -- "$directory"
 )
 
-if [[ -z "$full_paths" && -z "$pretty_paths" ]]; then # nothing inside directory
+if [[ -z "$full_paths" && -z "$pretty_paths" ]]; then  # Nothing inside directory
   current_path=$(realpath -- "$directory")
   if [[ "$current_path" != / ]]; then
     current_path+=/
   fi
   printf '%s\t\n' "$current_path"
 else
-  paste <(printf '%s\n' "$full_paths") <(printf '%s\n' "$pretty_paths") # join corresponding lines together, tab-separated
+  # Join corresponding lines together, tab-separated.
+  paste <(printf '%s\n' "$full_paths") <(printf '%s\n' "$pretty_paths")
 fi
