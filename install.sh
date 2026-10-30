@@ -49,14 +49,13 @@ fi
 
 # Now, `brew` will be added to PATH, and subsequent `brew install`ed programs will also be discoverable through PATH.
 
-# Handy tools
+# Handy CLI tools
 brew install ripgrep  # Better grep (command is `rg`)
 brew install fd  # Better find
 brew install eza  # More visual ls
 brew install bat  # More user-friendly cat
 brew install zoxide  # Smart cd to most likely directory (command is `z`), paired with `eval "$(zoxide init zsh)"` in ~/.zshrc
 brew install fzf  # Fuzzy find
-brew install --cask maccy  # Clipboard history
 
 # GNU utilities to use instead of macOS's default BSD utilities (e.g. gsed for GNU sed instead of BSD sed)
 brew install gnu-sed
@@ -66,6 +65,11 @@ brew install coreutils
 
 brew install git
 brew install gh
+brew install --cask docker
+
+brew install zsh-syntax-highlighting
+brew install zsh-autopair  # Auto-closes quotes and brackets as they're typed.
+brew install --cask maccy  # Clipboard history
 
 # Programming languages
 brew install go  # Used for building my cmdlog program (see copy.sh)
@@ -73,17 +77,17 @@ brew install python  # But executable is python3 (I alias it back to python in .
 
 # My preferred font (alternative: `brew install --cask font-fira-code-nerd-font`)
 brew install --cask font-jetbrains-mono-nerd-font
-brew install --cask ghostty  # My preferred terminal
+# My preferred terminal
+brew install --cask ghostty
 # My preferred prompt customiser (i.e. to replace "user@MacBook"). powerlevel10k is an alternative, but not actively
 # maintained.
 brew install starship
-brew install zsh-syntax-highlighting
-brew install zsh-autopair  # Auto-closes quotes and brackets as they're typed.
-brew install --cask visual-studio-code  # My preferred IDE
 
+# My preferred IDE
+brew install --cask visual-studio-code  
 # Install VS Code extensions (strip comments and blank lines, then install each ID). Must come after installation of VS
 # Code.
 sed -e 's/#.*//' -e 's/[[:space:]]//g' "$script_dir/vscode-extensions.txt" | grep . | xargs -L1 code --install-extension
 
-# Random handy tools
+# Other tools with specific use cases
 brew install poppler  # For working with pdfs, e.g. merge with `pdfunite`, extract text with `pdftotext`
