@@ -9,6 +9,10 @@ if [[ -o interactive && -t 0 && -t 1 && "$TERM" != dumb && -z "$CMDLOG_SESSION" 
   exec cmdlog record "${commands[zsh]:-/bin/zsh}"
 fi
 
+# Stop here for Claude Code's shell (i.e., the shell it uses to run its own commands), as otherwise my options/aliases 
+# below depart from its expected command behaviour and cause things to break.
+[[ -n "$CLAUDECODE" ]] && return
+
 setopt interactive_comments  # Interpret '#' as comment, even interactively (i.e. outside scripts).
 setopt SH_WORD_SPLIT  # Split words on whitespace, for same behaviour as Bash.
 setopt EXTENDED_GLOB
