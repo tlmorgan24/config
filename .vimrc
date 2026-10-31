@@ -48,6 +48,17 @@ augroup END
 let &t_EI = "\<Esc>[2 q"
 let &t_SI = "\<Esc>[5 q"  " Insert mode: blinking bar cursor
 let &t_SR = "\<Esc>[4 q"  " Replace mode: underline cursor
+" Vim only sends the above on a change of mode, so also send the block cursor on startup (and on returning from `:!`).
+" Otherwise vim starts with the shell's cursor (a line in VS Code; Ghostty's shell integration happens to reset it to a
+" block before each command).
+let &t_ti .= "\<Esc>[2 q"
+" Visual mode (all three kinds): blinking bar cursor, as in insert mode. Vim has no t_ option for visual mode, so send
+" the cursor codes on entering it, and on returning to normal mode (from visual, or via e.g. `:` from visual).
+augroup visualcursor
+  autocmd!
+  autocmd ModeChanged *:[vV\x16]* call echoraw("\<Esc>[5 q")
+  autocmd ModeChanged *:n call echoraw("\<Esc>[2 q")
+augroup END
 
 " IMPORTANT: it seems .vimrc keymaps are really brittle. You CANNOT add comments to the end of the keymap lines, or they
 " break. For e.g. ctrl+A and ctrl+E, you MUST use `<Char-0x01>` and `<Char-0x05>`. If you use `<C-A>` and `<C-E>`, even
@@ -63,6 +74,10 @@ inoremap <LeftDrag> <Cmd>let g:drag_pos = getcurpos()<CR><Esc><Cmd>call setpos('
 
 " Backspace in visual mode: delete selection and enter insert mode (like c, rather than the default d).
 xnoremap <BS> c
+
+" Left/Right at the start/end of a line: move to the end/start of the previous/next line, in all modes (< and > for
+" normal and visual mode, [ and ] for insert and replace mode). Vim's default is b,s (Backspace and Space).
+set whichwrap+=<,>,[,]
 
 " Alt + Left: move back a word.
 nnoremap <Esc>b b
@@ -100,13 +115,14 @@ inoremap <M-BS> <C-w>
 " Cmd + Backspace: delete to start of line (requires this complex approach to prevent leftover character).
 inoremap <expr> <Char-0x15> "\<C-g>u" . repeat("\<BS>", strchars(strpart(getline('.'), 0, col('.') - 1)))
 
-" Shift + Left/Right: extend selection by one character (entering visual mode if not already there).
-nnoremap <S-Left>  vh
-nnoremap <S-Right> vl
-inoremap <S-Left>  <C-o>vh
-inoremap <S-Right> <C-o>vl
-xnoremap <S-Left>  h
-xnoremap <S-Right> l
+" Shift + Left/Right: extend selection by one character (entering visual mode if not already there). Uses the arrow keys
+" rather than h/l so that they wrap to the previous/next line (see whichwrap above).
+nnoremap <S-Left>  v<Left>
+nnoremap <S-Right> v<Right>
+inoremap <S-Left>  <C-o>v<Left>
+inoremap <S-Right> <C-o>v<Right>
+xnoremap <S-Left>  <Left>
+xnoremap <S-Right> <Right>
 
 " Alt + Shift + Left/Right: extend selection by one word (entering visual mode if not already there).
 nnoremap <M-S-Left>  vb
