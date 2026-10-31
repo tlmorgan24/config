@@ -574,6 +574,11 @@ repo() {
     fi
   fi
 
+  if gh repo view "$name" >/dev/null 2>&1; then
+    echo "repo: you already have a GitHub repo named $name" >&2
+    return 1
+  fi
+
   if [[ ! -e "$abs" ]]; then
     # gh clones into ./name, so run it from the parent directory.
     mkdir -p "${abs:h}" && (cd "${abs:h}" && gh repo create "$name" --clone "${opts[@]}") && cd "$abs"
@@ -589,6 +594,41 @@ repo() {
     echo "repo: $dir exists but isn't a directory" >&2
     return 1
   fi
+}
+
+# git clone with automatic cd into cloned repository. Takes the same args as git clone.
+clonecd() {
+  local -a valued=(--origin --branch --upload-pack --template --config --depth --shallow-since --shallow-exclude
+    --reference --reference-if-able --separate-git-dir --jobs --filter --server-option --bundle-uri --ref-format
+    --revision)
+  local -a operands
+  local arg i bare=0
+  for (( i = 1; i <= $#; i++ )); do
+    arg="${@[i]}"
+    if [[ "$arg" == -- ]]; then
+      operands+=("${@[i+1,-1]}")
+      break
+    elif [[ "$arg" != -?* ]]; then
+      operands+=("$arg")
+    elif [[ "$arg" == --bare || "$arg" == --mirror ]]; then
+      bare=1
+    elif (( ${valued[(Ie)$arg]} )); then
+      (( i++ ))
+    elif [[ "$arg" =~ '^-[^obucj]*[obucj]$' ]]; then
+      (( i++ ))  # Short flags can be bundled, e.g. -qb main, and only the last one can take a value.
+    fi
+  done
+  [[ -n "${operands[1]}" ]] || { echo 'usage: clonecd [flags] repository [directory]' >&2; return 1 }
+  local dir="${operands[2]}"
+  if [[ -z "$dir" ]]; then
+    # Name it the way git does, e.g. https://github.com/user/repo.git/ and git@github.com:user/repo.git both give repo
+    # (or repo.git if bare).
+    dir="${operands[1]%%/##}"
+    dir="${${${dir%/.git}%.git}%.bundle}"
+    dir="${dir##*[/:]}"
+    (( bare )) && dir+=.git
+  fi
+  git clone "$@" && cd -- "$dir"
 }
 
 # Configure fzf.
