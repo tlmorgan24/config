@@ -7,6 +7,14 @@ $status
 $directory """
 right_format = "$git_state$git_metrics$git_branch$git_commit"
 
+# Used by my .zshrc after a command is suspended (e.g. with ctrl+z), in place of the format above (keep the two in
+# sync).
+[profiles]
+suspended = """
+[suspended ⏸](bold yellow)
+
+$directory """
+
 [status]
 disabled = false
 format = "$symbol"

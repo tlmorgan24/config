@@ -41,6 +41,25 @@ export VISUAL=vim
 
 eval "$(starship init zsh)"  # After `brew install starship`
 
+# Succeed if exit status $1 means the command was suspended (e.g. with ctrl+z) rather than finished. Such a status is
+# 128 + the number of the signal that stopped it (e.g. 146 for SIGTSTP, number 18 on macOS).
+_is_suspended_status() {
+  (( $1 > 128 )) && [[ ${signals[$1 - 127]} == (TSTP|TTIN|TTOU|STOP) ]]
+}
+
+# After a command is suspended, show starship's "suspended" profile (see starship.toml) instead of the usual prompt,
+# which would show the status like a failure. Starship's prompt command gets `$_starship_profile`, empty unless
+# suspended.
+PROMPT=${PROMPT/" prompt --terminal-width"/" prompt \$_starship_profile --terminal-width"}
+_starship_suspended_precmd() {
+  local cmd_status=$?
+  _starship_profile=
+  _is_suspended_status $cmd_status && _starship_profile=--profile=suspended
+  return $cmd_status  # Leave $? as it was for any later precmd hooks.
+}
+
+precmd_functions+=(_starship_suspended_precmd)
+
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
@@ -1085,7 +1104,7 @@ _queue_preexec() {
 _queue_precmd() {
   local cmd_status=$?
   if (( _queue_follow && $#_queue )); then
-    if (( cmd_status > 128 )) && [[ ${signals[cmd_status - 127]} == (TSTP|TTIN|TTOU|STOP) ]]; then
+    if _is_suspended_status $cmd_status; then
       :  # Suspended again, so keep the queue for when it's resumed.
     elif (( cmd_status == 0 )); then
       _queue_autorun=1
