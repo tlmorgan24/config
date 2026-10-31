@@ -1017,6 +1017,104 @@ if [[ "$TERM_PROGRAM" == vscode ]]; then
   precmd_functions+=(_vscode_reset_cursor_precmd)
 fi
 
+# Queue commands to run after the current one. While a command runs, press ctrl+z to suspend it, type the next command
+# and press cmd+enter: this adds it to the queue and resumes the suspended command (with `fg`). Once that finishes
+# successfully, each queued command runs in turn as if typed (so each gets its own history entry and cmdlog record).
+# Ctrl+z works on these too, to queue more. If one fails (or is stopped with ctrl+c), the rest of the queue is dropped.
+typeset -ga _queue  # Commands waiting to run, in order
+typeset -ga _queue_dropped  # The last queue dropped or cleared, for `requeue` to restore
+typeset -gi _queue_follow  # Whether the next queued command should run once the current command succeeds
+typeset -gi _queue_starting  # Whether the command about to run is the next one from the queue
+typeset -gi _queue_autorun  # Whether the next prompt should run the next queued command instead of waiting for input
+
+# Cmd+enter on an empty line adds nothing, but still resumes the suspended command (or starts the queue if there's no
+# job left to wait for, e.g. after killing it).
+queue-command() {
+  [[ -n "${BUFFER//[[:space:]]/}" ]] && _queue+=("$BUFFER")
+  if (( $#jobstates )); then
+    if (( $#_queue )); then
+      zle -I
+      print -r -- "Queued: ${(j: → :)_queue}"
+    fi
+    BUFFER=fg
+  elif (( $#_queue )); then
+    BUFFER=$_queue[1]
+    shift _queue
+    _queue_starting=1
+  else
+    return
+  fi
+  zle accept-line
+}
+
+zle -N queue-command
+bindkey $'\e[13;9u' queue-command # custom bound cmd+enter to this escape sequence in my Ghostty and VS Code configs
+
+# Clear the queue manually, printing what was dropped.
+unqueue() {
+  (( $#_queue )) || return 0
+  print -r -- "Queue cleared (\`requeue\` restores it): ${(j: → :)_queue}"
+  _queue_dropped=("${_queue[@]}")
+  _queue=()
+}
+
+# Put the last dropped queue back (ahead of anything queued since), and carry on with it once the suspended
+# job finishes, or straight away if there's none. E.g. after a queued command fails, fix the problem and run
+# `<failed command> && requeue` to retry it and continue with the queue you had previously set up.
+requeue() {
+  if (( ! $#_queue_dropped )); then
+    print -r -- "requeue: nothing to restore" >&2
+    return 1
+  fi
+  _queue=("${_queue_dropped[@]}" "${_queue[@]}")
+  _queue_dropped=()
+  (( $#jobstates )) || _queue_autorun=1
+}
+
+# Run just before each command, with $1 as the command exactly as typed. Only follow the queue after a queued command
+# or one that resumes a job (`fg`, `%1` etc), so e.g. killing the suspended job doesn't start the queue.
+_queue_preexec() {
+  if (( _queue_starting )) || [[ "$1" == (fg|fg[[:space:]]*|%*) ]]; then
+    _queue_follow=1
+  else
+    _queue_follow=0
+  fi
+  _queue_starting=0
+}
+
+_queue_precmd() {
+  local cmd_status=$?
+  if (( _queue_follow && $#_queue )); then
+    if (( cmd_status > 128 )) && [[ ${signals[cmd_status - 127]} == (TSTP|TTIN|TTOU|STOP) ]]; then
+      :  # Suspended again, so keep the queue for when it's resumed.
+    elif (( cmd_status == 0 )); then
+      _queue_autorun=1
+    else
+      print -r -- "Queue dropped (exit status $cmd_status, \`requeue\` restores it): ${(j: → :)_queue}"
+      _queue_dropped=("${_queue[@]}")
+      _queue=()
+    fi
+  fi
+  _queue_follow=0
+  (( $#_queue && ! _queue_autorun )) && print -r -- "Queued: ${(j: → :)_queue}"
+  return $cmd_status  # Leave $? as it was for any later precmd hooks.
+}
+
+# Run when each prompt starts accepting input, to run the next queued command if _queue_precmd said to.
+_queue_line_init() {
+  (( _queue_autorun )) || return
+  _queue_autorun=0
+  BUFFER=$_queue[1]
+  shift _queue
+  _queue_starting=1
+  zle accept-line
+}
+
+preexec_functions+=(_queue_preexec)
+precmd_functions+=(_queue_precmd)
+autoload -Uz add-zle-hook-widget
+add-zle-hook-widget line-init _queue_line_init
+
 # Auto-pair quotes and brackets (typing " inserts "", typing the closing " skips over it, backspace between "" deletes
 # both), after `brew install zsh-autopair`. It normally binds those keys (and backspace) itself, which would replace the
 # selection-aware typing/backspace widgets below, so stop it binding anything and call its widgets from those instead.

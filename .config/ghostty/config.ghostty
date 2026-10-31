@@ -22,6 +22,8 @@ keybind = cmd+up=text:\x1b[1;9A
 keybind = cmd+down=text:\x1b[1;9B
 keybind = cmd+shift+up=text:\x1b[1;10A
 keybind = cmd+shift+down=text:\x1b[1;10B
+# Override Ghostty default of cmd+enter meaning "toggle fullscreen" (cmd+ctrl+f still does that), for my zsh queue.
+keybind = cmd+enter=text:\x1b[13;9u
 
 # Intention: copy command-line program's current selection to clipboard (would use cmd+c, but Ghostty already uses this
 # to copy its OWN selection, e.g. following mouse drag). cmd+shift+c would technically be 10u (9u is for cmd+c), but I
