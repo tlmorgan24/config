@@ -490,13 +490,50 @@ merge-main() {
 # Make gh CLI prompt inputs more natural (otherwise, sending escape sequences like alt+backspace causes a crash).
 export GH_EXPERIMENTAL_PROMPTER=1
 
-# Usage: `pr [filepath]`
+# Usage: `pr [options]`
 #
-# Push current branch and create PR for it using provided .md file, using its level-1 header as the PR title. If
-# filepath not provided, will be prompted to enter title and body manually. The branch to merge into will be the value
-# of gh-merge-base git branch config. If not configured, the repository's default branch (i.e. main) will be used.
+# Push current branch and create PR for it, using the .md file passed with `--md <filepath>` (or `--md=<filepath>`) and
+# taking its level-1 header as the PR title. Other options are passed to `gh pr create`.
+# If `--base` not specified, the branch to merge into will be the repository's default branch (i.e. main).
 pr() {
-  local filepath="$1"
+  local filepath=""
+  local -a opts  # Options to pass to `gh pr create`
+  local title_body_opt=""  # Title/body option passed, which would conflict with `--md`
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --md)
+        if [[ $# -lt 2 ]]; then
+          echo "pr: --md requires a filepath" >&2
+          return 1
+        fi
+        filepath="$2"
+        shift 2
+        ;;
+      --md=*)
+        filepath="${1#--md=}"
+        shift
+        ;;
+      -[tbF]*|--title|--title=*|--body|--body=*|--body-file|--body-file=*)
+        title_body_opt="${1%%=*}"
+        opts+=("$1")
+        shift
+        ;;
+      *)
+        opts+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  if [[ -n "$filepath" && ! -f "$filepath" ]]; then
+    echo "pr: no such file: $filepath" >&2
+    return 1
+  fi
+  if [[ -n "$filepath" && -n "$title_body_opt" ]]; then
+    echo "pr: can't combine $title_body_opt with --md, which already sets the title and body" >&2
+    return 1
+  fi
 
   if ! gh auth status >/dev/null 2>&1; then
     echo "Not authenticated - follow steps below to log in..."
@@ -509,7 +546,7 @@ pr() {
   if [[ -z "$filepath" ]]; then
     # Use gh's default prompt to ask for title/body.
     push || return 1
-    gh pr create
+    gh pr create "${opts[@]}"
     return 0
   fi
 
@@ -537,7 +574,7 @@ pr() {
     fi
 
     push || return 1
-    gh pr create -t "$title" -F "$tmp"
+    gh pr create -t "$title" -F "$tmp" "${opts[@]}"
   } always {
     rm -f "$tmp"
   }
