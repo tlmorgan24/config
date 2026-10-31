@@ -631,6 +631,11 @@ clonecd() {
   git clone "$@" && cd -- "$dir"
 }
 
+# Like clonecd, but also open the cloned repository in VS Code.
+cloneco() {
+  clonecd "$@" && code .
+}
+
 # Configure fzf.
 export FZF_DEFAULT_OPTS="\
 --border=sharp
