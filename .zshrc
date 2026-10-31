@@ -1289,8 +1289,10 @@ delete-backward-line() {
   local line_start=${BUFFER[1,$CURSOR]##*$'\n'}
   local count=${#line_start}
   if (( count > 0 )); then
-    BUFFER="${BUFFER[1,$((CURSOR - count))]}${BUFFER[$((CURSOR + 1)),-1]}"
-    CURSOR=$((CURSOR - count))
+    # Computed before assigning BUFFER, since that clamps CURSOR to the new length if the cursor was at the end.
+    local target=$(( CURSOR - count ))
+    BUFFER="${BUFFER[1,$target]}${BUFFER[$((CURSOR + 1)),-1]}"
+    CURSOR=$target
   fi
 }
 
