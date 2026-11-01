@@ -388,14 +388,14 @@ _goinit() {
 
 # Convenient git shortcuts
 alias gaa='git add -u'  # Add tracked files (like the -a in `git commit -a`).
-alias gad='git add .'
+alias gad='git add .'  # 'd' stands for 'dot' or 'directory', as stages entire current directory (except .gitignored)
+alias gap='git add -p .'  # Stage changes interactively, patch by patch (instead of entire files).
 alias gaar='gaa && git restore --staged'
 alias gadr='gad && git restore --staged'
 alias gc='git commit -m'
 alias gca='gaa && gc'
-# gcd stands for 'git commit directory' or 'git commit dot', as commits entire current directory (except .gitignored
-# files).
 alias gcd='gad && gc'
+alias gcp='gap && gc'
 # gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit.
 alias gcf='git commit --amend --no-edit'
 # So you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore
@@ -406,6 +406,7 @@ alias gcdf='gad && gcf'
 alias gcif='gadr .gitignore && gcf'
 alias gl='git log --oneline'
 alias gt='gl --graph --all'  # Tree view of all commits
+alias gs='git status'
 
 # Push current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the
 # upstream).
@@ -509,6 +510,40 @@ merge-origin() {
 
 merge-main() {
   merge-origin main
+}
+
+# Usage: `drop <commit>`
+#
+# Remove a commit from history (e.g. `drop HEAD`, `drop HEAD~3`), leaving files as if it had never been made, while
+# keeping staged and unstaged changes as they are. Refuses commits that are already pushed (use `git revert` for those).
+drop() {
+  local commit
+  commit="$(git rev-parse --verify --quiet "$1^{commit}")"
+  if [[ -z "$1" || -z "$commit" ]]; then
+    echo "drop: must supply an existing commit" >&2
+    return 1
+  fi
+
+  if git merge-base --is-ancestor "$commit" '@{u}' 2>/dev/null; then
+    echo "drop: $1 is already pushed, so use git revert instead" >&2
+    return 1
+  fi
+
+  # Only stash if there are changes, as otherwise nothing is stashed and the pop below would pop an unrelated stash.
+  local stashed=0
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    git stash push --quiet --message "drop $1" || return 1
+    stashed=1
+  fi
+
+  if ! git rebase --quiet --onto "$commit~" "$commit"; then
+    echo "drop: rebase stopped, so fix the conflicts and run git rebase --continue (or git rebase --abort)" >&2
+    (( stashed )) && echo "drop: then restore your changes with git stash pop --index" >&2
+    return 1
+  fi
+
+  (( stashed )) && git stash pop --quiet --index
+  return 0
 }
 
 # Make gh CLI prompt inputs more natural (otherwise, sending escape sequences like alt+backspace causes a crash).

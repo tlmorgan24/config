@@ -119,12 +119,14 @@ Utilities:
 
 Git 1:
 * `gaa` - alias for `git add -u` - adds tracked files (like the -a in `git commit -a`)
-* `gad` - alias for `git add .`
+* `gad` - alias for `git add .` - 'd' stands for 'dot' or 'directory', as stages entire current directory (except .gitignored files)
+* `gap` - alias for `git add -p .` - stages changes interactively, patch by patch (instead of entire files)
 * `gaar` - alias for `git add -u && git restore --staged`
 * `gadr` - alias for `git add . && git restore --staged`
 * `gc` - alias for `git commit -m`
 * `gca` - alias for `git add -u && git commit -m` (like `git commit -am`)
-* `gcd` - alias for `git add . && git commit -m` - gcd stands for 'git commit directory' or 'git commit dot', as commits entire current directory (except .gitignored files)
+* `gcd` - alias for `git add . && git commit -m`
+* `gcp` - alias for `git add -p . && git commit -m`
 * `gcf` - alias for `git commit --amend --no-edit` - gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
 * `gci` - alias for `git add . && git restore --staged .gitignore && git commit -m` - so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
 * `gcaf` - alias for `git commit -a --amend --no-edit`
@@ -132,6 +134,7 @@ Git 1:
 * `gcif` - alias for `git add . && git restore --staged .gitignore && git commit --amend --no-edit`
 * `gl` - alias for `git log --oneline`
 * `gt` - alias for `git log --graph --oneline --all` - tree view of all commits
+* `gs` - alias for `git status`
 
 Git 2:
 * `push` - pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream)
@@ -142,6 +145,7 @@ Git 2:
 * `rebase-main` - equivalent to `rebase-origin main`
 * `merge-origin <branch>` - merges chosen remote branch into current branch. The remote branch is automatically fetched before the merge.
 * `merge-main` - equivalent to `merge-origin main`
+* `drop <commit>` - removes a commit (e.g. `HEAD`, `HEAD~3` or a hash) from history, leaving files as if it had never been made, while keeping your staged and unstaged changes as they are. Refuses commits that are already pushed (use `git revert` for those). Uses `git rebase` internally, so if later commits conflict with the removal, it will stop so you can resolve them.
 * `pr [options]` - pushes current branch and creates PR to merge it into main. The .md file passed with `--md <filepath>` (anywhere among the options) is parsed to use its level-1 header (e.g. `# My PR title`) as the PR title and the rest of the file as the body (assuming no other level-1 headers). Other options (e.g. `--draft`) are passed to `gh pr create`, except title/body options can't be combined with `--md`. If neither these nor `--md` are provided, will be prompted to enter title and body manually.
 * `repo [gh repo create options] <path>` - creates a private GitHub repo (unless `--public`/`--internal` passed) set as the origin of the directory specified by `<path>`. If directory exists (e.g. `.`), it is `git init`ed (if not already), and any commits are pushed. If the directory doesn't exist, it is created and `git init`ed.
 * `clonecd [flags] <repository> [directory]` - like `git clone`, but then `cd`s into the cloned repository. Arguments are same as `git clone`.
