@@ -936,7 +936,9 @@ bindkey -M vicmd '^F' browse-widget
 
 # Custom git branch switcher that previews the log of each branch
 switch() {
-  local branches=$(git branch --format='%(refname:short)')
+  # Declare separately, as `local` would replace git's exit status with its own (always 0).
+  local branches
+  branches=$(git branch --sort=-committerdate --format='%(refname:short)')  # Most recent tip first
   if (( $? != 0 )); then
     echo 'switch: git branch failed: perhaps you are not in a git repository' >&2
     return 1
@@ -948,7 +950,15 @@ switch() {
   local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
     --height=100%  # Take up entire terminal window
     --preview="display-logs {}"  # `{}` injects the branch name currently selected.
-    --preview-window=down,99%,sharp  # Make preview window take up as much horizontal and vertical space as possible
+    --no-sort  # Keep the most recent first while filtering, rather than ranking by match quality.
+    --exact  # Match substrings only, as unsorted subsequence matches are mostly noise (see `zi`).
+    # fzf always keeps at least one list row, plus one more for each border line the preview window has, so hide the
+    # preview's border and the separator line to leave only the prompt and one list row above the preview. Then colour
+    # everything in that row with fzf's background colour (`bg` in FZF_DEFAULT_OPTS), so it looks like a gap.
+    --preview-window=down,99%,border-none  # Make preview window take up as much space as possible
+    --no-separator
+    --color='fg+:#1e1e2e,bg+:#1e1e2e,hl+:#1e1e2e,pointer:#1e1e2e,gutter:#1e1e2e,scrollbar:#1e1e2e'
+    --color='preview-scrollbar:#585b70'  # Restore the `border` colour, as setting `scrollbar` also changed this.
   )
 
   git switch $(echo "$branches" | fzf "${FZF_OPTS[@]}")
@@ -957,7 +967,8 @@ switch() {
 # Custom git checkout that previews the logs of surrounding commits
 checkout() {
   # Use short hashes, to exactly match the git log --oneline used in the preview.
-  local commits=$(git log --all --format='%h')
+  local commits  # Declared separately, like `branches` in `switch`
+  commits=$(git log --all --format='%h')
   if (( $? != 0 )); then
     echo 'checkout: git log failed: perhaps you are not in a git repository' >&2
     return 1
@@ -970,7 +981,13 @@ checkout() {
     --height=100%  # Take up entire terminal window
     # `{}` injects the commit hash currently selected (can use the same program as for branches!).
     --preview="display-logs {}"
-    --preview-window=down,99%,sharp  # Make preview window take up as much horizontal and vertical space as possible
+    --no-sort  # Keep the commits in date order while filtering, like the branches in `switch`.
+    --exact  # Match substrings only, as subsequence matches of hex hashes are mostly noise.
+    --preview-window=down,99%,border-none  # Make preview window take up as much space as possible
+    # Leave only the prompt and a row that looks like a gap above the preview (see `switch`).
+    --no-separator
+    --color='fg+:#1e1e2e,bg+:#1e1e2e,hl+:#1e1e2e,pointer:#1e1e2e,gutter:#1e1e2e,scrollbar:#1e1e2e'
+    --color='preview-scrollbar:#585b70'
   )
 
   git checkout $(echo "$commits" | fzf "${FZF_OPTS[@]}")
