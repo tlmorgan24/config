@@ -73,6 +73,11 @@ setopt HIST_FIND_NO_DUPS
 export EDITOR=vim
 export VISUAL=vim
 
+# Use emacs-style line editing (e.g. ctrl+_ to undo, sent by cmd+z). Zsh picks vi mode instead if $EDITOR or $VISUAL
+# contains "vi" when it starts, which happens in shells started by programs that inherited them from this file (e.g.
+# VS Code opened with `code .`).
+bindkey -e
+
 eval "$(starship init zsh)"  # After `brew install starship`
 
 # Succeed if exit status $1 means the command was suspended (e.g. with ctrl+z) rather than finished. Such a status is
