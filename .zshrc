@@ -751,9 +751,8 @@ export FZF_COMPLETION_OPTS=--height=100%
 # passing the second field onward (i.e. pass the directory, not the score, to lsc).
 #
 # `--height=100%` for the same reason as FZF_CTRL_T_OPTS above, because when zoxide opens fzf from tab completion
-# (`z foo<space><tab>`), it redraws the prompt afterwards like a shortcut. zoxide uses these options for `zi` too,
-# so a consequence of this change is that `zi` also uses the whole window (even though it would have been fine at
-# e.g. 80%, like other commands typed at the prompt).
+# (`z foo<space><tab>`), it redraws the prompt afterwards like a shortcut. `zi` overrides this (see below), as it's
+# typed at the prompt so doesn't the whole window.
 export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
 --height=100%
 --exact
@@ -776,6 +775,14 @@ export FZF_CTRL_R_OPTS="\
 
 export BAT_THEME="Catppuccin Mocha"
 eval "$(zoxide init zsh)"  # After `brew install zoxide`
+
+# Keep `zi` at 80% like other commands typed at the prompt (e.g. `browse`), overriding the `--height=100%` in
+# _ZO_FZF_OPTS (only needed for zoxide's tab completion). zoxide's own `zi` just calls `__zoxide_zi`, and fzf uses the
+# last `--height` it's given.
+zi() {
+  _ZO_FZF_OPTS="$_ZO_FZF_OPTS --height=80%" __zoxide_zi "$@"
+}
+
 # Enable fzf's shortcuts (fzf is still runnable without this), after `brew install fzf` and option configuration.
 source <(fzf --zsh)
 
