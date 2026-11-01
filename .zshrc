@@ -17,6 +17,26 @@ setopt interactive_comments  # Interpret '#' as comment, even interactively (i.e
 setopt SH_WORD_SPLIT  # Split words on whitespace, for same behaviour as Bash.
 setopt EXTENDED_GLOB
 
+# Use zsh's completion system, which completes each command's subcommands, flags and arguments (e.g. git branches),
+# rather than just file and command names. Includes the completions Homebrew installs in its site-functions folder.
+# zsh/complist, loaded first, provides the menu and colours below.
+zmodload zsh/complist
+autoload -Uz compinit
+compinit
+# Show matches as a menu, moved through with the arrow keys or Tab and Shift+Tab, with the current match highlighted and
+# inserted.
+zstyle ':completion:*' menu select
+bindkey -M menuselect $'\e[Z' reverse-menu-complete  # Shift+Tab
+# Let lowercase letters also match uppercase ones, so `re<tab>` completes README.md, while uppercase letters still only
+# match uppercase.
+zstyle ':completion:*' matcher-list 'm:{[:lower:]}={[:upper:]}'
+# Colour matches by file type, as eza (i.e. ls) does rather than zsh's default (e.g. red directories), and list them in
+# groups under headings (e.g. aliases, functions and external commands).
+zstyle ':completion:*' list-colors 'di=1;34' 'ln=36' 'ex=1;32'
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%F{yellow}%d%f'
+zstyle ':completion:*' use-cache on  # Cache the results of slow completions (e.g. brew's package names).
+
 # Completion puts a space after the completed word, which zsh removes again if the next character typed is ;, & or |
 # (e.g. `git add README.md;`). Keep the space for & and |, so `git add RE<tab>&&` gives `git add README.md &&` rather
 # than `git add README.md&&`.
