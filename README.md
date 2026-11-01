@@ -152,6 +152,7 @@ Git 2:
 * `cloneco [flags] <repository> [directory]` - like `clonecd`, but also opens the repository in VS Code.
 * `switch` - interactive `git switch` that previews the logs of each branch. Type to fuzzy search, navigate with up/down arrows. Choose the branch to switch to by pressing enter.
 * `checkout` - interactive `git checkout` that previews the log of each commit and its surroundings.
+* `rebase` - `git rebase -i --autostash` with interactive todo list showing the current branch's history. Mark the commit under the cursor with p/r/e/s/f/d (pick/reword/edit/squash/fixup/drop), unmark it with u, and move it up/down with Option+up/down. Shift+up/down scrolls the preview. Commit hashes are yellow if not yet pushed, and red if the upstream branch already has them. The rebase starts just below the oldest commit marked or moved (shown as "onto"), so you don't need to know the base upfront. Note that staged changes come back unstaged after the rebase (git's autostash doesn't keep the index). Written as a Go program in `rebase/`, built into `~/.local/bin` by `./copy.sh`.
 
 ### Vim
 
@@ -213,5 +214,4 @@ Also, Claude Code is prevented from loading my full .zshrc by the `[[ -n "$CLAUD
 
 # Future work
 
-* Create interactive rebase tool that has a similar display to my interactive switch/checkout tools, allowing user to mark each commit as pick/edit/fixup etc and choose the base without having to know it upfront.
 * Enable shift + click to expand selection from old cursor position to new cursor position in vim

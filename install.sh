@@ -76,7 +76,7 @@ brew install zsh-autopair  # Auto-closes quotes and brackets as they're typed.
 brew install --cask maccy  # Clipboard history
 
 # Programming languages
-brew install go  # Used for building my cmdlog program (see copy.sh)
+brew install go
 brew install python  # But executable is python3 (I alias it back to python in .zshrc).
 
 # My preferred font (alternative: `brew install --cask font-fira-code-nerd-font`)

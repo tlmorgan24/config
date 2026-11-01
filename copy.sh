@@ -11,6 +11,7 @@ rsync -av \
   --exclude='.gitignore' \
   --exclude='README.md' \
   --exclude='cmdlog/' \
+  --exclude='rebase/' \
   --exclude='vscode-extensions.txt' \
   --exclude='/setup.sh' \
   --exclude='/install.sh' \
@@ -28,6 +29,8 @@ fi
 
 # Build my cmdlog program (for my custom ctrl+r, see .zshrc) from its source in this repo.
 (cd "$script_dir/cmdlog" && go build -o "$LOCAL_BIN/cmdlog" .)
+# Build my rebase program (an interactive `git rebase -i`, see README.md) from its source in this repo.
+(cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/rebase" .)
 
 # Apply Maccy (clipboard history) settings with `defaults write` rather than by copying its preferences file (macOS
 # caches preferences, so a copied file can be ignored or overwritten, and the file also holds window positions etc).
