@@ -1,0 +1,32 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "model": "opus",
+  "effortLevel": "high",
+  "modelSettings": {
+    "claude-opus-5": {
+      "effortLevel": "high"
+    },
+    "claude-opus-5-5": {
+      "effortLevel": "high"
+    }
+  },
+  "theme": "auto",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Monitor|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/guard-process-kill.sh",
+            "onFailure": "block"
+          }
+        ]
+      }
+    ]
+  }
+}

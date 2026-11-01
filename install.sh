@@ -56,6 +56,10 @@ brew install eza  # More visual ls
 brew install bat  # More user-friendly cat
 brew install zoxide  # Smart cd to most likely directory (command is `z`), paired with `eval "$(zoxide init zsh)"` in ~/.zshrc
 brew install fzf  # Fuzzy find
+# JSON processor. macOS 15+ includes it, so only install it if missing.
+if ! command -v jq >/dev/null; then
+  brew install jq
+fi
 
 # GNU utilities to use instead of macOS's default BSD utilities (e.g. gsed for GNU sed instead of BSD sed)
 brew install gnu-sed
