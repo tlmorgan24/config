@@ -1,7 +1,9 @@
-// rebase is an interactive `git rebase -i` that lists the current branch's history (newest first, like my `switch` and
-// `checkout` in .zshrc), with a preview of the commit under the cursor. Mark commits with an action (pick, reword,
-// edit, squash, fixup or drop) and move them up and down, and the rebase starts just below the oldest commit marked or
-// moved, so its base doesn't need to be known upfront.
+// rebase is an interactive `git rebase -i` that lists the history as it will be once rebased: a graph of all branches
+// (newest first, like my `switch` and `checkout` in .zshrc), with a preview of the commit under the cursor. Mark the
+// current branch's commits with an action (pick, reword, edit, squash, fixup or drop) and move them up and down, and
+// the rebase starts just below the oldest commit marked or moved, so its base doesn't need to be known upfront. To
+// move the branch onto another commit (`git rebase --onto`), choose that commit as the base, and optionally where on
+// the branch the rebase stops (the cutoff).
 //
 // Usage:
 //
@@ -57,28 +59,24 @@ func run() (int, error) {
 	if err := h.fill(p, pageSize); err != nil {
 		return 0, err
 	}
-	todo, base, err := choose(p, h)
+	todo, onto, cutoff, err := choose(p, h)
 	if err != nil || todo == "" {
 		return 0, err
 	}
-	return rebase(todo, base)
+	return rebase(todo, onto, cutoff)
 }
 
 // history loads HEAD's history into a plan as the user scrolls down it.
 type history struct {
-	unpushed map[string]bool // Commits the upstream branch doesn't contain, or nil if there's no upstream
+	unpushed map[string]bool // Local commits that no remote-tracking branch contains (e.g. origin/main)
 }
 
 func newHistory() (*history, error) {
-	h := &history{}
-	if _, err := git("rev-parse", "--verify", "--quiet", "@{u}"); err != nil {
-		return h, nil // No upstream, so nothing counts as pushed.
-	}
-	out, err := git("rev-list", "HEAD", "^@{u}")
+	out, err := git("rev-list", "--all", "--not", "--remotes")
 	if err != nil {
 		return nil, err
 	}
-	h.unpushed = map[string]bool{}
+	h := &history{unpushed: map[string]bool{}}
 	for _, hash := range strings.Fields(out) {
 		h.unpushed[hash] = true
 	}
@@ -103,7 +101,7 @@ func (h *history) fill(p *plan, n int) error {
 			}
 			c := commit{hash: fields[0], short: fields[1], parents: len(strings.Fields(fields[2])), refs: fields[3],
 				subject: fields[4]}
-			c.pushed = h.unpushed != nil && !h.unpushed[c.hash]
+			c.pushed = !h.unpushed[c.hash]
 			commits = append(commits, c)
 		}
 		p.add(commits)
@@ -112,9 +110,10 @@ func (h *history) fill(p *plan, n int) error {
 	return nil
 }
 
-// rebase runs `git rebase -i` with the given todo list in place of the one git would open in an editor. An empty base
-// rebases from the root commit.
-func rebase(todo, base string) (int, error) {
+// rebase runs `git rebase -i` with the given todo list in place of the one git would open in an editor. It rebases
+// onto onto, or (if that's empty) onto cutoff, which is where the rebase stops; an empty cutoff rebases from the root
+// commit.
+func rebase(todo, onto, cutoff string) (int, error) {
 	f, err := os.CreateTemp("", "rebase-todo-")
 	if err != nil {
 		return 0, err
@@ -129,10 +128,13 @@ func rebase(todo, base string) (int, error) {
 	}
 
 	args := []string{"rebase", "--interactive", "--autostash"}
-	if base == "" {
+	if onto != "" {
+		args = append(args, "--onto", onto)
+	}
+	if cutoff == "" {
 		args = append(args, "--root")
 	} else {
-		args = append(args, base)
+		args = append(args, cutoff)
 	}
 	cmd := exec.Command("git", args...)
 	// git runs the sequence editor with the todo file's path as its last argument, so this copies ours over it. Only
@@ -149,10 +151,28 @@ func rebase(todo, base string) (int, error) {
 
 // git runs git and returns its output, or an error that includes what git printed to stderr.
 func git(args ...string) (string, error) {
-	out, err := exec.Command("git", args...).Output()
+	return gitCmd(exec.Command("git", args...))
+}
+
+// gitWith runs git like git does, with the given environment.
+func gitWith(env []string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Env = env
+	return gitCmd(cmd)
+}
+
+// gitInput runs git like git does, with the given input.
+func gitInput(input string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Stdin = strings.NewReader(input)
+	return gitCmd(cmd)
+}
+
+func gitCmd(cmd *exec.Cmd) (string, error) {
+	out, err := cmd.Output()
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-		return "", fmt.Errorf("git %s: %s", args[0], strings.TrimSpace(string(exitErr.Stderr)))
+		return "", fmt.Errorf("git %s: %s", cmd.Args[1], strings.TrimSpace(string(exitErr.Stderr)))
 	}
 	return string(out), err
 }

@@ -16,7 +16,7 @@ func newPlan(complete bool, subjects ...string) *plan {
 	return p
 }
 
-func TestSizeAndBase(t *testing.T) {
+func TestSizeAndCutoff(t *testing.T) {
 	p := newPlan(false, "e", "d", "c", "b", "a")
 	if n := p.size(); n != 0 {
 		t.Fatalf("unmarked plan has size %d, want 0", n)
@@ -26,8 +26,8 @@ func TestSizeAndBase(t *testing.T) {
 	if n := p.size(); n != 3 {
 		t.Fatalf("size %d, want 3", n)
 	}
-	if base, _ := p.base(3); base != "hb" {
-		t.Fatalf("base %q, want hb", base)
+	if cutoff, _ := p.cutoffAt(3); cutoff != "hb" {
+		t.Fatalf("cutoff %q, want hb", cutoff)
 	}
 
 	// Moving e down below b covers all of e..b, and unmarking c then mustn't shrink the rebase past the moved commit,
@@ -39,8 +39,8 @@ func TestSizeAndBase(t *testing.T) {
 	if n := p.size(); n != 4 {
 		t.Fatalf("size after move %d, want 4", n)
 	}
-	if base, _ := p.base(4); base != "ha" {
-		t.Fatalf("base after move %q, want ha", base)
+	if cutoff, _ := p.cutoffAt(4); cutoff != "ha" {
+		t.Fatalf("cutoff after move %q, want ha", cutoff)
 	}
 
 	// Moving it back to where it was leaves nothing to rebase.
@@ -73,16 +73,64 @@ func TestSizeIncludesFoldTarget(t *testing.T) {
 	}
 }
 
-func TestBaseAtRoot(t *testing.T) {
+func TestCutoffAtRoot(t *testing.T) {
 	p := newPlan(true, "b", "a")
 	p.entries[1].action = "reword"
-	if base, err := p.base(p.size()); base != "" || err != nil {
-		t.Fatalf("base %q, %v, want the root", base, err)
+	if cutoff, err := p.cutoffAt(p.size()); cutoff != "" || err != nil {
+		t.Fatalf("cutoff %q, %v, want the root", cutoff, err)
 	}
 
 	p.complete = false
-	if _, err := p.base(p.size()); err == nil {
-		t.Fatal("base of an incompletely loaded history succeeded")
+	if _, err := p.cutoffAt(p.size()); err == nil {
+		t.Fatal("cutoff of an incompletely loaded history succeeded")
+	}
+}
+
+func TestBaseAndCutoff(t *testing.T) {
+	// A base on another branch that lacks the newest three commits rebases those three onto it.
+	p := newPlan(false, "e", "d", "c", "b", "a")
+	p.base, p.baseSize = commit{hash: "hx", short: "x"}, 3
+	size := p.size()
+	if size != 3 || !p.moves(size) {
+		t.Fatalf("size %d, moves %v, want 3 and true", size, p.moves(size))
+	}
+	if onto, _ := p.onto(size); onto != "hx" {
+		t.Fatalf("onto %q, want hx", onto)
+	}
+	// Marking below that extends the rebase, as without a base.
+	p.entries[3].action = "reword"
+	if n := p.size(); n != 4 {
+		t.Fatalf("size with a mark below %d, want 4", n)
+	}
+
+	// A cutoff fixes the size, so the mark below it is an error.
+	p.cutoff = "hc"
+	if n := p.size(); n != 2 {
+		t.Fatalf("size with a cutoff %d, want 2", n)
+	}
+	if err := p.check(); err == nil || !strings.Contains(err.Error(), "cutoff") {
+		t.Fatalf("mark below the cutoff gave %v", err)
+	}
+	p.entries[3].action = ""
+	if err := p.check(); err != nil {
+		t.Fatal(err)
+	}
+	// So is moving a commit down past it.
+	p.swap(1, 2)
+	if err := p.check(); err == nil {
+		t.Fatal("move below the cutoff succeeded")
+	}
+	p.swap(1, 2)
+
+	// The base can't be one of the commits being rebased.
+	p.base = commit{hash: "hd", short: "d"}
+	if err := p.check(); err == nil || !strings.Contains(err.Error(), "onto d") {
+		t.Fatalf("base in the rebase gave %v", err)
+	}
+	// But a base at the cutoff keeps the rebase where it is.
+	p.base = commit{hash: "hc", short: "c"}
+	if p.moves(p.size()) {
+		t.Fatal("rebase onto its own cutoff moves")
 	}
 }
 
@@ -136,6 +184,107 @@ func TestPushed(t *testing.T) {
 	p.entries[2].action = "reword"
 	if n := p.pushed(); n != 2 {
 		t.Errorf("pushed %d, want 2", n)
+	}
+}
+
+func TestPushedWhenMoving(t *testing.T) {
+	// Moving onto a new base rewrites even unchanged picks.
+	p := newPlan(false, "c", "b", "a")
+	for i := range p.entries {
+		p.entries[i].pushed = true
+	}
+	p.base, p.baseSize = commit{hash: "hx"}, 2
+	if n := p.pushed(); n != 2 {
+		t.Errorf("pushed %d, want 2", n)
+	}
+}
+
+func TestRebased(t *testing.T) {
+	raw := "tree t1\nparent p1\nauthor A <a@x> 100 +0800\ncommitter C <c@x> 200 +0800\n" +
+		"gpgsig -----BEGIN PGP SIGNATURE-----\n sig\n -----END PGP SIGNATURE-----\n\nsubject\n\nbody\n"
+	want := "tree t1\nparent p2\nauthor A <a@x> 100 +0800\ncommitter C <c@x> 300 +0800\n\nsubject\n\nbody\n"
+	if got := string(rebased([]byte(raw), "p2", 300)); got != want {
+		t.Errorf("rebased\n%s\nwant\n%s", got, want)
+	}
+	want = "tree t1\nauthor A <a@x> 100 +0800\ncommitter C <c@x> 300 +0800\n\nsubject\n\nbody\n"
+	if got := string(rebased([]byte(raw), "", 300)); got != want {
+		t.Errorf("rebased onto nothing\n%s\nwant\n%s", got, want)
+	}
+}
+
+// TestPreview checks the history drawn for moving a branch onto another, in a real repository.
+func TestPreview(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "main"}, {"commit", "-q", "--allow-empty", "-m", "init"},
+		{"switch", "-qc", "feature"}, {"commit", "-q", "--allow-empty", "-m", "add parser"},
+		{"commit", "-q", "--allow-empty", "-m", "add tests"},
+		{"switch", "-qc", "topic"}, {"commit", "-q", "--allow-empty", "-m", "add cli flag"},
+		{"commit", "-q", "--allow-empty", "-m", "use parser in cli"},
+		{"switch", "-q", "main"}, {"commit", "-q", "--allow-empty", "-m", "refactor"},
+		{"commit", "-q", "--allow-empty", "-m", "bump deps"}, {"switch", "-q", "topic"},
+	} {
+		args = append([]string{"-c", "user.name=T", "-c", "user.email=t@x"}, args...)
+		if _, err := git(args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h, err := newHistory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &plan{}
+	if err := h.fill(p, pageSize); err != nil {
+		t.Fatal(err)
+	}
+	v, err := newPreview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer v.close()
+	objects, _ := git("count-objects")
+
+	// git rebase --onto main feature topic
+	main, _ := git("rev-parse", "main")
+	p.base = commit{hash: strings.TrimSpace(main)}
+	p.cutoff = p.entries[2].hash
+	rows, more, err := v.rows(p, pageSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, r := range rows {
+		s := ""
+		if r.hash != "" {
+			s = []string{"", "copy ", "ghost "}[r.kind] + r.subject
+			if r.refs != "" {
+				s += " (" + r.refs + ")"
+			}
+		}
+		got = append(got, s)
+	}
+	want := []string{"copy use parser in cli (HEAD -> topic)", "copy add cli flag", "bump deps (main)", "refactor",
+		"ghost use parser in cli", "ghost add cli flag", "add tests (feature)", "add parser", "", "init"}
+	if more || strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("rows (more %v)\n%s\nwant\n%s", more, strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+
+	// Rebasing in place leaves out where the commits were.
+	p.base = commit{}
+	p.cutoff = ""
+	p.entries[1].action = "reword"
+	rows, _, err = v.rows(p, pageSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		if r.kind == ghost || (r.kind == plain && strings.Contains(r.subject, "cli")) {
+			t.Errorf("rebase in place shows %q as it was", r.subject)
+		}
+	}
+	if after, _ := git("count-objects"); after != objects {
+		t.Errorf("copies written to the repository: %s, before %s", after, objects)
 	}
 }
 
