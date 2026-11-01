@@ -17,6 +17,11 @@ setopt interactive_comments  # Interpret '#' as comment, even interactively (i.e
 setopt SH_WORD_SPLIT  # Split words on whitespace, for same behaviour as Bash.
 setopt EXTENDED_GLOB
 
+# Completion puts a space after the completed word, which zsh removes again if the next character typed is ;, & or |
+# (e.g. `git add README.md;`). Keep the space for & and |, so `git add RE<tab>&&` gives `git add README.md &&` rather
+# than `git add README.md&&`.
+ZLE_SPACE_SUFFIX_CHARS=$'&|'
+
 # Freeze terminal modes, so zsh puts them back after every command instead of keeping whatever a command left behind.
 # E.g. in `head -n 10 $(fzf) | bat`, fzf and less run at the same time: less saves fzf's raw mode as the mode to
 # restore, so after it exits every later command's output stair-steps (no carriage return after newlines) and ctrl+c
