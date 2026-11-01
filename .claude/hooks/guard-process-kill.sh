@@ -24,14 +24,16 @@ fi
 grep -Eq '\bkill\b[^;&|]*[[:space:]](0|-[0-9]+)[[:space:]]*($|[;&|)])' <<<"$text" &&
   reasons+=('kill aimed at all processes or a process group')
 
-# Signals sent from code (Python, Go, Node, psutil)
-grep -Eq '\bos\.kill(pg)?\(|\bsyscall\.Kill\(|\bunix\.Kill\(|\bprocess\.kill\(|\bpsutil\b|\bkillpg\b' <<<"$text" &&
-  reasons+=('signal sent from code (os.kill, syscall.Kill, process.kill, psutil, killpg)')
+# Signals sent from code to a process group or to processes found by searching. A signal to a single PID (e.g.
+# `os.kill(pid, ...)`) isn't checked, as that's how to signal a process Claude started itself, and a PID found by
+# searching is caught by the process search check above.
+grep -Eq '\bpsutil\b|\bkillpg\b' <<<"$text" && reasons+=('signal sent from code (psutil, killpg)')
 
 (( ${#reasons[@]} )) || exit 0
 
 joined=$(printf '%s; ' "${reasons[@]}")
-reason="This may kill processes that Claude didn't start: ${joined%; }. Check that it only targets exact PIDs Claude started."
+reason="This may kill processes that Claude didn't start: ${joined%; }."
+reason+=" Check that it only targets exact PIDs Claude started."
 jq -n --arg reason "$reason" '{
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
