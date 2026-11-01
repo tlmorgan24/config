@@ -209,6 +209,5 @@ Also, Claude Code is prevented from loading my full .zshrc by the `[[ -n "$CLAUD
 
 # Future work
 
-* Check for macOS at start of install.sh, exit if not macOS
 * Create interactive rebase tool that has a similar display to my interactive switch/checkout tools, allowing user to mark each commit as pick/edit/fixup etc and choose the base without having to know it upfront.
 * Enable shift + click to expand selection from old cursor position to new cursor position in vim
