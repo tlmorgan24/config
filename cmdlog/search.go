@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -168,6 +169,8 @@ func statusSymbol(status sql.NullInt64) string {
 		return yellow + "?" + reset
 	case status.Int64 == 0:
 		return green + "✓" + reset
+	case suspended(status.Int64):
+		return yellow + "⏸" + reset
 	default:
 		return red + "✗" + reset
 	}
@@ -181,9 +184,21 @@ func statusText(status sql.NullInt64, finished bool) string {
 		return yellow + "exit status unknown" + reset
 	case status.Int64 == 0:
 		return green + "exit 0" + reset
+	case suspended(status.Int64):
+		return fmt.Sprintf("%ssuspended (exit %d)%s", yellow, status.Int64, reset)
 	default:
 		return fmt.Sprintf("%sexit %d%s", red, status.Int64, reset)
 	}
+}
+
+// suspended reports whether an exit status means the command was suspended (e.g. with ctrl+z) rather than finished.
+// zsh gives such a command the status 128 + the number of the signal that stopped it.
+func suspended(status int64) bool {
+	switch syscall.Signal(status - 128) {
+	case syscall.SIGTSTP, syscall.SIGTTIN, syscall.SIGTTOU, syscall.SIGSTOP:
+		return true
+	}
+	return false
 }
 
 func formatTime(unix float64, layout string) string {

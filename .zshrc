@@ -1121,7 +1121,7 @@ _queue_precmd() {
 
 # Run when each prompt starts accepting input, to run the next queued command if _queue_precmd said to.
 _queue_line_init() {
-  (( _queue_autorun )) || return
+  (( _queue_autorun )) || return 0  # Must succeed, or add-zle-hook-widget skips later line-init hooks (e.g. Ghostty's).
   _queue_autorun=0
   BUFFER=$_queue[1]
   shift _queue

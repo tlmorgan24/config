@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -114,5 +116,17 @@ func TestHighlighterFailures(t *testing.T) {
 		if _, ok := h.highlight("/tmp", "ls"); ok {
 			t.Fatal("coloured by a highlighter that exited")
 		}
+	}
+}
+
+func TestSuspended(t *testing.T) {
+	stopped := 128 + int64(syscall.SIGTSTP) // What zsh gives a command suspended with ctrl+z (146 on macOS)
+	for status, want := range map[int64]bool{stopped: true, 0: false, 1: false, 130: false, 137: false} {
+		if got := suspended(status); got != want {
+			t.Errorf("status %d: got %v", status, got)
+		}
+	}
+	if got := statusSymbol(sql.NullInt64{Int64: stopped, Valid: true}); got != yellow+"⏸"+reset {
+		t.Errorf("symbol %q", got)
 	}
 }
