@@ -2,12 +2,21 @@
 # to sit between the terminal and zsh, so this shell replaces itself with `cmdlog record`, which starts a new zsh (that
 # re-reads this file, with CMDLOG_SESSION set so it doesn't do this again). Done first, so nothing below runs twice. If
 # cmdlog can't record, it starts the shell anyway (unrecorded). To stop recording, delete ~/.local/bin/cmdlog.
+
+# CMDLOG_SESSION is passed on to every program run from a recorded shell, including ones that open new terminals (e.g. a
+# VS Code window opened with `code .`), whose terminals would then skip recording. So only trust it on the terminal it
+# was set for, while the shell that set it is still running (so it's not fooled by a closed terminal's reused number).
+if [[ -n "$CMDLOG_TTY" ]] && ! { [[ "$CMDLOG_TTY" == "$TTY" ]] && kill -0 "$CMDLOG_PID" 2>/dev/null }; then
+  unset CMDLOG_SESSION CMDLOG_TTY CMDLOG_PID
+fi
 if [[ -o interactive && -t 0 && -t 1 && "$TERM" != dumb && -z "$CMDLOG_SESSION" ]] && (( $+commands[cmdlog] )); then
   # VS Code's shell integration script is in a temporary folder only known to this shell, so pass its location on (see
   # cmdlog section below).
   [[ -n "$VSCODE_ZDOTDIR" ]] && export CMDLOG_VSCODE_RC="$VSCODE_ZDOTDIR/.zshrc"
   exec cmdlog record "${commands[zsh]:-/bin/zsh}"
 fi
+# Note which terminal CMDLOG_SESSION belongs to, and this shell's process, for the check above in shells started later.
+[[ -n "$CMDLOG_SESSION" && -z "$CMDLOG_TTY" ]] && export CMDLOG_TTY=$TTY CMDLOG_PID=$$
 
 # Stop here for Claude Code's shell (i.e., the shell it uses to run its own commands), as otherwise my options/aliases 
 # below depart from its expected command behaviour and cause things to break.
