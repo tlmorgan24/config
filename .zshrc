@@ -722,6 +722,15 @@ export FZF_DEFAULT_OPTS="\
 --color=info:#a6adc8
 --color=border:#585b70"
 
+# Make shortcuts that open fzf use the whole window, rather than the 80% above, by giving `--height=100%` in each one's
+# own options (fzf's, set up by `source <(fzf --zsh)` below, and mine). Otherwise, in a short window, fzf scrolls the
+# screen to make room for itself below the prompt, pushing the first lines of my 3-line prompt off the top, where zsh
+# can't redraw them, so they're left behind each time fzf closes. (Commands typed at the prompt, like `browse` below, are fine
+# at 80%, as their prompt doesn't get redrawn.)
+export FZF_CTRL_T_OPTS=--height=100%
+export FZF_ALT_C_OPTS=--height=100%
+export FZF_COMPLETION_OPTS=--height=100%
+
 # Additional fzf configuration for zoxide's `zi` command
 #
 # zoxide passes entries as `<score> <directory>`. We hide the score from the list, and keep only the directory as the
@@ -740,7 +749,13 @@ export FZF_DEFAULT_OPTS="\
 # `lsc` is my custom command for displaying the contents of the previewed directory. zoxide normally uses `ls`, but its
 # column formatting produces inconsistent spacing. lsc is more compact (hence the 'c'). `{2..}` is fzf syntax for
 # passing the second field onward (i.e. pass the directory, not the score, to lsc).
+#
+# `--height=100%` for the same reason as FZF_CTRL_T_OPTS above, because when zoxide opens fzf from tab completion
+# (`z foo<space><tab>`), it redraws the prompt afterwards like a shortcut. zoxide uses these options for `zi` too,
+# so a consequence of this change is that `zi` also uses the whole window (even though it would have been fine at
+# e.g. 80%, like other commands typed at the prompt).
 export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
+--height=100%
 --exact
 --no-sort
 --cycle
@@ -752,8 +767,10 @@ export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
 --exit-0"
 
 # Set options for fzf's own ctrl+R shortcut to fuzzy search through shell history (only used if cmdlog isn't installed,
-# as otherwise my cmdlog-history-widget replaces it, see the cmdlog section below).
+# as otherwise my cmdlog-history-widget replaces it, see the cmdlog section below). `--height=100%` is explained above
+# FZF_CTRL_T_OPTS.
 export FZF_CTRL_R_OPTS="\
+--height=100%
 --with-nth=2..
 --layout=default"
 
@@ -842,6 +859,7 @@ cd() {
 
 # Ctrl+f: choose file(s) with my file browser, and insert them into the command line at the cursor (like fzf's ctrl+t).
 browse-widget() {
+  local -x FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --height=100%"  # Use the whole window (see FZF_CTRL_T_OPTS).
   local selected=( ${(f)"$(browse)"} )  # One entry per line (empty if cancelled)
   if (( ${#selected} )); then
     LBUFFER+="${(j: :)${(@q-)selected}} "  # Quote each path only if needed, then join with spaces.
@@ -975,6 +993,7 @@ if (( $+commands[cmdlog] )); then
       --with-nth=2..  # Hide the id.
       --nth=3..  # Only search the command (fields counted after --with-nth, so the 3rd shown field).
       --accept-nth=1  # Only output the id.
+      --height=100%  # Use the whole window (see FZF_CTRL_T_OPTS).
       --ansi  # Preserve colours
       --scheme=history
       --layout=default  # Newest commands nearest the command line
