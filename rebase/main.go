@@ -1,11 +1,11 @@
 // rebase is an interactive `git rebase -i` that lists the history as it will be once rebased: a graph of all branches
 // (newest first, like my `switch` and `checkout` in .zshrc), with a preview of the commit under the cursor. Mark the
-// current branch's commits with an action (pick, reword, edit, squash, fixup or drop) and move them up and down, and
-// the rebase starts just below the oldest commit marked or moved, so its base doesn't need to be known upfront. To move
-// the branch onto another commit (`git rebase --onto`), choose that commit as the base, and optionally where on the
-// branch the rebase stops (the cutoff). Labels that only follow from the rest of the plan (commits picked because
-// they're in the rebase, and a base or cutoff that's just where it stops) are faint, as their keys have nothing to
-// undo.
+// current branch's commits with an action (pick, reword, edit, squash, fixup or drop, whose key then unmarks it again)
+// and move them up and down, and the rebase starts just below the oldest commit marked or moved, so its base doesn't
+// need to be known upfront. To move the branch onto another commit (`git rebase --onto`), choose that commit as the
+// base, and optionally where on the branch the rebase stops (the cutoff). Labels that only follow from the rest of the
+// plan (commits picked because they're in the rebase, and a base or cutoff that's just where it stops) are faint, as
+// their keys have nothing to undo.
 //
 // Usage:
 //

@@ -288,7 +288,11 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 		return true, "", "", ""
 	default:
 		if action, ok := actionKeys[key]; ok {
-			u.edit(action, func() error { return u.mark(r, action) }, r, u.stay(r))
+			what := action
+			if r.entry >= 0 && u.p.entries[r.entry].action == action {
+				action, what = "", "unmark" // Pressing it again undoes it, as with b and c.
+			}
+			u.edit(what, func() error { return u.mark(r, action) }, r, u.stay(r))
 		}
 	}
 	return false, "", "", ""
@@ -737,13 +741,20 @@ func (u *ui) arrow(i int, l labels) string {
 // line fits s to the window's width on the given background, and clears the rest of the row.
 func (u *ui) line(s, lineBg string) string {
 	base := lineBg + text
-	return base + fit(s, u.width, base) + "\x1b[0m" + base + "\x1b[K\x1b[0m"
+	fitted, cols := fit(s, u.width, base)
+	clear := "\x1b[K"
+	if cols >= u.width {
+		// The row is already full, so there's nothing to clear. Clearing anyway would erase its last character, as the
+		// cursor stays on the last column (waiting to wrap) after it's written.
+		clear = ""
+	}
+	return base + fitted + "\x1b[0m" + base + clear + "\x1b[0m"
 }
 
-// fit cuts s down to width columns, keeping its colours and expanding tabs. Each colour reset in s (e.g. from git's
-// colours) is followed by base, so the line keeps its background. Other escape sequences are dropped, so they can't
-// move the cursor and break the layout.
-func fit(s string, width int, base string) string {
+// fit cuts s down to width columns, keeping its colours and expanding tabs, and returns it with how many columns it
+// takes up. Each colour reset in s (e.g. from git's colours) is followed by base, so the line keeps its background.
+// Other escape sequences are dropped, so they can't move the cursor and break the layout.
+func fit(s string, width int, base string) (string, int) {
 	var b strings.Builder
 	col := 0
 	for i := 0; i < len(s); {
@@ -771,7 +782,7 @@ func fit(s string, width int, base string) string {
 		case r == '\t':
 			spaces := tabWidth - col%tabWidth
 			if col+spaces > width {
-				return b.String()
+				return b.String(), col
 			}
 			b.WriteString(strings.Repeat(" ", spaces))
 			col += spaces
@@ -780,13 +791,13 @@ func fit(s string, width int, base string) string {
 		default:
 			w := runeWidth(r)
 			if col+w > width {
-				return b.String()
+				return b.String(), col
 			}
 			b.WriteRune(r)
 			col += w
 		}
 	}
-	return b.String()
+	return b.String(), col
 }
 
 var escapeSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)

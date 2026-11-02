@@ -8,7 +8,8 @@ package main
 // shift-clicking selects everything up to the click. Each newly marked commit goes on top of the others, so it's
 // cherry-picked last, and they can be moved up and down as in rebase. Their copies show on top of HEAD, where
 // cherry-picking always puts them, while the commits themselves show where they are, labelled copied. Unmarking a
-// commit takes it back out, with u or d, as dropping it would be the same as not picking it.
+// commit takes it back out, with u, its action's key again (as in rebase) or d, as dropping it would be the same as not
+// picking it.
 //
 // Usage:
 //

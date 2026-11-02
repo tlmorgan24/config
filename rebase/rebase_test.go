@@ -559,17 +559,32 @@ func TestParseKey(t *testing.T) {
 
 func TestFit(t *testing.T) {
 	base := "<base>"
-	tests := []struct{ in, want string }{
-		{"hello world", "hello"},
-		{"\x1b[31mred\x1b[m and", "\x1b[31mred\x1b[m<base> a"},
-		{"\x1b[38;5;0mx", "\x1b[38;5;0mx"}, // The 0 is a colour, not a reset.
-		{"\ta\x1b[2Jb", "  ab"},            // Tab expanded, screen clear dropped
-		{"日本語", "日本"},                      // Wide characters take two columns each.
+	tests := []struct {
+		in, want string
+		cols     int
+	}{
+		{"hello world", "hello", 5},
+		{"\x1b[31mred\x1b[m and", "\x1b[31mred\x1b[m<base> a", 5},
+		{"\x1b[38;5;0mx", "\x1b[38;5;0mx", 1}, // The 0 is a colour, not a reset.
+		{"\ta\x1b[2Jb", "  ab", 4},            // Tab expanded, screen clear dropped
+		{"日本語", "日本", 4},                      // Wide characters take two columns each.
 	}
 	for _, tt := range tests {
-		if got := fit(tt.in, 5, base); got != tt.want {
-			t.Errorf("fit(%q) = %q, want %q", tt.in, got, tt.want)
+		if got, cols := fit(tt.in, 5, base); got != tt.want || cols != tt.cols {
+			t.Errorf("fit(%q) = %q, %d, want %q, %d", tt.in, got, cols, tt.want, tt.cols)
 		}
+	}
+}
+
+// TestLineFull checks that a row filling the window isn't cleared after it's written, which would erase its last
+// character, as the cursor is still on it.
+func TestLineFull(t *testing.T) {
+	u := &ui{width: 5}
+	if got := u.line("hello", bg); strings.Contains(got, "\x1b[K") {
+		t.Errorf("full row %q is cleared", got)
+	}
+	if got := u.line("hell", bg); !strings.Contains(got, "\x1b[K") {
+		t.Errorf("row %q isn't cleared", got)
 	}
 }
 
