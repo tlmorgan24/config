@@ -9,6 +9,13 @@
         "ctrl+r": "command:resume",
         "cmd+enter": "chat:queueSubmit"
       }
+    },
+    {
+      "context": "Global",
+      "bindings": {
+        "alt+up": "app:toggleDiffNoiseFilter",
+        "alt+down": "app:toggleDiffPreSession"
+      }
     }
   ]
 }
