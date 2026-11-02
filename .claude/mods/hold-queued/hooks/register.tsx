@@ -17,7 +17,7 @@ import type { Editing, Held } from '../types'
 const held = atom({ plugin: 'hold-queued', key: 'held' } as const, [] as Held)
 const editing = atom({ plugin: 'hold-queued', key: 'editing' } as const, null as Editing)
 
-const ZWSP = '​'  // Kept in the box while it would otherwise be empty, so Enter still submits (and is seen)
+const ZWSP = '\u200b'  // Kept in the box while it would otherwise be empty, so Enter still submits (and is seen)
 
 let draft = ''  // What the box held before the first Option+Up, put back once editing ends
 let original: Held = []  // The held messages before the first Option+Up, put back if the editing is cancelled
@@ -32,7 +32,11 @@ const strip = (text: string) => text.replaceAll(ZWSP, '')
 async function putBack($: EngineInterface, texts: string[]) {
   const box = await $.prompt.read()
   await $.prompt.fill({ text: [strip(box.text), ...texts].filter(text => text.trim() !== '').join('\n\n') })
-  $.ui.toast('Held message put back in the prompt box')
+  $.ui.toast(
+    texts.length === 1
+      ? 'Held message put back in the prompt box'
+      : `${texts.length} held messages put back in the prompt box, merged into one`,
+  )
 }
 
 // Submit the oldest held message, putting it back in the prompt box if Claude Code refuses it.
@@ -259,6 +263,7 @@ export const register: Register = on => {
             onPress={() => editNewer($)}
           />
           {index !== null && <Text dimColor> · cancel </Text>}
+          {/* Not Option+.: the terminal sends Esc then `.`, which Claude Code takes as Esc, interrupting Claude. */}
           {index !== null && (
             <Button
               key="cancel"
