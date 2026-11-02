@@ -47,6 +47,12 @@
     "args": { "text": "\u001b[13;9u" },
     "when": "terminalFocus"
   },
+  {
+    "key": "cmd+e",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[101;9u" },
+    "when": "terminalFocus"
+  },
 
   {
     // Intention: copy command-line program's current selection to clipboard (would use cmd+c, but VS Code already uses
