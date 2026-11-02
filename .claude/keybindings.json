@@ -6,7 +6,8 @@
       "context": "Chat",
       "bindings": {
         "cmd+e": "chat:externalEditor",
-        "ctrl+r": "command:resume"
+        "ctrl+r": "command:resume",
+        "cmd+enter": "chat:queueSubmit"
       }
     }
   ]
