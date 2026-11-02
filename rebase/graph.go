@@ -281,12 +281,12 @@ func (v *preview) fetch(hashes []string) error {
 // It keeps the tree, author, encoding and message, and drops anything else (e.g. a signature, which wouldn't match).
 func rebased(raw []byte, parent string, committed int64) []byte {
 	header, message, _ := bytes.Cut(raw, []byte("\n\n"))
-	var b bytes.Buffer
+	var lines []string
 	keep := false // Whether the last header is kept, for the lines continuing it (which start with a space)
 	for _, line := range strings.Split(string(header), "\n") {
 		if strings.HasPrefix(line, " ") {
 			if keep {
-				b.WriteString(line + "\n")
+				lines = append(lines, line)
 			}
 			continue
 		}
@@ -294,9 +294,9 @@ func rebased(raw []byte, parent string, committed int64) []byte {
 		keep = name == "tree" || name == "author" || name == "encoding"
 		switch name {
 		case "tree":
-			b.WriteString(line + "\n")
+			lines = append(lines, line)
 			if parent != "" {
-				b.WriteString("parent " + parent + "\n")
+				lines = append(lines, "parent "+parent)
 			}
 		case "committer":
 			// The value is the name and email, then the time and time zone.
@@ -304,16 +304,14 @@ func rebased(raw []byte, parent string, committed int64) []byte {
 			if len(fields) >= 2 {
 				fields[len(fields)-2] = strconv.FormatInt(committed, 10)
 			}
-			b.WriteString("committer " + strings.Join(fields, " ") + "\n")
+			lines = append(lines, "committer "+strings.Join(fields, " "))
 		default:
 			if keep {
-				b.WriteString(line + "\n")
+				lines = append(lines, line)
 			}
 		}
 	}
-	b.WriteString("\n")
-	b.Write(message)
-	return b.Bytes()
+	return append([]byte(strings.Join(lines, "\n")+"\n\n"), message...)
 }
 
 // write stores a commit object in v.dir, and returns its hash.
