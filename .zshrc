@@ -561,33 +561,81 @@ merge-main() {
   merge-origin main
 }
 
-# Usage: `drop <commit>`
+# Usage: `drop [<commit> | <upstream>..<commit>]...`
 #
-# Remove a commit from history (e.g. `drop HEAD`, `drop HEAD~3`), leaving files as if it had never been made, while
-# keeping staged and unstaged changes as they are. Refuses commits that are already pushed (use `git revert` for those).
+# Remove commits from history (e.g. `drop HEAD`, `drop HEAD~3 HEAD~5`, `drop HEAD~3..`), leaving files as if they had
+# never been made, while keeping staged and unstaged changes as they are. As in `cherry`, a range a..b (with either side
+# HEAD if left out) names b's first-parent commits that a doesn't have. Refuses commits that are already pushed (use
+# `git revert` for those) or are merges.
 drop() {
-  local commit
-  commit="$(git rev-parse --verify --quiet "$1^{commit}")"
-  if [[ -z "$1" || -z "$commit" ]]; then
-    echo "drop: must supply an existing commit" >&2
+  if (( ! $# )); then
+    echo "usage: drop [<commit> | <upstream>..<commit>]..." >&2
     return 1
   fi
 
-  if git merge-base --is-ancestor "$commit" '@{u}' 2>/dev/null; then
-    echo "drop: $1 is already pushed, so use git revert instead" >&2
-    return 1
+  local arg out
+  local -a commits
+  for arg in "$@"; do
+    if [[ "$arg" == *..* ]]; then
+      out="$(git rev-list --first-parent "$arg" --)" || return 1
+      if [[ -z "$out" ]]; then
+        echo "drop: $arg has no commits" >&2
+        return 1
+      fi
+    elif ! out="$(git rev-parse --verify --quiet "$arg^{commit}")"; then
+      echo "drop: $arg isn't a commit" >&2
+      return 1
+    fi
+    commits+=(${(f)out})
+  done
+  commits=(${(u)commits})
+
+  local commit short
+  for commit in $commits; do
+    short="$(git rev-parse --short "$commit")"
+    if ! git merge-base --is-ancestor "$commit" HEAD; then
+      echo "drop: $short isn't on the current branch" >&2
+      return 1
+    fi
+    if git merge-base --is-ancestor "$commit" '@{u}' 2>/dev/null; then
+      echo "drop: $short is already pushed, so use git revert instead" >&2
+      return 1
+    fi
+    if git rev-parse --verify --quiet "$commit^2" >/dev/null; then
+      echo "drop: $short is a merge, which git rebase can't drop" >&2
+      return 1
+    fi
+  done
+
+  # Rebase from the newest commit that all of them have, or from just below it if it's one being dropped too.
+  local base
+  local -a upstream
+  base="$(git merge-base --octopus $commits)" || return 1
+  if (( ! ${commits[(Ie)$base]} )); then
+    upstream=("$base")
+  elif git rev-parse --verify --quiet "$base~" >/dev/null; then
+    upstream=("$base~")
+  else
+    upstream=(--root)
   fi
 
   # Only stash if there are changes, as otherwise nothing is stashed and the pop below would pop an unrelated stash.
   local stashed=0
   if ! git diff --quiet || ! git diff --cached --quiet; then
-    git stash push --quiet --message "drop $1" || return 1
+    git stash push --quiet --message "drop $*" || return 1
     stashed=1
   fi
 
-  if ! git rebase --quiet --onto "$commit~" "$commit"; then
-    echo "drop: rebase stopped, so fix the conflicts and run git rebase --continue (or git rebase --abort)" >&2
-    (( stashed )) && echo "drop: then restore your changes with git stash pop --index" >&2
+  # Mark the commits as drop in the todo list, which has their full hashes due to core.abbrev=no.
+  local script='/^pick (\S+)/ && index(" $ENV{_DROP_COMMITS} ", " $1 ") >= 0 && s/^pick/drop/'
+  if ! _DROP_COMMITS="$commits" _DROP_SCRIPT="$script" GIT_SEQUENCE_EDITOR='perl -i -pe "$_DROP_SCRIPT"' \
+      git -c core.abbrev=no rebase --quiet --interactive "${upstream[@]}"; then
+    if [[ -d "$(git rev-parse --git-path rebase-merge)" ]]; then
+      echo "drop: rebase stopped, so fix the conflicts and run git rebase --continue (or git rebase --abort)" >&2
+      (( stashed )) && echo "drop: then restore your changes with git stash pop --index" >&2
+    else
+      (( stashed )) && git stash pop --quiet --index
+    fi
     return 1
   fi
 
