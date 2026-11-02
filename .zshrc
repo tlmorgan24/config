@@ -99,6 +99,20 @@ _starship_suspended_precmd() {
 
 precmd_functions+=(_starship_suspended_precmd)
 
+# Keep starship from mangling prompts when the window is resized. 
+# 
+# zsh can't redraw old prompts, so when the window shrinks, the right prompt on each wraps onto a new line. 
+# TRANSIENT_RPROMPT removes it from each prompt once its command runs, so only the current prompt has one.
+#
+# zsh redraws the current prompt on each resize, but while dragging the window narrower, a redraw can arrive laid out
+# for a wider window than it is by then. The right prompt then runs past the edge and wraps, leaving the cursor a row
+# lower than zsh thinks, so every later redraw starts a row lower, leaving a blank row above the prompt each time.
+# Turning off autowrap (`\e[?7l`) while it's drawn clips it at the edge instead, until the redraw after the last resize
+# puts it right. This is safe, as zsh only draws the right prompt when it fits. The left prompt and the command line
+# still wrap, as zsh relies on that, so this only helps while the window stays wider than them.
+setopt TRANSIENT_RPROMPT
+RPROMPT=$'%{\e[?7l%}'$RPROMPT$'%{\e[?7h%}'
+
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
