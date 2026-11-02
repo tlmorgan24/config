@@ -19,6 +19,8 @@
 //
 // Once confirmed, the todo list is handed to `git rebase -i --autostash` (through $GIT_SEQUENCE_EDITOR), so git carries
 // out the rebase as usual: stopping at edits and conflicts for `git rebase --continue` or `git rebase --abort`.
+//
+// Built under the name cherry, the same program is an interactive `git cherry-pick` instead (see cherry.go).
 package main
 
 import (
@@ -26,6 +28,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -33,6 +36,10 @@ import (
 const pageSize = 200 // Commits loaded from the history at a time, as it can be far longer than anyone scrolls
 
 func main() {
+	if filepath.Base(os.Args[0]) == "cherry" {
+		cherryMain()
+		return
+	}
 	onto, upstream, ok := parseArgs(os.Args[1:])
 	if !ok {
 		fmt.Fprintln(os.Stderr, "usage: rebase [--onto <newbase>] [<upstream>]")
@@ -70,19 +77,9 @@ func parseArgs(args []string) (onto, upstream string, ok bool) {
 // run returns the exit status of `git rebase`, or 0 if the user quit without rebasing. It starts the list off as
 // `git rebase [--onto <onto>] <upstream>` would (see preset).
 func run(onto, upstream string) (int, error) {
-	if _, err := git("rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
-		return 0, errors.New("no commits to rebase: perhaps you are not in a git repository")
+	if err := checkRepo("rebase"); err != nil {
+		return 0, err
 	}
-	for _, dir := range []string{"rebase-merge", "rebase-apply"} {
-		path, err := git("rev-parse", "--git-path", dir)
-		if err != nil {
-			return 0, err
-		}
-		if _, err := os.Stat(strings.TrimSpace(path)); err == nil {
-			return 0, errors.New("a rebase is already in progress (finish it with git rebase --continue or --abort)")
-		}
-	}
-
 	h, err := newHistory()
 	if err != nil {
 		return 0, err
@@ -99,6 +96,24 @@ func run(onto, upstream string) (int, error) {
 		return 0, err
 	}
 	return rebase(todo, newBase, cutoff)
+}
+
+// checkRepo returns why there's nothing to do (verb, e.g. rebase) in the current directory, or nil if there's nothing
+// stopping it.
+func checkRepo(verb string) error {
+	if _, err := git("rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
+		return fmt.Errorf("no commits to %s: perhaps you are not in a git repository", verb)
+	}
+	for _, dir := range []string{"rebase-merge", "rebase-apply"} {
+		path, err := git("rev-parse", "--git-path", dir)
+		if err != nil {
+			return err
+		}
+		if _, err := os.Stat(strings.TrimSpace(path)); err == nil {
+			return errors.New("a rebase is already in progress (finish it with git rebase --continue or --abort)")
+		}
+	}
+	return nil
 }
 
 // preset sets the base and cutoff that `git rebase [--onto <onto>] <upstream>` implies, as if the user had chosen
@@ -214,26 +229,34 @@ func newHistory() (*history, error) {
 func (h *history) fill(p *plan, n int) error {
 	for !p.complete && len(p.entries) < n {
 		count := max(pageSize, n-len(p.entries))
-		// Separate fields with NUL, which can't appear in any of them, and commits with newlines (%s is one line).
-		out, err := git("log", "--first-parent", "--format=%H%x00%h%x00%P%x00%D%x00%s",
-			fmt.Sprintf("--skip=%d", len(p.entries)), fmt.Sprintf("--max-count=%d", count), "HEAD")
+		commits, err := logCommits(fmt.Sprintf("--skip=%d", len(p.entries)), fmt.Sprintf("--max-count=%d", count), "HEAD")
 		if err != nil {
 			return err
-		}
-		var commits []commit
-		for _, line := range strings.Split(strings.TrimSuffix(out, "\n"), "\n") {
-			fields := strings.Split(line, "\x00")
-			if len(fields) != 5 {
-				continue // Only the empty line of an empty result, so nothing is lost.
-			}
-			c := commit{hash: fields[0], short: fields[1], parents: len(strings.Fields(fields[2])), refs: fields[3],
-				subject: fields[4]}
-			commits = append(commits, c)
 		}
 		p.add(commits)
 		p.complete = len(commits) < count
 	}
 	return nil
+}
+
+// logCommits returns the commits that `git log --first-parent` lists with the given arguments, newest first.
+func logCommits(args ...string) ([]commit, error) {
+	// Separate fields with NUL, which can't appear in any of them, and commits with newlines (%s is one line).
+	out, err := git(append([]string{"log", "--first-parent", "--format=%H%x00%h%x00%P%x00%D%x00%s"}, args...)...)
+	if err != nil {
+		return nil, err
+	}
+	var commits []commit
+	for _, line := range strings.Split(strings.TrimSuffix(out, "\n"), "\n") {
+		fields := strings.Split(line, "\x00")
+		if len(fields) != 5 {
+			continue // Only the empty line of an empty result, so nothing is lost.
+		}
+		c := commit{hash: fields[0], short: fields[1], parents: len(strings.Fields(fields[2])), refs: fields[3],
+			subject: fields[4]}
+		commits = append(commits, c)
+	}
+	return commits, nil
 }
 
 // rebase runs `git rebase -i` with the given todo list in place of the one git would open in an editor. It rebases

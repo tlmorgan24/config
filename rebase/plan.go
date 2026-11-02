@@ -25,14 +25,19 @@ type entry struct {
 }
 
 // plan is HEAD's history (following first parents, newest first) as the user is arranging it, and where it goes.
+//
+// When cherry-picking, entries are instead the commits marked to cherry-pick, from any branch, all of which the rebase
+// covers, and the base is HEAD, which they go on top of.
 type plan struct {
 	entries  []entry
-	complete bool // Whether entries reach the root commit
+	complete bool // Whether entries reach the root commit (always, when cherry-picking, as nothing more is loaded)
 	// The commit chosen (with b) to rebase onto, or no commit (an empty hash) to keep the rebase where it is, on top of
 	// the commit it stops at
 	base     commit
 	baseSize int    // How many entries the base doesn't contain (0 without a base), all of which the rebase covers
 	cutoff   string // Hash of the entry chosen (with c) for the rebase to stop at, or "" to work it out
+	cherry   bool   // Whether the plan is for cherry-picking (see cherry.go) rather than rebasing
+	last     string // When cherry-picking, hash of the entry last marked, which ⇧p picks back to ("" for none)
 }
 
 func (p *plan) add(commits []commit) {
@@ -56,6 +61,9 @@ func (p *plan) clone() *plan {
 // Without a cutoff, if a squash/fixup would otherwise have nothing below it to fold into (only drops, or nothing at
 // all), the rebase also covers the next commit down, so marking the commit just above the one to fold into is enough.
 func (p *plan) size() int {
+	if p.cherry {
+		return len(p.entries)
+	}
 	if p.cutoff != "" {
 		return max(p.index(p.cutoff), 0)
 	}
@@ -72,10 +80,12 @@ func (p *plan) index(hash string) int {
 }
 
 // conflict is why a plan doesn't work as arranged: the rebase covers the commit it stops at (the base or the cutoff),
-// a squash/fixup would have nothing to fold into, as only drops are between it and that commit, or the rebase covers
-// a merge commit, which a plain `git rebase -i` can't keep.
+// a squash/fixup would have nothing to fold into, as only drops are between it and that commit (or, when
+// cherry-picking, below it), or the rebase covers a merge commit, which a plain `git rebase -i` can't keep.
 type conflict struct {
-	stop  int  // Position of the commit the rebase stops at (unused for a merge commit)
+	// Position of the commit the rebase stops at (unused for a merge commit, and -1 when cherry-picking, as it stops at
+	// HEAD, which isn't an entry)
+	stop  int
 	base  bool // Whether that commit is the base, rather than the cutoff
 	entry int  // Position of the commit that's marked or moved at or below it, the squash/fixup or the merge commit
 	fold  bool // Whether entry is the squash/fixup
@@ -103,6 +113,10 @@ func (p *plan) check() *conflict {
 		}
 		return &conflict{stop: b, base: true, entry: -1}
 	}
+	// git can't fold into HEAD, as the todo list starts after it.
+	if i := p.unfolded(len(p.entries)); p.cherry && i >= 0 {
+		return &conflict{stop: -1, entry: i, fold: true}
+	}
 	for i, e := range p.entries[:min(size, len(p.entries))] {
 		if e.parents > 1 {
 			return &conflict{entry: i, merge: true}
@@ -120,7 +134,18 @@ func (p *plan) explain(c conflict, what, hash, short string) string {
 		if i >= 0 && i < p.size() && p.entries[i].parents > 1 {
 			return tried + ", as it's a merge commit"
 		}
-		return fmt.Sprintf("%s, as merge commit %s would then be in the rebase", tried, p.entries[c.entry].short)
+		covered := "in the rebase"
+		if p.cherry {
+			covered = "cherry-picked"
+		}
+		return fmt.Sprintf("%s, as merge commit %s would then be %s", tried, p.entries[c.entry].short, covered)
+	}
+	if c.stop < 0 {
+		who := p.entries[c.entry].short
+		if c.entry == i {
+			who = "it"
+		}
+		return tried + ", as " + who + " would then have nothing to fold into"
 	}
 	stop := p.entries[c.stop]
 	role := "cutoff"
@@ -264,6 +289,8 @@ func (p *plan) moves(size int) bool {
 func (p *plan) todo(size int) (string, error) {
 	switch {
 	case size > 0:
+	case p.cherry:
+		return "", errors.New("can't cherry-pick, as no commits are picked")
 	case p.cutoff != "":
 		return "", errors.New("can't rebase, as nothing is above the cutoff")
 	case p.base.hash != "":

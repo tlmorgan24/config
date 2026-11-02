@@ -31,6 +31,9 @@ fi
 (cd "$script_dir/cmdlog" && go build -o "$LOCAL_BIN/cmdlog" .)
 # Build my rebase program (an interactive `git rebase -i`, see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/rebase" .)
+# Build my cherry program (an interactive `git cherry-pick`, see README.md), which is the same program as rebase, acting
+# as cherry when run under that name.
+(cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/cherry" .)
 
 # Apply Maccy (clipboard history) settings with `defaults write` rather than by copying its preferences file (macOS
 # caches preferences, so a copied file can be ignored or overwritten, and the file also holds window positions etc).

@@ -59,6 +59,12 @@ var help = []struct{ key, desc string }{
 	{"b", "base"}, {"c", "cutoff"}, {"⌥↑/↓", "swap"}, {"enter", "rebase"}, {"esc", "quit"},
 }
 
+// cherryHelp is the help shown when cherry-picking, which leaves out d, as it only does what u does (see mark).
+var cherryHelp = []struct{ key, desc string }{
+	{"p", "pick"}, {"⇧p", "pick range"}, {"r", "reword"}, {"e", "edit"}, {"s", "squash"}, {"f", "fixup"},
+	{"u", "unmark"}, {"⌥↑/↓", "swap"}, {"enter", "cherry-pick"}, {"esc", "quit"},
+}
+
 // previewHelp is the help for the preview, shown in the row above it (hiddenPreviewHelp instead while it's hidden).
 var (
 	previewHelp       = []struct{ key, desc string }{{"⇧↑/↓", "scroll"}, {"←/→", "resize"}}
@@ -104,7 +110,11 @@ func choose(p *plan, h *history) (todo, onto, cutoff string, err error) {
 	defer wakeWrite.Close()
 	u := &ui{p: p, h: h, v: v, limit: pageSize, preview: map[string][]string{}, events: make(chan func(*ui), 64),
 		wake: wakeWrite}
-	if err := u.load(p.entries[0].hash, plain); err != nil {
+	start := "" // When cherry-picking, the newest commit in the list, which is more likely another branch's than HEAD
+	if !p.cherry {
+		start = p.entries[0].hash
+	}
+	if err := u.load(start, plain); err != nil {
 		return "", "", "", err
 	}
 
@@ -221,7 +231,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 		// Follow the commit to its copy, as moving it adds it to the rebase if it isn't already.
 		u.edit("move", func() error {
 			if r.entry < 0 {
-				return fmt.Errorf("%s, as it isn't on the current branch", cant("move", r.short))
+				return fmt.Errorf("%s, as %s", cant("move", r.short), u.outside())
 			}
 			if j := r.entry - 1; key == "alt-up" && j >= 0 {
 				u.p.swap(r.entry, j)
@@ -230,7 +240,14 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 			}
 			return nil
 		}, r, copied)
+	case "P": // Shift+p
+		if u.p.cherry {
+			u.edit("pick", func() error { return pickBack(u.p, r.hash, r.short) }, r, u.stay(r))
+		}
 	case "b":
+		if u.p.cherry {
+			break
+		}
 		u.edit("base", func() error {
 			if u.p.base.hash == r.hash {
 				u.p.base, u.p.baseSize = commit{}, 0
@@ -239,6 +256,9 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 			return u.h.setBase(u.p, commit{hash: r.hash, short: r.short, subject: r.subject})
 		}, r, plain)
 	case "c":
+		if u.p.cherry {
+			break
+		}
 		u.edit("cutoff", func() error {
 			if r.entry < 0 {
 				return fmt.Errorf("%s, as it isn't on the current branch", cant("cutoff", r.short))
@@ -253,35 +273,63 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 	case "enter":
 		size := u.p.size()
 		todo, err := u.p.todo(size)
-		if err == nil {
+		if err == nil && !u.p.cherry {
 			cutoff, err = u.p.cutoffAt(size)
 		}
 		if err != nil {
 			u.status = err.Error()
 			return false, "", "", ""
 		}
+		if u.p.cherry {
+			return true, todo, "", u.p.base.hash // Stopping at HEAD, so the todo list goes on top of it.
+		}
 		return true, todo, u.p.base.hash, cutoff
 	case "esc", "q", "ctrl-c":
 		return true, "", "", ""
 	default:
 		if action, ok := actionKeys[key]; ok {
-			u.edit(action, func() error { return u.mark(r, action) }, r, r.kind)
+			u.edit(action, func() error { return u.mark(r, action) }, r, u.stay(r))
 		}
 	}
 	return false, "", "", ""
 }
 
-// mark sets the action of row r's commit ("" to unmark it).
+// stay returns the kind of row to keep the cursor on after marking row r's commit: the same kind, except that when
+// cherry-picking, a commit just picked stays where it is (rather than following it to its copy), to go on to pick more.
+func (u *ui) stay(r row) int {
+	if u.p.cherry && r.kind == plain {
+		return ghost
+	}
+	return r.kind
+}
+
+// mark sets the action of row r's commit ("" to unmark it). When cherry-picking, that picks the commit if it isn't
+// already being picked, and unmarking (or dropping, which would be the same) takes it back out.
 func (u *ui) mark(r row, action string) error {
+	if u.p.cherry && action != "" && action != "drop" {
+		return pickCommit(u.p, r.hash, r.short, action)
+	}
 	if r.entry < 0 {
 		what := action
 		if what == "" {
 			what = "unmark"
 		}
-		return fmt.Errorf("%s, as it isn't on the current branch", cant(what, r.short))
+		return fmt.Errorf("%s, as %s", cant(what, r.short), u.outside())
+	}
+	if u.p.cherry {
+		u.p.unpick(r.entry)
+		return nil
 	}
 	u.p.entries[r.entry].action = action
 	return nil
+}
+
+// outside says why a commit that isn't an entry can't be marked or moved.
+func (u *ui) outside() string {
+	if u.p.cherry {
+		return "it isn't one of the commits being cherry-picked"
+	}
+	return "it isn't on the current branch"
 }
 
 // edit applies a change the user tried (see explain) to row r's commit, and shows the result, with the cursor on the
@@ -305,7 +353,8 @@ func (u *ui) edit(what string, change func() error, r row, kind int) {
 }
 
 // load redraws the rows from the plan, and puts the cursor on the given commit: on its row of the given kind if it
-// has one, and otherwise its other row (e.g. its copy, if it's just been added to the rebase).
+// has one, and otherwise its other row (e.g. its copy, if it's just been added to the rebase). An empty hash puts it
+// on the first commit.
 func (u *ui) load(hash string, kind int) error {
 	if err := u.h.fill(u.p, u.limit+1); err != nil {
 		return err
@@ -317,7 +366,7 @@ func (u *ui) load(hash string, kind int) error {
 	u.rows, u.more = rows, more
 	found := -1
 	for i, r := range u.rows {
-		if r.hash == hash && (r.kind == kind || found < 0) {
+		if r.hash != "" && r.hash == hash && (r.kind == kind || found < 0) {
 			found = i
 		}
 	}
@@ -409,8 +458,12 @@ func (u *ui) helpLines() []string {
 	const gap = "  "
 	var lines []string
 	line, width := "", 0
-	for _, h := range help {
-		descColour, ok := actionColours[h.desc]
+	items := help
+	if u.p.cherry {
+		items = cherryHelp
+	}
+	for _, h := range items {
+		descColour, ok := actionColours[strings.Fields(h.desc)[0]] // Including "pick range" in pick's colour
 		switch {
 		case h.desc == "base":
 			descColour = baseLabel
@@ -506,6 +559,8 @@ func (u *ui) message() string {
 	switch {
 	case u.status != "":
 		return errText + u.status
+	case size == 0 && p.cherry:
+		return helpText + cherryHint
 	case size == 0 && p.cutoff != "":
 		return helpText + "Nothing to rebase above the cutoff"
 	case size == 0 && p.base.hash != "":
@@ -514,15 +569,27 @@ func (u *ui) message() string {
 	return ""
 }
 
+// cherryHint is the note shown while no commits are picked to cherry-pick.
+const cherryHint = "Press p on each commit to cherry-pick onto HEAD, or ⇧p to pick every commit back to the last one " +
+	"picked"
+
 // messageRows returns how many rows to keep under the help for messages: enough for the longest of them (or the
 // current one, if a message from git is longer still), so the list doesn't move when one appears.
 func (u *ui) messageRows() int {
-	short := strings.Repeat("0", len(u.p.entries[0].short))
+	example := u.p.base.short // HEAD when cherry-picking, which has no entries until commits are picked
+	if len(u.p.entries) > 0 {
+		example = u.p.entries[0].short
+	}
+	short := strings.Repeat("0", len(example))
 	rows := len(wrap(u.message(), u.width))
-	for _, m := range []string{
+	messages := []string{
 		`can't rebase, as ` + short + ` is marked "squash" with nothing below it to fold into`,
 		"Nothing to rebase: " + short + " already has all of the current branch's commits",
-	} {
+	}
+	if u.p.cherry {
+		messages = []string{"can't fixup " + short + ", as " + short + " would then have nothing to fold into", cherryHint}
+	}
+	for _, m := range messages {
 		rows = max(rows, len(wrap(m, u.width)))
 	}
 	return rows
@@ -541,6 +608,10 @@ func (u *ui) labels(size int) labels {
 	l := labels{top: -1, bottom: -1, partner: -1}
 	cutoff, _ := u.p.cutoffAt(size)
 	switch {
+	case u.p.cherry:
+		if size > 0 {
+			l.base = u.p.base.hash
+		}
 	case u.p.base.hash != "":
 		l.base = u.p.base.hash
 		if u.p.moves(size) {
@@ -612,11 +683,11 @@ func (u *ui) row(i, size int, l labels) string {
 	case r.kind == ghost && r.lost:
 		label = dim + "moved "
 	case r.kind == ghost:
-		label = dim + "copied" // As another branch still has it
+		label = dim + "copied" // As another branch still has it (always, when cherry-picking)
 	case r.hash == l.base:
 		label = baseLabel + "base  " // Show where the rebase goes, as it isn't part of the rebase itself.
-		if u.p.base.hash == "" {
-			label = faint + label + notFaint // Only where the rebase happens to stop
+		if u.p.base.hash == "" || u.p.cherry {
+			label = faint + label + notFaint // Only where the rebase happens to stop, or HEAD when cherry-picking
 		}
 	case r.hash == l.cutoff:
 		label = cutoffLabel + "cutoff"
