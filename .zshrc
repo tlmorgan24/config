@@ -571,8 +571,9 @@ merge-main() {
 #
 # Remove commits from history (e.g. `drop HEAD`, `drop HEAD~3 HEAD~5`, `drop HEAD~3..`), leaving files as if they had
 # never been made, while keeping staged and unstaged changes as they are. As in `cherry`, a range a..b (with either side
-# HEAD if left out) names b's first-parent commits that a doesn't have. Refuses commits that are already pushed (use
-# `git revert` for those) or are merges.
+# HEAD if left out) names b's first-parent commits that a doesn't have. Refuses merges. Warns about commits that are
+# already pushed, as the branch then needs a force push (e.g. `push --force-with-lease`), and otherwise a pull would
+# bring them back.
 drop() {
   if (( ! $# )); then
     echo "usage: drop [<commit> | <upstream>..<commit>]..." >&2
@@ -597,21 +598,22 @@ drop() {
   commits=(${(u)commits})
 
   local commit short
+  local -a pushed
   for commit in $commits; do
     short="$(git rev-parse --short "$commit")"
     if ! git merge-base --is-ancestor "$commit" HEAD; then
       echo "drop: $short isn't on the current branch" >&2
       return 1
     fi
-    if git merge-base --is-ancestor "$commit" '@{u}' 2>/dev/null; then
-      echo "drop: $short is already pushed, so use git revert instead" >&2
-      return 1
-    fi
     if git rev-parse --verify --quiet "$commit^2" >/dev/null; then
       echo "drop: $short is a merge, which git rebase can't drop" >&2
       return 1
     fi
+    git merge-base --is-ancestor "$commit" '@{u}' 2>/dev/null && pushed+=("$short")
   done
+  if (( ${#pushed} )); then
+    echo "drop: warning: ${pushed[*]} already pushed, so push --force-with-lease (or a pull brings them back)" >&2
+  fi
 
   # Rebase from the newest commit that all of them have, or from just below it if it's one being dropped too.
   local base
