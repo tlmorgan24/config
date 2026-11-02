@@ -5,7 +5,8 @@
     {
       "context": "Chat",
       "bindings": {
-        "cmd+e": "chat:externalEditor"
+        "cmd+e": "chat:externalEditor",
+        "ctrl+r": "command:resume"
       }
     }
   ]

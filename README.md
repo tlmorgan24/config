@@ -224,7 +224,7 @@ Every command run in an interactive shell is recorded by `cmdlog` (a Go program 
 
 * `CLAUDE.md` - instructions for every project (e.g. no Claude attribution in anything it writes; never kill processes by name or pattern).
 * `settings.json` - settings, including hooks. Note, this replaces the machine's `~/.claude/settings.json`, so settings changed from inside Claude Code (e.g. `/model`) are lost on the next `./copy.sh` unless copied into the repo.
-* `keybindings.json` - Cmd+E opens the prompt in `$EDITOR` (Vim), for proper text editing.
+* `keybindings.json` - Cmd+E opens the prompt in `$EDITOR` (Vim), for proper text editing. Ctrl+R opens `/resume` and Esc Esc opens `/rewind`.
 * `hooks/guard-process-kill.sh` (requires `jq`) - runs before every shell command and file write Claude makes, and makes Claude Code ask before anything that could kill processes it didn't start (`pkill`, `killall`, `kill` with `pgrep`/`ps`/`lsof`, `kill -1`, process groups, `psutil`/`killpg` in code). Added after a pattern kill force-closed all my open terminals. If the hook itself fails (e.g. `jq` missing), it blocks the action rather than letting it through. Review or disable it with `/hooks` in Claude Code.
 
 Also, Claude Code is prevented from loading my full .zshrc by the `[[ -n "$CLAUDECODE" ]] && return` line there. This prevents the shell commands it runs having behaviour it doesn't expect.
