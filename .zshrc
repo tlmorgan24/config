@@ -435,9 +435,10 @@ _goinit() {
 }
 
 # Convenient git shortcuts
-alias gaa='git add -u'  # Add tracked files (like the -a in `git commit -a`).
-alias gad='git add .'  # 'd' stands for 'dot' or 'directory', as stages entire current directory (except .gitignored)
-alias gap='git add -p .'  # Stage changes interactively, patch by patch (instead of entire files).
+alias ga='git add'
+alias gaa='ga -u'  # Add tracked files (like the -a in `git commit -a`).
+alias gad='ga .'  # 'd' stands for 'dot' or 'directory', as stages entire current directory (except .gitignored)
+alias gap='ga -p .'  # Stage changes interactively, patch by patch (instead of entire files).
 alias gaar='gaa && git restore --staged'
 alias gadr='gad && git restore --staged'
 alias gc='git commit -m'
@@ -453,7 +454,7 @@ alias gcaf='gcf -a'
 alias gcdf='gad && gcf'
 alias gcif='gadr .gitignore && gcf'
 alias gl='git log --oneline'
-alias gt='gl --graph --all'  # Tree view of all commits
+alias glt='gl --graph --all'  # Tree view of all commits
 alias gs='git status'
 
 # Push current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the

@@ -118,6 +118,7 @@ Utilities:
 * `goco [directory [module name]]` - like `govi`, but opens the directory in VS Code for more in-depth work, and doesn't format/tidy/run automatically.
 
 Git 1:
+* `ga` - alias for `git add` 
 * `gaa` - alias for `git add -u` - adds tracked files (like the -a in `git commit -a`)
 * `gad` - alias for `git add .` - 'd' stands for 'dot' or 'directory', as stages entire current directory (except .gitignored files)
 * `gap` - alias for `git add -p .` - stages changes interactively, patch by patch (instead of entire files)
@@ -133,7 +134,7 @@ Git 1:
 * `gcdf` - alias for `git add . && git commit --amend --no-edit`
 * `gcif` - alias for `git add . && git restore --staged .gitignore && git commit --amend --no-edit`
 * `gl` - alias for `git log --oneline`
-* `gt` - alias for `git log --graph --oneline --all` - tree view of all commits
+* `glt` - alias for `git log --graph --oneline --all` - tree view of all commits
 * `gs` - alias for `git status`
 
 Git 2:
