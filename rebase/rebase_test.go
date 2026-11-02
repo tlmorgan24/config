@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -300,10 +301,15 @@ func TestRebased(t *testing.T) {
 	}
 }
 
-// TestPreview checks the history drawn for moving a branch onto another, in a real repository.
-func TestPreview(t *testing.T) {
+// newRepo changes to a new repository for the rest of the test, with topic (checked out) branching off feature, which
+// branches off main, and main moved on since.
+func newRepo(t *testing.T) {
 	t.Chdir(t.TempDir())
 	t.Setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+	t.Setenv("GIT_AUTHOR_NAME", "T")
+	t.Setenv("GIT_AUTHOR_EMAIL", "t@x")
+	t.Setenv("GIT_COMMITTER_NAME", "T")
+	t.Setenv("GIT_COMMITTER_EMAIL", "t@x")
 	for _, args := range [][]string{
 		{"init", "-q", "-b", "main"}, {"commit", "-q", "--allow-empty", "-m", "init"},
 		{"switch", "-qc", "feature"}, {"commit", "-q", "--allow-empty", "-m", "add parser"},
@@ -313,11 +319,96 @@ func TestPreview(t *testing.T) {
 		{"switch", "-q", "main"}, {"commit", "-q", "--allow-empty", "-m", "refactor"},
 		{"commit", "-q", "--allow-empty", "-m", "bump deps"}, {"switch", "-q", "topic"},
 	} {
-		args = append([]string{"-c", "user.name=T", "-c", "user.email=t@x"}, args...)
 		if _, err := git(args...); err != nil {
 			t.Fatal(err)
 		}
 	}
+}
+
+func TestParseArgs(t *testing.T) {
+	for _, c := range []struct {
+		args           []string
+		onto, upstream string
+		ok             bool
+	}{
+		{nil, "", "", true},
+		{[]string{"main"}, "", "main", true},
+		{[]string{"-i", "HEAD~3"}, "", "HEAD~3", true},
+		{[]string{"--onto", "main", "feature"}, "main", "feature", true},
+		{[]string{"feature", "--interactive", "--onto=main"}, "main", "feature", true},
+		{[]string{"--onto", "main"}, "", "", false}, // git would use the branch's upstream.
+		{[]string{"main", "topic"}, "", "", false},
+		{[]string{"--root"}, "", "", false},
+		{[]string{"main", "--onto"}, "", "", false},
+	} {
+		onto, upstream, ok := parseArgs(c.args)
+		if ok != c.ok || (ok && (onto != c.onto || upstream != c.upstream)) {
+			t.Errorf("parseArgs(%q) = %q, %q, %v, want %q, %q, %v", c.args, onto, upstream, ok, c.onto, c.upstream,
+				c.ok)
+		}
+	}
+}
+
+// TestPreset checks the base and cutoff that `git rebase` arguments start the list off with, in a real repository.
+func TestPreset(t *testing.T) {
+	newRepo(t)
+	orphan, err := git("commit-tree", "-m", "orphan", "HEAD^{tree}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Entries are "use parser in cli", "add cli flag", "add tests", "add parser" and "init".
+	for _, c := range []struct {
+		onto, upstream string
+		base, cutoff   string // Subjects ("" for none)
+		size           int
+		err            string
+	}{
+		{"", "", "", "", 0, ""},
+		{"", "main", "bump deps", "", 4, ""},
+		{"", "HEAD~2", "add tests", "", 2, ""}, // Stops the rebase there, as it's on the branch
+		{"main", "feature", "bump deps", "add tests", 2, ""},
+		{"main", "topic~2", "bump deps", "add tests", 2, ""},
+		{"HEAD~3", "HEAD~1", "add parser", "add cli flag", 1, ""}, // Drops "add tests"
+		{"HEAD~2", "feature", "add tests", "", 2, ""},             // The same as no --onto
+		{"HEAD~1", "HEAD~3", "", "", 0, "can't rebase onto HEAD~1, as it's one of the commits after HEAD~3"},
+		{"", "nope", "", "", 0, "nope isn't a commit"},
+		{"nope", "main", "", "", 0, "nope isn't a commit"},
+		{"main", strings.TrimSpace(orphan), "", "", 0, "has none of the current branch's commits"},
+	} {
+		h, err := newHistory()
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := &plan{}
+		if err := h.fill(p, pageSize); err != nil {
+			t.Fatal(err)
+		}
+		err = h.preset(p, c.onto, c.upstream)
+		name := fmt.Sprintf("--onto %q %q", c.onto, c.upstream)
+		if c.err != "" {
+			if err == nil || !strings.Contains(err.Error(), c.err) {
+				t.Errorf("%s gave error %v, want %q", name, err, c.err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		cutoff := ""
+		if i := p.index(p.cutoff); i >= 0 {
+			cutoff = p.entries[i].subject
+		}
+		if p.base.subject != c.base || cutoff != c.cutoff || p.size() != c.size {
+			t.Errorf("%s gave base %q, cutoff %q, size %d, want %q, %q, %d", name, p.base.subject, cutoff, p.size(),
+				c.base, c.cutoff, c.size)
+		}
+	}
+}
+
+// TestPreview checks the history drawn for moving a branch onto another, in a real repository.
+func TestPreview(t *testing.T) {
+	newRepo(t)
 	h, err := newHistory()
 	if err != nil {
 		t.Fatal(err)

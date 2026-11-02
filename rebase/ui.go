@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"unicode"
@@ -237,16 +236,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 				u.p.base, u.p.baseSize = commit{}, 0
 				return nil
 			}
-			out, err := git("rev-list", "--first-parent", "--count", "HEAD", "^"+r.hash)
-			if err != nil {
-				return err
-			}
-			n, err := strconv.Atoi(strings.TrimSpace(out))
-			if err != nil {
-				return err
-			}
-			u.p.setBase(commit{hash: r.hash, short: r.short, subject: r.subject}, n)
-			return u.h.fill(u.p, n+1) // Up to the commit the rebase stops at
+			return u.h.setBase(u.p, commit{hash: r.hash, short: r.short, subject: r.subject})
 		}, r, plain)
 	case "c":
 		u.edit("cutoff", func() error {

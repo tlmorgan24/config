@@ -9,7 +9,13 @@
 //
 // Usage:
 //
-//	rebase
+//	rebase [--onto <newbase>] [<upstream>]
+//
+// The arguments are those of `git rebase`, and start the list off with the base and cutoff they imply, which can then
+// be changed as usual: `rebase main` makes main the base, and `rebase --onto main feature` also makes the cutoff where
+// the current branch meets feature. Without them, the rebase starts just below the oldest commit marked or moved,
+// rather than at the branch's upstream as `git rebase` does. -i is accepted out of habit, as the rebase is always
+// interactive.
 //
 // Once confirmed, the todo list is handed to `git rebase -i --autostash` (through $GIT_SEQUENCE_EDITOR), so git carries
 // out the rebase as usual: stopping at edits and conflicts for `git rebase --continue` or `git rebase --abort`.
@@ -20,17 +26,19 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
 const pageSize = 200 // Commits loaded from the history at a time, as it can be far longer than anyone scrolls
 
 func main() {
-	if len(os.Args) > 1 {
-		fmt.Fprintln(os.Stderr, "usage: rebase")
+	onto, upstream, ok := parseArgs(os.Args[1:])
+	if !ok {
+		fmt.Fprintln(os.Stderr, "usage: rebase [--onto <newbase>] [<upstream>]")
 		os.Exit(2)
 	}
-	status, err := run()
+	status, err := run(onto, upstream)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "rebase:", err)
 		os.Exit(1)
@@ -38,8 +46,30 @@ func main() {
 	os.Exit(status)
 }
 
-// run returns the exit status of `git rebase`, or 0 if the user quit without rebasing.
-func run() (int, error) {
+// parseArgs returns the base (--onto) and upstream given as `git rebase` arguments ("" for each one not given), and
+// whether the arguments are ones this accepts.
+func parseArgs(args []string) (onto, upstream string, ok bool) {
+	for i := 0; i < len(args); i++ {
+		switch arg := args[i]; {
+		case arg == "-i" || arg == "--interactive":
+		case arg == "--onto" && i+1 < len(args):
+			i++
+			onto = args[i]
+		case strings.HasPrefix(arg, "--onto="):
+			onto = strings.TrimPrefix(arg, "--onto=")
+		case strings.HasPrefix(arg, "-") || upstream != "":
+			return "", "", false // Including git's <branch>, as switching to the branch first does the same.
+		default:
+			upstream = arg
+		}
+	}
+	// Without an upstream, git would use the branch's (@{upstream}), which the list doesn't start from.
+	return onto, upstream, onto == "" || upstream != ""
+}
+
+// run returns the exit status of `git rebase`, or 0 if the user quit without rebasing. It starts the list off as
+// `git rebase [--onto <onto>] <upstream>` would (see preset).
+func run(onto, upstream string) (int, error) {
 	if _, err := git("rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
 		return 0, errors.New("no commits to rebase: perhaps you are not in a git repository")
 	}
@@ -61,11 +91,106 @@ func run() (int, error) {
 	if err := h.fill(p, pageSize); err != nil {
 		return 0, err
 	}
-	todo, onto, cutoff, err := choose(p, h)
+	if err := h.preset(p, onto, upstream); err != nil {
+		return 0, err
+	}
+	todo, newBase, cutoff, err := choose(p, h)
 	if err != nil || todo == "" {
 		return 0, err
 	}
-	return rebase(todo, onto, cutoff)
+	return rebase(todo, newBase, cutoff)
+}
+
+// preset sets the base and cutoff that `git rebase [--onto <onto>] <upstream>` implies, as if the user had chosen
+// them, so they can be changed as usual. Without --onto, upstream is the base (like b on it), so the branch moves onto
+// it, or (if it's on the branch) the rebase stops there. With --onto, onto is the base, and the cutoff is where the
+// branch meets upstream, as git rebases the commits that upstream doesn't contain.
+func (h *history) preset(p *plan, onto, upstream string) error {
+	if upstream == "" {
+		return nil
+	}
+	up, err := resolve(upstream)
+	if err != nil {
+		return err
+	}
+	if onto == "" {
+		if err := h.setBase(p, up); err != nil {
+			return err
+		}
+		return checkPreset(p, "base", up)
+	}
+	base, err := resolve(onto)
+	if err != nil {
+		return err
+	}
+	n, err := countNotIn(up.hash)
+	if err != nil {
+		return err
+	}
+	if err := h.fill(p, n+1); err != nil {
+		return err
+	}
+	if n >= len(p.entries) {
+		return fmt.Errorf("%s has none of the current branch's commits", upstream)
+	}
+	stop := p.entries[n].commit
+	if err := h.setBase(p, base); err != nil {
+		return err
+	}
+	switch i := p.index(base.hash); {
+	case i == n:
+		return checkPreset(p, "base", base) // The same as no --onto, so it's a base that stops the rebase.
+	case i >= 0 && i < n:
+		return fmt.Errorf("can't rebase onto %s, as it's one of the commits after %s", onto, upstream)
+	}
+	p.setCutoff(stop.hash)
+	return checkPreset(p, "cutoff", stop)
+}
+
+// checkPreset returns why the plan doesn't work with the base or cutoff (what) c that preset has just set, or nil if
+// it works.
+func checkPreset(p *plan, what string, c commit) error {
+	if conflict := p.check(); conflict != nil {
+		return errors.New(p.explain(*conflict, what, c.hash, c.short))
+	}
+	return nil
+}
+
+// setBase makes c the base, loading the entries down to the commit the rebase stops at.
+func (h *history) setBase(p *plan, c commit) error {
+	n, err := countNotIn(c.hash)
+	if err != nil {
+		return err
+	}
+	p.setBase(c, n)
+	return h.fill(p, n+1)
+}
+
+// countNotIn returns how many of HEAD's first-parent commits the commit with the given hash doesn't contain, which is
+// also the position of the first that it does.
+func countNotIn(hash string) (int, error) {
+	out, err := git("rev-list", "--first-parent", "--count", "HEAD", "^"+hash)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(strings.TrimSpace(out))
+}
+
+// resolve returns the commit that rev (e.g. main or HEAD~3) names.
+func resolve(rev string) (commit, error) {
+	hash, err := git("rev-parse", "--verify", "--quiet", "--end-of-options", rev+"^{commit}")
+	if err != nil {
+		return commit{}, fmt.Errorf("%s isn't a commit", rev)
+	}
+	out, err := git("log", "-1", "--format=%H%x00%h%x00%s", strings.TrimSpace(hash))
+	if err != nil {
+		return commit{}, err
+	}
+	fields := strings.SplitN(strings.TrimSuffix(out, "\n"), "\x00", 3)
+	if len(fields) != 3 {
+		return commit{}, fmt.Errorf("unexpected output from git log: %q", out)
+	}
+	return commit{hash: fields[0], short: fields[1], subject: fields[2]}, nil
 }
 
 // history loads HEAD's history into a plan as the user scrolls down it.
