@@ -5,7 +5,6 @@
     {
       "context": "Chat",
       "bindings": {
-        "cmd+enter": "chat:queueSubmit",
         "cmd+e": "chat:externalEditor"
       }
     }
