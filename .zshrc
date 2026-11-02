@@ -24,7 +24,6 @@ fi
 
 setopt interactive_comments  # Interpret '#' as comment, even interactively (i.e. outside scripts).
 setopt SH_WORD_SPLIT  # Split words on whitespace, for same behaviour as Bash.
-setopt EXTENDED_GLOB
 
 # Use zsh's completion system, which completes each command's subcommands, flags and arguments (e.g. git branches),
 # rather than just file and command names. Includes the completions Homebrew installs in its site-functions folder.
@@ -795,6 +794,7 @@ repo() {
 
 # git clone with automatic cd into cloned repository. Takes the same args as git clone.
 clonecd() {
+  setopt local_options extended_glob  # For /## (one or more slashes) below.
   local -a valued=(--origin --branch --upload-pack --template --config --depth --shallow-since --shallow-exclude
     --reference --reference-if-able --separate-git-dir --jobs --filter --server-option --bundle-uri --ref-format
     --revision)
