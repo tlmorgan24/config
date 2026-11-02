@@ -14,7 +14,8 @@
       "context": "Global",
       "bindings": {
         "alt+up": "app:toggleDiffNoiseFilter",
-        "alt+down": "app:toggleDiffPreSession"
+        "alt+down": "app:toggleDiffPreSession",
+        "alt+c": "app:toggleReplTab"
       }
     }
   ]

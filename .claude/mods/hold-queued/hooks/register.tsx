@@ -10,9 +10,9 @@ import type { Editing, Held } from '../types'
 //
 // Option+Up takes back the newest held message for editing, and further presses step to older ones (Option+Down to
 // newer ones, and past the newest back to the draft). While one is taken back, Enter and Cmd+Enter both put the box's
-// text back in its place, or delete it from the queue if the box is empty, and no held message is submitted until
-// then. The keys reach the mod through the list's two buttons, which name otherwise unused Claude Code actions that
-// keybindings.json binds to Option+Up and Option+Down.
+// text back in its place, or delete it from the queue if the box is empty, Option+C cancels the editing (undoing every
+// edit since the first Option+Up), and no held message is submitted until then. The keys reach the mod through the
+// list's buttons, which name otherwise unused Claude Code actions that keybindings.json binds to these keys.
 
 const held = atom({ plugin: 'hold-queued', key: 'held' } as const, [] as Held)
 const editing = atom({ plugin: 'hold-queued', key: 'editing' } as const, null as Editing)
@@ -20,6 +20,7 @@ const editing = atom({ plugin: 'hold-queued', key: 'editing' } as const, null as
 const ZWSP = '​'  // Kept in the box while it would otherwise be empty, so Enter still submits (and is seen)
 
 let draft = ''  // What the box held before the first Option+Up, put back once editing ends
+let original: Held = []  // The held messages before the first Option+Up, put back if the editing is cancelled
 let submits = 0  // Count of submissions, to tell an empty submit (no submission follows its clear) from a real one
 let isTurnRunning = false
 let isReleaseDue = false  // A turn ended while a message was being edited, so the next one is due once editing ends
@@ -107,6 +108,7 @@ async function editOlder($: EngineInterface) {
   }
   if (index === null) {
     draft = strip((await $.prompt.read()).text)
+    original = list
   } else {
     await keepEdits($, index)
   }
@@ -129,6 +131,16 @@ async function editNewer($: EngineInterface) {
     await update($, editing, () => index + 1)
     await show($, list[index + 1] ?? '')
   }
+}
+
+// Option+C: cancel the editing, undoing every edit since the first Option+Up and putting the draft back in the box.
+async function cancelEditing($: EngineInterface) {
+  if ((await read($, editing)) === null) {
+    return
+  }
+  const messages = original
+  await update($, held, () => messages)
+  await stopEditing($)
 }
 
 export const register: Register = on => {
@@ -215,8 +227,8 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // List the held messages above the prompt box, one line each, while there are any. The two buttons carry the
-  // Option+Up and Option+Down keys (see above).
+  // List the held messages above the prompt box, one line each, while there are any. The buttons carry the Option+Up,
+  // Option+Down and (while editing) Option+C keys (see above).
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const list = await read($, held)
     if (list.length === 0 || e.props.hasSurvey) {
@@ -246,6 +258,17 @@ export const register: Register = on => {
             action="app:toggleDiffPreSession"
             onPress={() => editNewer($)}
           />
+          {index !== null && <Text dimColor> · cancel </Text>}
+          {index !== null && (
+            <Button
+              key="cancel"
+              label="⌥C"
+              plain
+              dimColor
+              action="app:toggleReplTab"
+              onPress={() => cancelEditing($)}
+            />
+          )}
         </Box>
         {list.map((text, i) => (
           <Text key={`${i}`} wrap="truncate-end" bold={i === index}>
