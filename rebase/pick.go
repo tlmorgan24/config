@@ -1,7 +1,7 @@
 package main
 
-// cherry is an interactive `git cherry-pick`, built from the same program as rebase (under the name cherry, see main),
-// as it's a rebase whose todo list picks other branches' commits. It lists the history (a graph of all branches) as it
+// pick is an interactive `git cherry-pick`, built from the same program as rebase (under the name pick, see main), as
+// it's a rebase whose todo list picks other branches' commits. It lists the history (a graph of all branches) as it
 // will be once cherry-picked, with a preview of the commit under the cursor. Marking a commit with an action, as in
 // rebase, cherry-picks it, whichever branch it's on: p picks it as it is, and r, e, s and f also reword, edit, squash
 // or fixup its copy. ⇧p also picks the commits between it and the commit last marked (following first parents), like
@@ -13,17 +13,16 @@ package main
 //
 // Usage:
 //
-//	cherry [<commit> | <upstream>..<commit>]...
+//	pick [<commit> | <upstream>..<commit>]...
 //
 // The arguments are those of `git cherry-pick` (commits and ranges), and start the list off with the commits they name
-// picked, in the same order: `cherry feature` picks just feature, and `cherry main..feature` all of feature's commits
-// that main doesn't have (following first parents).
+// picked, in the same order: `pick feature` picks just feature, and `pick main..feature` all of feature's commits that
+// main doesn't have (following first parents).
 //
 // Once confirmed, the todo list is handed to `git rebase -i --autostash HEAD`, so git carries out the cherry-pick as a
 // rebase: stopping at edits and conflicts for `git rebase --continue` or `git rebase --abort`.
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -32,25 +31,25 @@ import (
 	"strings"
 )
 
-func cherryMain() {
+func pickMain() {
 	revs := os.Args[1:]
 	for _, rev := range revs {
 		if strings.HasPrefix(rev, "-") {
-			fmt.Fprintln(os.Stderr, "usage: cherry [<commit> | <upstream>..<commit>]...")
+			fmt.Fprintln(os.Stderr, "usage: pick [<commit> | <upstream>..<commit>]...")
 			os.Exit(2)
 		}
 	}
-	status, err := runCherry(revs)
+	status, err := runPick(revs)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "cherry:", err)
+		fmt.Fprintln(os.Stderr, "pick:", err)
 		os.Exit(1)
 	}
 	os.Exit(status)
 }
 
-// runCherry returns the exit status of `git rebase`, or 0 if the user quit without cherry-picking. It starts the list
-// off with the commits that revs (`git cherry-pick` arguments) name picked (see presetCherry).
-func runCherry(revs []string) (int, error) {
+// runPick returns the exit status of `git rebase`, or 0 if the user quit without cherry-picking. It starts the list
+// off with the commits that revs (`git cherry-pick` arguments) name picked (see presetPick).
+func runPick(revs []string) (int, error) {
 	if err := checkRepo("cherry-pick onto"); err != nil {
 		return 0, err
 	}
@@ -63,7 +62,7 @@ func runCherry(revs []string) (int, error) {
 		return 0, err
 	}
 	p := &plan{cherry: true, complete: true, base: head}
-	if err := presetCherry(p, revs); err != nil {
+	if err := presetPick(p, revs); err != nil {
 		return 0, err
 	}
 	todo, _, upstream, err := choose(p, h)
@@ -73,32 +72,13 @@ func runCherry(revs []string) (int, error) {
 	return rebase(todo, "", upstream)
 }
 
-// presetCherry picks the commits that revs (as in `git cherry-pick <revs>`) name, in the same order, as if the user had
+// presetPick picks the commits that revs (as in `git cherry-pick <revs>`) name, in the same order, as if the user had
 // picked them, so they can be changed as usual. A range a..b (with either side HEAD if left out) names b's first-parent
 // commits that a doesn't have.
-func presetCherry(p *plan, revs []string) error {
+func presetPick(p *plan, revs []string) error {
 	for _, rev := range revs {
-		upstream, tip, isRange := strings.Cut(rev, "..")
-		if !isRange {
-			tip = rev
-		}
-		c, err := resolve(cmp.Or(tip, "HEAD"))
+		c, commits, err := revCommits(rev, "cherry-pick")
 		if err != nil {
-			return err
-		}
-		var commits []commit
-		if isRange {
-			up, err := resolve(cmp.Or(upstream, "HEAD"))
-			if err != nil {
-				return err
-			}
-			if commits, err = logCommits(c.hash, "--not", up.hash); err != nil {
-				return err
-			}
-			if len(commits) == 0 {
-				return fmt.Errorf("nothing to cherry-pick, as %s already has all of %s's commits", up.short, c.short)
-			}
-		} else if commits, err = logCommits("-1", c.hash); err != nil {
 			return err
 		}
 		// The others are all newer, so the current branch doesn't have them either if it doesn't have the oldest.

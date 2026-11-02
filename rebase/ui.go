@@ -62,7 +62,7 @@ var help = []struct{ key, desc string }{
 // cherryHelp is the help shown when cherry-picking, which leaves out d, as it only does what u does (see mark).
 var cherryHelp = []struct{ key, desc string }{
 	{"p", "pick"}, {"⇧p", "pick range"}, {"r", "reword"}, {"e", "edit"}, {"s", "squash"}, {"f", "fixup"},
-	{"u", "unmark"}, {"⌥↑/↓", "swap"}, {"enter", "cherry-pick"}, {"esc", "quit"},
+	{"u", "unmark"}, {"⌥↑/↓", "swap"}, {"enter", "rebase"}, {"esc", "quit"},
 }
 
 // previewHelp is the help for the preview, shown in the row above it (hiddenPreviewHelp instead while it's hidden).
@@ -318,7 +318,12 @@ func (u *ui) mark(r row, action string) error {
 		if what == "" {
 			what = "unmark"
 		}
-		return fmt.Errorf("%s, as %s", cant(what, r.short), u.outside())
+		err := fmt.Sprintf("%s, as %s", cant(what, r.short), u.outside())
+		// Point to the pick command for the actions that would bring the commit in, which only it can do.
+		if !u.p.cherry && action != "" && action != "drop" {
+			err += " (quit and run `pick` instead)"
+		}
+		return errors.New(err)
 	}
 	if u.p.cherry {
 		u.p.unpick(r.entry)

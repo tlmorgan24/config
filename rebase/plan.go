@@ -36,7 +36,7 @@ type plan struct {
 	base     commit
 	baseSize int    // How many entries the base doesn't contain (0 without a base), all of which the rebase covers
 	cutoff   string // Hash of the entry chosen (with c) for the rebase to stop at, or "" to work it out
-	cherry   bool   // Whether the plan is for cherry-picking (see cherry.go) rather than rebasing
+	cherry   bool   // Whether the plan is for cherry-picking (see pick.go) rather than rebasing
 	last     string // When cherry-picking, hash of the entry last marked, which ⇧p picks back to ("" for none)
 }
 

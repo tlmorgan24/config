@@ -20,7 +20,8 @@
 // Once confirmed, the todo list is handed to `git rebase -i --autostash` (through $GIT_SEQUENCE_EDITOR), so git carries
 // out the rebase as usual: stopping at edits and conflicts for `git rebase --continue` or `git rebase --abort`.
 //
-// Built under the name cherry, the same program is an interactive `git cherry-pick` instead (see cherry.go).
+// Built under the name pick, the same program is an interactive `git cherry-pick` instead (see pick.go), and under the
+// name drop, a rebase that starts off with the commits given marked drop (see drop.go).
 package main
 
 import (
@@ -36,8 +37,12 @@ import (
 const pageSize = 200 // Commits loaded from the history at a time, as it can be far longer than anyone scrolls
 
 func main() {
-	if filepath.Base(os.Args[0]) == "cherry" {
-		cherryMain()
+	switch filepath.Base(os.Args[0]) {
+	case "pick":
+		pickMain()
+		return
+	case "drop":
+		dropMain()
 		return
 	}
 	onto, upstream, ok := parseArgs(os.Args[1:])
@@ -45,7 +50,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: rebase [--onto <newbase>] [<upstream>]")
 		os.Exit(2)
 	}
-	status, err := run(onto, upstream)
+	status, err := run("rebase", func(h *history, p *plan) error { return h.preset(p, onto, upstream) })
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "rebase:", err)
 		os.Exit(1)
@@ -74,10 +79,11 @@ func parseArgs(args []string) (onto, upstream string, ok bool) {
 	return onto, upstream, onto == "" || upstream != ""
 }
 
-// run returns the exit status of `git rebase`, or 0 if the user quit without rebasing. It starts the list off as
-// `git rebase [--onto <onto>] <upstream>` would (see preset).
-func run(onto, upstream string) (int, error) {
-	if err := checkRepo("rebase"); err != nil {
+// run returns the exit status of `git rebase`, or 0 if the user quit without rebasing. It starts the list off with
+// preset (e.g. the base and cutoff that `git rebase [--onto <onto>] <upstream>` implies, see history.preset), and
+// errors name what it does (verb, e.g. rebase).
+func run(verb string, preset func(*history, *plan) error) (int, error) {
+	if err := checkRepo(verb); err != nil {
 		return 0, err
 	}
 	h, err := newHistory()
@@ -88,7 +94,7 @@ func run(onto, upstream string) (int, error) {
 	if err := h.fill(p, pageSize); err != nil {
 		return 0, err
 	}
-	if err := h.preset(p, onto, upstream); err != nil {
+	if err := preset(h, p); err != nil {
 		return 0, err
 	}
 	todo, newBase, cutoff, err := choose(p, h)

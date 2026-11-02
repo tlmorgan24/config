@@ -595,3 +595,25 @@ func TestWrap(t *testing.T) {
 		t.Errorf("wrap = %q, want %q", got, want)
 	}
 }
+
+// TestMarkOutside checks the error for marking a commit that isn't an entry, which points to the pick command for the
+// actions that would bring it in.
+func TestMarkOutside(t *testing.T) {
+	r := row{hash: "ha", short: "a", entry: -1}
+	hint := " (quit and run `pick` instead)"
+	for _, c := range []struct {
+		cherry       bool
+		action, want string
+	}{
+		{false, "pick", "can't pick a, as it isn't on the current branch" + hint},
+		{false, "squash", "can't squash a, as it isn't on the current branch" + hint},
+		{false, "drop", "can't drop a, as it isn't on the current branch"},
+		{false, "", "can't unmark a, as it isn't on the current branch"},
+		{true, "drop", "can't drop a, as it isn't one of the commits being cherry-picked"},
+	} {
+		u := &ui{p: &plan{cherry: c.cherry}}
+		if err := u.mark(r, c.action); err == nil || err.Error() != c.want {
+			t.Errorf("marking %q (cherry %v) gave %v, want %q", c.action, c.cherry, err, c.want)
+		}
+	}
+}

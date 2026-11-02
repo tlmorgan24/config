@@ -148,8 +148,8 @@ func TestCherryChecks(t *testing.T) {
 	}
 }
 
-// TestPresetCherry checks the commits that `git cherry-pick` arguments start the list off with.
-func TestPresetCherry(t *testing.T) {
+// TestPresetPick checks the commits that `git cherry-pick` arguments start the list off with.
+func TestPresetPick(t *testing.T) {
 	newCherryRepo(t)
 	for _, c := range []struct {
 		revs      []string
@@ -169,7 +169,7 @@ func TestPresetCherry(t *testing.T) {
 	} {
 		head, _ := resolve("HEAD")
 		p := &plan{cherry: true, complete: true, base: head}
-		err := presetCherry(p, c.revs)
+		err := presetPick(p, c.revs)
 		switch {
 		case c.err != "" && (err == nil || !strings.Contains(err.Error(), c.err)):
 			t.Errorf("%q gave error %v, want %q", c.revs, err, c.err)
@@ -184,7 +184,7 @@ func TestPresetCherry(t *testing.T) {
 // TestCherryPreview checks the history drawn for cherry-picking, and that git carries the cherry-pick out.
 func TestCherryPreview(t *testing.T) {
 	p := newCherryRepo(t)
-	if err := presetCherry(p, []string{"feature..topic"}); err != nil {
+	if err := presetPick(p, []string{"feature..topic"}); err != nil {
 		t.Fatal(err)
 	}
 	p.entries[0].action = "reword"
