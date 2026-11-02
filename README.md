@@ -20,7 +20,9 @@ Note, no `chmod +x` is needed for the setup scripts if cloning from my repo, as 
 
 Note .zprofile is not shown in the repo, because your .zprofile is instead appended to programmatically in `./install.sh`.
 
-# Shortcuts
+# Keybindings
+
+## Background
 
 A terminal sends the commands you type to the command-line program it is connected to (e.g. Zsh). It’s easy to assume that the terminal “holds” the text you type, and only sends it once you press enter. But actually, everything you type immediately gets sent to the program (and the program usually prints the character you sent, so you can see it).
 
@@ -34,7 +36,7 @@ Note there are different notations to represent the same bytes:
 - `^?` (**delete**) may equivalently be written as `DEL`.
 - `\e` (**escape**) may equivalently be written as `ESC`, `^[`, `\x1b` or `\u001b`. Also, pressing `Alt + X` for given X is mapped by most terminals to send the same as `\eX`.
 
-## Terminal keybindings and the program shortcuts configured to respond to them
+## My keybindings & associated shortcuts
 
 The keybinding I choose is either the most standard one for the intended behaviour (maximising the likelihood it will be properly interpreted by various programs, therefore minimising amount of program-specific config required), or the one already used by Ghostty & VS Code (presumably with the same reason in mind).
 
@@ -80,13 +82,12 @@ In the table, I specify whether the keybinding is already used by the terminal (
 
 Note all selections refer to the PROGRAM's selection (e.g. as manipulated by above shortcuts), rather than TERMINAL's selection (e.g. from mouse drag in most situations). Both Ghostty and VS Code use Cmd+c to copy the terminal's selection, so I am forced to use Cmd+Shift+c if wanting to copy the program's selection. There is no way to merge the behaviours, because the program (e.g. Zsh) cannot know what/when the terminal (e.g. Ghostty) has highlighted text, and vice versa.
 
-## Other shortcuts
+# Other shortcuts
 
-### Zsh
+## Zsh
 
-There are mostly the result of my config files.
+### Search and navigation
 
-Search and navigation:
 * `fzf` - each line of its stdin becomes an option you can choose from interactively. Type to fuzzy search, navigate options with up/down arrows, then choose one by pressing enter. The chosen option then gets passed to its stdout.
 * Tab - autocomplete command/argument (e.g. `vim fi<TAB>` might autocomplete as `vim file123.txt`)
 * Ctrl+r (see `cmdlog` below) - type to fuzzy search through command history, navigate with up/down arrows. Press enter to paste the command into the command line at the cursor. The preview shows where and when the command was last run, its exit status and its output. Press Ctrl+r again to toggle between commands from all directories and only those run in the current directory. Press Ctrl+t to toggle syntax highlighting of the listed commands.
@@ -99,7 +100,8 @@ Search and navigation:
 
 Note fzf provides ctrl+r (search command history) ctrl+t (search for file/directory) and alt+c (search for directory to cd into) shortcuts, but these are superseded by my ctrl+r, ctrl+f, and cd. My ctrl+r replaces fzf's, but ctrl+t and alt+c remain available if desired.
 
-Utilities:
+### Utilities
+
 * Ctrl+z then Cmd+Enter - queue commands. While a command runs, press Ctrl+z to suspend it, then type the next command and press Cmd+Enter to queue it and resume the first. Queued commands run in turn once the previous one succeeds (Ctrl+z/Cmd+Enter again to queue more). Cmd+Enter on an empty line just resumes without adding anything more to queue. A failure, ctrl+c, or `unqueue` drops the queue. `requeue` repopulates and executes the queue. E.g. if `cmd` fails, running `cmd && requeue` retries it with the same queue that the previous failure dropped.
 * `calc` - open REPL calculator in terminal. Works as though everything you type is in `echo $((...))`, i.e., can use/define shell variables, do command substitution, etc. Unlike usual `((...))`, I chose to make it use float arithmetic, so e.g. `3/4` is 0.75 instead of 0. However, this does mean integers will be saved with trailing `.000...`, so avoid using saved variables string comparisons.
 * `c` - copies its stdin to clipboard
@@ -117,7 +119,10 @@ Utilities:
 * `govi [directory [module name]]` - quickly run a draft Go program: `mkcd`s into `directory` (uses current directory if empty string or not provided), inits a module (named `draft` if `module name` not provided), opens a hello world `main.go` in vim for you to edit, then formats, tidies modules and runs. Exits early if `main.go` already exists. Quit vim with `:cq` to skip running (loses unsaved changes).
 * `goco [directory [module name]]` - like `govi`, but opens the directory in VS Code for more in-depth work, and doesn't format/tidy/run automatically.
 
-Git 1:
+## Git
+
+### Simple aliases
+
 * `ga` - alias for `git add` 
 * `gaa` - alias for `git add -u` - adds tracked files (like the -a in `git commit -a`)
 * `gad` - alias for `git add .` - 'd' stands for 'dot' or 'directory', as stages entire current directory (except .gitignored files)
@@ -137,7 +142,8 @@ Git 1:
 * `glt` - alias for `git log --graph --oneline --all` - tree view of all commits
 * `gs` - alias for `git status`
 
-Git 2:
+### Syncing with remotes
+
 * `push` - pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream)
 * `pull` - merges current branch's remote into local
 * `reset-origin <branch>` - hard-resets chosen local branch to its corresponding remote branch. The remote branch is automatically fetched.
@@ -146,19 +152,23 @@ Git 2:
 * `rebase-main` - equivalent to `rebase-origin main`
 * `merge-origin <branch>` - merges chosen remote branch into current branch. The remote branch is automatically fetched before the merge.
 * `merge-main` - equivalent to `merge-origin main`
-* `drop <commits>` - removes commits from history, leaving files as if they had never been made, while keeping your staged and unstaged changes as they are. Takes any number of commits, similarly to `git cherry-pick` (e.g. `HEAD`, `HEAD~3..HEAD~1`). Refuses commits that are already pushed (use `git revert` for those) and merge commits. Uses `git rebase` internally, so if later commits conflict with the removal, it will stop so you can resolve them.
-* `pr [options]` - pushes current branch and creates PR to merge it into main. The .md file passed with `--md <filepath>` (anywhere among the options) is parsed to use its level-1 header (e.g. `# My PR title`) as the PR title and the rest of the file as the body (assuming no other level-1 headers). Other options (e.g. `--draft`) are passed to `gh pr create`, except title/body options can't be combined with `--md`. If neither these nor `--md` are provided, will be prompted to enter title and body manually.
-* `repo [gh repo create options] <path>` - creates a private GitHub repo (unless `--public`/`--internal` passed) set as the origin of the directory specified by `<path>`. If directory exists (e.g. `.`), it is `git init`ed (if not already), and any commits are pushed. If the directory doesn't exist, it is created and `git init`ed.
 * `clonecd [flags] <repository> [directory]` - like `git clone`, but then `cd`s into the cloned repository. Arguments are same as `git clone`.
 * `cloneco [flags] <repository> [directory]` - like `clonecd`, but also opens the repository in VS Code.
+
+### GitHub
+
+* `pr [options]` - pushes current branch and creates PR to merge it into main. The .md file passed with `--md <filepath>` (anywhere among the options) is parsed to use its level-1 header (e.g. `# My PR title`) as the PR title and the rest of the file as the body (assuming no other level-1 headers). Other options (e.g. `--draft`) are passed to `gh pr create`, except title/body options can't be combined with `--md`. If neither these nor `--md` are provided, will be prompted to enter title and body manually.
+* `repo [gh repo create options] <path>` - creates a private GitHub repo (unless `--public`/`--internal` passed) set as the origin of the directory specified by `<path>`. If directory exists (e.g. `.`), it is `git init`ed (if not already), and any commits are pushed. If the directory doesn't exist, it is created and `git init`ed.
+
+### Interactive tools
+
 * `switch` - interactive `git switch` that previews the logs of each branch. Type to fuzzy search, navigate with up/down arrows. Choose the branch to switch to by pressing enter.
 * `checkout` - interactive `git checkout` that previews the log of each commit and its surroundings.
-* `rebase` - `git rebase -i --autostash` with interactive todo list, showing a graph of all branches as it will be once rebased. The preview shows the diff of the highlighted commit. Commit hashes are yellow if not yet pushed, and red if a remote branch (e.g. `origin/main`) already has them. Mark the commit with p/r/e/s/f/d for pick/reword/edit/squash/fixup/drop. Mark with b/c for base/cutoff. Can provide arguments like for `git rebase` to prepopulates the base/cutoff. Note that staged changes come back unstaged after the rebase (git's autostash doesn't keep the index). Written as a Go program in `rebase/`, built into `~/.local/bin` by `./copy.sh`.
+* `drop <commits>` - removes commits from history, leaving files as if they had never been made, while keeping your staged and unstaged changes as they are. Takes any number of commits, similarly to `git cherry-pick` (e.g. `HEAD` or `HEAD~3..HEAD~1`). Refuses commits that are already pushed (use `git revert` for those) and merge commits. Uses `git rebase` internally, so if later commits conflict with the removal, it will stop so you can resolve them.
+* `rebase` - `git rebase -i --autostash` with interactive todo list, showing a graph of all branches as it will be once rebased. The preview shows the diff of the highlighted commit. Commit hashes are yellow if not yet pushed, and red if a remote branch (e.g. `origin/main`) already has them. Mark the commit with p/r/e/s/f/d for pick/reword/edit/squash/fixup/drop. Mark with b/c for base/cutoff. Can provide arguments like for `git rebase` to prepopulates the base/cutoff. Note that, unlike with `drop`, staged changes come back unstaged after the rebase (git's autostash doesn't keep the index). Written as a Go program in `rebase/`, built into `~/.local/bin` by `./copy.sh`.
 * `cherry` - interactive `git cherry-pick`, using same tool as `rebase`, but where any arguments are as per `git cherry-pick` to prepopulate the commits to pick. Press p on any commit to mark it for cherry-picking and Shift+p to pick every commit between it and the last p. Each newly picked commit goes on top (applied last). Internally implemented with `git rebase -i --autostash HEAD`, so after a conflict or edit, continue with `git rebase --continue` (or `git rebase --abort`), not `git cherry-pick --continue`.
 
-### Vim
-
-There are mostly the result of my config files.
+## Vim
 
 * Mouse click -	move cursor
 * Mouse drag - enter visual mode and select dragged-over region
@@ -167,9 +177,9 @@ There are mostly the result of my config files.
 
 The usual vim keybindings continue to work (d/y/c to delete/yank/change, etc).
 
-### VS Code
+## VS Code
 
-Useful default behaviours:
+### Useful default behaviours
 
 * Run `code <file>` or `code <directory>` to open files/folder in VS Code. If did not install VS Code through Homebrew, may have to manually add this to ~/.zprofile: `export PATH="/Applications/Visual Studio Code.app/Contents/Resources/app/bin:$PATH"`.
 * Cmd+f - open find and replace. Can press buttons to make pattern case sensitive (insensitive by default) and match entire word. More powerfully, can press button to make pattern a regex pattern. Refer to captured groups in the "replace" box with e.g. `$1`, rather than `\1`.
@@ -180,7 +190,8 @@ Useful default behaviours:
 * cmd+shift+o: Search for "symbols" (e.g. classes/methods/functions) within current file and jump to one. The symbols are indexed by the language server (e.g. Pylance), which is present if you have installed the appropriate extension.
 * cmd+t: Like cmd+shift+o, but across entire repository. May be more picky (e.g. only show classes) unless specifically configure the language server.
 
-Thanks to extensions:
+### Thanks to extensions
+
 * cmd+b - bold in .md files.
 * cmd+i - italicise in .md files.
 * alt+shift+f - format table in .md files.
@@ -188,7 +199,7 @@ Thanks to extensions:
 
 Extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`.
 
-### Maccy (clipboard history)
+## Maccy (clipboard history)
 
 * Cmd+Shift+v - open clipboard history. Type to fuzzy search, navigate with up/down arrows, press enter to paste the chosen item (without formatting).
 
