@@ -20,6 +20,17 @@ Note, no `chmod +x` is needed for the setup scripts if cloning from my repo, as 
 
 Note .zprofile is not shown in the repo, because your .zprofile is instead appended to programmatically in `./install.sh`.
 
+# Versions
+
+`VERSIONS.md` records the version of every tool this config was last confirmed working with (macOS, Homebrew, every package `./install.sh` installs, the commands that actually run, VS Code extensions and Claude Code). `./install.sh` always installs the latest versions, so if something breaks after an upgrade, this is what to go back to.
+
+* Update it - run `./versions.sh` once everything is confirmed working (e.g. after `brew upgrade`), check what changed with `git diff VERSIONS.md`, then commit it. It reads the package list from `./install.sh`, so new packages are picked up automatically.
+* Go back to a Homebrew formula's version - Homebrew only installs the latest version, so copy the old one into a local tap: `brew tap-new $USER/local`, `brew extract --version=<version> <formula> $USER/local`, then `brew uninstall <formula>` and `brew install $USER/local/<formula>@<version>`. Run `brew pin <formula>` to stop a working version from being upgraded in the first place.
+* Go back to a Homebrew cask's (app's) version - download that version from the app's website or GitHub releases.
+* Go back to a VS Code extension's version - `code --install-extension <id>@<version>`, then turn off auto-update for it (right-click it in the Extensions view).
+* Go back to Claude Code's version - `claude install <version>`.
+* Go modules (for cmdlog and rebase) are already pinned in their `go.mod` and `go.sum`.
+
 # Keybindings
 
 ## Background

@@ -9,13 +9,15 @@ rsync -av \
   --filter=':- .gitignore' \
   --exclude='.git/' \
   --exclude='.gitignore' \
-  --exclude='README.md' \
-  --exclude='cmdlog/' \
-  --exclude='rebase/' \
-  --exclude='vscode-extensions.txt' \
+  --exclude='/README.md' \
+  --exclude='/VERSIONS.md' \
+  --exclude='/cmdlog/' \
+  --exclude='/rebase/' \
+  --exclude='/vscode-extensions.txt' \
   --exclude='/setup.sh' \
   --exclude='/install.sh' \
   --exclude='/copy.sh' \
+  --exclude='/versions.sh' \
   "$script_dir/" \
   "$HOME/"
 

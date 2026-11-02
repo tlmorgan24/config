@@ -160,9 +160,9 @@ ZSH_HIGHLIGHT_STYLES[back-quoted-argument-unclosed]='fg=#f38ba8'
 # afterwards, which replaces the path's underline rather than adding to it. This highlighter runs straight after the
 # main one and redraws any part of a path that was recoloured (e.g. a quoted string) in that colour plus underline. It
 # reads the main highlighter's results from the plugin's internal (undocumented) cache variable, so a plugin upgrade
-# could stop it working, in which case quoted paths just aren't underlined. Tested with zsh-syntax-highlighting 0.8.0
-# and zsh 5.9 (zsh controls the "start end style" format of the cached entries). If an upgrade breaks it, go back to
-# 0.8.0 and `brew pin zsh-syntax-highlighting`.
+# could stop it working, in which case quoted paths just aren't underlined (a zsh upgrade could too, as zsh controls the
+# "start end style" format of the cached entries). If an upgrade breaks it, go back to the zsh-syntax-highlighting and
+# zsh versions in VERSIONS.md, and `brew pin zsh-syntax-highlighting`.
 _zsh_highlight_highlighter_pathunderline_predicate() { _zsh_highlight_highlighter_main_predicate }
 
 _zsh_highlight_highlighter_pathunderline_paint() {
