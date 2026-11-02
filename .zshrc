@@ -650,8 +650,13 @@ export GH_EXPERIMENTAL_PROMPTER=1
 # Push current branch and create PR for it, using the .md file passed with `--md <filepath>` (or `--md=<filepath>`) and
 # taking its level-1 header as the PR title. Other options are passed to `gh pr create`.
 # If `--base` not specified, the branch to merge into will be the repository's default branch (i.e. main).
+#
+# Before pushing, refuse if the current branch is the base branch, has no commits that aren't in the base, or already has
+# an open PR, and ask for confirmation if the branch already exists on origin (e.g. it's someone else's branch you
+# checked out).
 pr() {
   local filepath=""
+  local base=""  # Branch to merge into
   local -a opts  # Options to pass to `gh pr create`
   local title_body_opt=""  # Title/body option passed, which would conflict with `--md`
 
@@ -667,6 +672,20 @@ pr() {
         ;;
       --md=*)
         filepath="${1#--md=}"
+        shift
+        ;;
+      -B|--base)
+        if [[ $# -lt 2 ]]; then
+          echo "pr: $1 requires a branch" >&2
+          return 1
+        fi
+        base="$2"
+        opts+=("$1" "$2")
+        shift 2
+        ;;
+      -B?*|--base=*)
+        base="${1#(-B|--base=)}"
+        opts+=("$1")
         shift
         ;;
       -[tbF]*|--title|--title=*|--body|--body=*|--body-file|--body-file=*)
@@ -696,6 +715,41 @@ pr() {
       echo "pr: failed to authenticate. Either the login failed or you have not installed gh" >&2
       return 1
     fi
+  fi
+
+  local branch="$(git branch --show-current)"
+  if [[ -z "$branch" ]]; then
+    echo "pr: must be on a branch" >&2
+    return 1
+  fi
+  if [[ -z "$base" ]]; then
+    base="$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)" || return 1
+  fi
+  if [[ "$branch" == "$base" ]]; then
+    echo "pr: current branch is the base branch ($base); create a new branch for the PR first" >&2
+    return 1
+  fi
+
+  # Fetch the base first so commits already merged into it don't look new.
+  git fetch -q origin "$base" || return 1
+  if [[ -z "$(git rev-list "origin/$base..HEAD")" ]]; then
+    echo "pr: $branch has no commits that aren't already in $base" >&2
+    return 1
+  fi
+
+  local open_prs  # URLs of open PRs from the current branch
+  open_prs="$(gh pr list --head "$branch" --state open --json url -q '.[].url')" || return 1
+  if [[ -n "$open_prs" ]]; then
+    echo "pr: $branch already has an open PR, so not pushing:" >&2
+    echo "$open_prs" >&2
+    return 1
+  fi
+
+  if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+    read -q "?pr: $branch already exists on origin, so pushing will add to it. Continue? [y/N] "
+    local answer=$?
+    echo
+    [[ $answer -eq 0 ]] || return 1
   fi
 
   if [[ -z "$filepath" ]]; then
