@@ -456,17 +456,22 @@ alias gl='git log --oneline'
 alias glt='gl --graph --all'  # Tree view of all commits
 alias gs='git status'
 
+# Usage: `push [<options>]`
+#
 # Push current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the
-# upstream).
+# upstream). Options (e.g. `--force`) are passed to `git push`.
 push() {
   if git rev-parse '@{u}' >/dev/null 2>&1; then
-    git push
+    git push "$@"
   else
-    git push -u origin HEAD
+    git push -u "$@" origin HEAD
   fi
 }
 
-# Merge current branch's remote into local (assuming remote source is called "origin").
+# Usage: `pull [<options>]`
+#
+# Merge current branch's remote into local (assuming remote source is called "origin"). Options (e.g. `--rebase`) are
+# passed to `git pull`.
 pull() {
   local branch="$(git branch --show-current)"
   if [[ -z "$branch" ]]; then
@@ -474,7 +479,7 @@ pull() {
     return 1
   fi
 
-  git pull origin "$branch"
+  git pull "$@" origin "$branch"
 }
 
 # Usage: `reset-origin <branch>`
@@ -510,10 +515,10 @@ reset-main() {
   reset-origin main
 }
 
-# Usage: `rebase-origin <branch>`
+# Usage: `rebase-origin <branch> [<options>]`
 #
 # Rebase current branch onto chosen remote branch (assumes remote source is called "origin"). The remote branch is
-# automatically fetched before the rebase.
+# automatically fetched before the rebase. Options (e.g. `--autostash`) are passed to `git rebase`.
 rebase-origin() {
   local target="$1"
   if [[ -z "$target" ]]; then
@@ -528,17 +533,18 @@ rebase-origin() {
   fi
 
   git fetch origin "$target" || { echo "rebase-origin: no remote branch fetched" >&2; return 1; }
-  git rebase "origin/$target"
+  git rebase "${@:2}" "origin/$target"
 }
 
+# Usage: `rebase-main [<options>]`
 rebase-main() {
-  rebase-origin main
+  rebase-origin main "$@"
 }
 
-# Usage: `merge-origin <branch>`
+# Usage: `merge-origin <branch> [<options>]`
 #
 # Merge chosen remote branch into current branch (assumes remote source is called "origin"). The remote branch is
-# automatically fetched before the merge.
+# automatically fetched before the merge. Options (e.g. `--no-ff`) are passed to `git merge`.
 merge-origin() {
   local source="$1"
   if [[ -z "$source" ]]; then
@@ -553,11 +559,12 @@ merge-origin() {
   fi
 
   git fetch origin "$source" || { echo "merge-origin: no remote branch fetched" >&2; return 1; }
-  git merge "origin/$source"
+  git merge "${@:2}" "origin/$source"
 }
 
+# Usage: `merge-main [<options>]`
 merge-main() {
-  merge-origin main
+  merge-origin main "$@"
 }
 
 # Usage: `drop [<commit> | <upstream>..<commit>]...`
@@ -1065,8 +1072,16 @@ bindkey -M emacs '^F' browse-widget
 bindkey -M viins '^F' browse-widget
 bindkey -M vicmd '^F' browse-widget
 
-# Custom git branch switcher that previews the log of each branch
+# Usage: `switch [<git switch args>]`
+#
+# Custom git branch switcher that previews the log of each branch. With any arguments, just run `git switch` with them
+# instead (like `cd` with `browse`).
 switch() {
+  if (( $# )); then
+    git switch "$@"
+    return
+  fi
+
   # Declare separately, as `local` would replace git's exit status with its own (always 0).
   local branches
   branches=$(git branch --sort=-committerdate --format='%(refname:short)')  # Most recent tip first
@@ -1092,11 +1107,21 @@ switch() {
     --color='preview-scrollbar:#585b70'  # Restore the `border` colour, as setting `scrollbar` also changed this.
   )
 
-  git switch $(echo "$branches" | fzf "${FZF_OPTS[@]}")
+  local branch
+  branch=$(echo "$branches" | fzf "${FZF_OPTS[@]}") || return  # Don't switch if fzf was cancelled.
+  git switch "$branch"
 }
 
-# Custom git checkout that previews the logs of surrounding commits
+# Usage: `checkout [<git checkout args>]`
+#
+# Custom git checkout that previews the logs of surrounding commits. With any arguments, just run `git checkout` with
+# them instead (like `switch`).
 checkout() {
+  if (( $# )); then
+    git checkout "$@"
+    return
+  fi
+
   # Use short hashes, to exactly match the git log --oneline used in the preview.
   local commits  # Declared separately, like `branches` in `switch`
   commits=$(git log --all --format='%h')
@@ -1121,7 +1146,9 @@ checkout() {
     --color='preview-scrollbar:#585b70'
   )
 
-  git checkout $(echo "$commits" | fzf "${FZF_OPTS[@]}")
+  local commit
+  commit=$(echo "$commits" | fzf "${FZF_OPTS[@]}") || return  # Don't check out if fzf was cancelled.
+  git checkout "$commit"
 }
 
 # Set up command recording with cmdlog. See the top of this file for how cmdlog gets started. The hooks below print
