@@ -167,6 +167,15 @@
     "notifications.background": "#1e1e2e",  // Default: "#181825"
     "notificationCenterHeader.background": "#1e1e2e",  // Default: "#181825"
 
+    // Bracket pair colours, by depth, skipping over red (to match my zsh syntax highlighting, which skips
+    // red to avoid it clashing with the colour for syntax errors).
+    "editorBracketHighlight.foreground1": "#fab387",  // Default: "#f38ba8"
+    "editorBracketHighlight.foreground2": "#f9e2af",  // Default: "#fab387"
+    "editorBracketHighlight.foreground3": "#a6e3a1",  // Default: "#f9e2af"
+    "editorBracketHighlight.foreground4": "#74c7ec",  // Default: "#a6e3a1"
+    "editorBracketHighlight.foreground5": "#cba6f7",  // Default: "#74c7ec"
+    "editorBracketHighlight.foreground6": "#b4befe",  // Default: "#cba6f7"
+
     "focusBorder": "#9399b2"  // Default: "#cba6f7"
   },
 

@@ -75,13 +75,15 @@ ZSH_HIGHLIGHT_STYLES[process-substitution-delimiter]='fg=#9399b2'  # The `<( )` 
 ZSH_HIGHLIGHT_STYLES[statement-terminator]='fg=#9399b2'
 
 # Brackets, by how deeply they're nested: the guide's rainbow colours, as VS Code's bracket pair colouring uses (used by
-# my rainbow highlighter below). Deeper brackets start again from the first.
-ZSH_HIGHLIGHT_STYLES[bracket-depth-1]='fg=#f38ba8'  # Red
-ZSH_HIGHLIGHT_STYLES[bracket-depth-2]='fg=#fab387'  # Peach
-ZSH_HIGHLIGHT_STYLES[bracket-depth-3]='fg=#f9e2af'  # Yellow
-ZSH_HIGHLIGHT_STYLES[bracket-depth-4]='fg=#a6e3a1'  # Green
-ZSH_HIGHLIGHT_STYLES[bracket-depth-5]='fg=#74c7ec'  # Sapphire
-ZSH_HIGHLIGHT_STYLES[bracket-depth-6]='fg=#cba6f7'  # Mauve
+# my rainbow highlighter below, and the regex one). Deeper brackets start again from the first. Unlike the guide's, they
+# don't start with red, so that red only means an error, and end with lavender instead (as set for VS Code too, in its
+# settings.json).
+ZSH_HIGHLIGHT_STYLES[bracket-depth-1]='fg=#fab387'  # Peach
+ZSH_HIGHLIGHT_STYLES[bracket-depth-2]='fg=#f9e2af'  # Yellow
+ZSH_HIGHLIGHT_STYLES[bracket-depth-3]='fg=#a6e3a1'  # Green
+ZSH_HIGHLIGHT_STYLES[bracket-depth-4]='fg=#74c7ec'  # Sapphire
+ZSH_HIGHLIGHT_STYLES[bracket-depth-5]='fg=#cba6f7'  # Mauve
+ZSH_HIGHLIGHT_STYLES[bracket-depth-6]='fg=#b4befe'  # Lavender
 ZSH_HIGHLIGHT_STYLES[bracket-unexpected]='fg=#eba0ac'  # Maroon: a `)` `]` or `}` that doesn't close anything (as in VS Code)
 
 # Paths: text, underlined
@@ -100,6 +102,41 @@ ZSH_HIGHLIGHT_STYLES[arithmetic-delimiter]='fg=#9399b2'
 ZSH_HIGHLIGHT_STYLES[arithmetic-bracket]='fg=#9399b2'  # Overlay 2
 ZSH_HIGHLIGHT_STYLES[arithmetic-operator]='fg=#89dceb'  # Sky: `+` `-` `*` `/` `==` etc
 ZSH_HIGHLIGHT_STYLES[arithmetic-number]='fg=#fab387'  # Peach
+
+# Regexes, in the arguments of the commands that take Perl-style ones (see my regex highlighter below). Their groups and
+# character classes are coloured as brackets (by depth, as above), the variables interpolated into Perl's as Perl
+# variables (below), and the `(?#...)` comments as comments.
+ZSH_HIGHLIGHT_STYLES[regex-escape]='fg=#f5c2e7'  # Pink (the guide's colour for regex): `\[` `\d` `.` `[:alpha:]` etc
+ZSH_HIGHLIGHT_STYLES[regex-operator]='fg=#89dceb'  # Sky: `*` `+?` `{2,3}` `|` `^` `$`, and the `^` and `-` in `[^a-z]`
+ZSH_HIGHLIGHT_STYLES[regex-group]='fg=#cba6f7'  # Mauve: the `?:` `?=` `?<name>` `?i` etc in `(?:...)`, and `*SKIP` etc
+# Red: what a regex or Perl string can't have, e.g. `(?=` and `\1` in fd, `\d` in sed, `\q` anywhere
+ZSH_HIGHLIGHT_STYLES[syntax-error]='fg=#f38ba8'
+
+# sed scripts, in the arguments of sed (also see my regex highlighter below). Their text (e.g. a replacement) is left
+# green, as the shell string it's in, and their `{ }` are coloured by depth (as above).
+ZSH_HIGHLIGHT_STYLES[sed-command]='fg=#cba6f7'  # Mauve: `s` `d` `p` `y` etc, and the flags of `s` (`g` `I` etc)
+ZSH_HIGHLIGHT_STYLES[sed-address]='fg=#fab387'  # Peach (numbers): the `1` `$` `0~2` etc that pick lines
+ZSH_HIGHLIGHT_STYLES[sed-operator]='fg=#89dceb'  # Sky: the `,` `!` `~` `+` of addresses
+ZSH_HIGHLIGHT_STYLES[sed-reference]='fg=#f5e0dc'  # Rosewater (variables): `&` and `\1` etc in a replacement
+ZSH_HIGHLIGHT_STYLES[sed-escape]='fg=#f5c2e7'  # Pink: `\n` `\&` `\/` etc in a replacement, and `\U` `\l` etc
+ZSH_HIGHLIGHT_STYLES[sed-delimiter]='fg=#9399b2'  # Overlay 2: the `/`s of `s/.../.../` etc, and `;`
+ZSH_HIGHLIGHT_STYLES[sed-label]='fg=#89b4fa'  # Blue (functions): the `loop` of `:loop` and `b loop`
+
+# Perl code, in the arguments of perl and my p and pp functions (also see my regex highlighter below), coloured as the
+# shell's own code is above. Its brackets are coloured by depth (as above).
+ZSH_HIGHLIGHT_STYLES[perl-default]='fg=#cdd6f4'  # Text: the rest, rather than the green of the shell string it's in
+ZSH_HIGHLIGHT_STYLES[perl-keyword]='fg=#cba6f7'  # Mauve: `if` `my` `sub` `return` etc
+ZSH_HIGHLIGHT_STYLES[perl-function]='fg=#89b4fa'  # Blue: `print` `split` etc, and subs and methods
+ZSH_HIGHLIGHT_STYLES[perl-module]='fg=#f9e2af'  # Yellow (the guide's colour for classes): e.g. `List::Util`
+ZSH_HIGHLIGHT_STYLES[perl-variable]='fg=#f5e0dc'  # Rosewater: `$x` `@F` `%h` `$_` `$1` etc, also in strings and regexes
+ZSH_HIGHLIGHT_STYLES[perl-number]='fg=#fab387'  # Peach
+ZSH_HIGHLIGHT_STYLES[perl-operator]='fg=#89dceb'  # Sky: `=~` `&&` `->` `eq` etc
+ZSH_HIGHLIGHT_STYLES[perl-punctuation]='fg=#9399b2'  # Overlay 2: `;` and `,`
+ZSH_HIGHLIGHT_STYLES[perl-string]='fg=#a6e3a1'  # Green, including the literal parts of regexes
+ZSH_HIGHLIGHT_STYLES[perl-escape]='fg=#f5c2e7'  # Pink: `\n` `\t` `\"` etc in strings
+ZSH_HIGHLIGHT_STYLES[perl-comment]='fg=#9399b2,italic'  # Overlay 2, italic
+ZSH_HIGHLIGHT_STYLES[perl-quote-operator]='fg=#cba6f7'  # Mauve: `m` `s` `qr` `q` `tr` etc and their flags (`g` `i` etc)
+ZSH_HIGHLIGHT_STYLES[perl-delimiter]='fg=#9399b2'  # Overlay 2: the `/`s of `/.../` `s/.../.../` etc
 
 # Other
 #
@@ -415,6 +452,973 @@ _zsh_highlight_highlighter_rainbow_paint() {
   done
 }
 
+# Colour the regexes given to the commands that take Perl-style ones, or much the same (see
+# _zsh_highlight_regex_pattern): GNU grep with -P or -E, rg, fd, GNU sed with -E, and perl and my p, pp, fr and ff
+# functions (in .zshrc). That's the pattern arguments of grep, rg and fd (and ff, which passes them to fd), the -F field
+# separators of perl and p, and the -R record separators of p and fr. The code given to perl and p, and the scripts
+# given to sed, are coloured as a whole, with their regexes among them. What a command is, and so which regexes it
+# takes, is worked out as it would be run: aliases are expanded as zsh would (so my `grep` is `ggrep -P`, and `sed` is
+# `gsed -E`), and a grep or sed counts only if it's GNU's (as ggrep and gsed are on macOS, and grep and sed are on
+# Linux), by its --version. Then the options decide: e.g. -P or -E for grep (a mix, like `grep -E` with my alias, has
+# the ones typed coloured as errors, as grep rejects it), -P for rg (else its default, Rust's regexes, as fd's), and -F
+# or -g (for fd) for none. Only arguments that reach the command as typed (bar quotes and backslashes) are coloured, so
+# not ones with a `$var`, `$(command)`, glob etc in. Like the highlighters above, this relies on the main highlighter's
+# cache, which lists the words in order, including those of commands in `$( )` and `<( )` (and the rainbow
+# highlighter's, so a regex's brackets carry on the depth of the brackets around it).
+#
+# If the options of p, fr or ff change, update the parsing of them below to match.
+_zsh_highlight_highlighter_regex_predicate() { _zsh_highlight_highlighter_main_predicate }
+
+_zsh_highlight_highlighter_regex_paint() {
+  emulate -L zsh
+  local entry text style
+  local -a fields
+  # For each level of `$( )` the words are in: its current command, as "start end" (empty if none yet), whether that
+  # follows a precommand (as aliases aren't expanded after one, e.g. `sudo grep`), its arguments, as "start:end" words,
+  # whether the next word is a redirection's target rather than an argument, and the end of the last word, so the
+  # entries for parts of it (e.g. its quoted strings) are skipped.
+  local -a command_words=('') precommand=(0) arguments=('') redirected=(0) ends=(0)
+  local -i level=1
+  for entry in $_zsh_highlight__highlighter_main_cache; do  # Entries are "start end style ...".
+    fields=(${(s: :)entry})
+    text=$BUFFER[fields[1]+1,fields[2]] style=${fields[3]%,}
+    # The `$(` `<(` etc and `)` of a command or process substitution
+    if [[ $style == $ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter] && $text == ([\$\<\>=]\(|\)) ]]; then
+      if [[ $text == ')' ]]; then
+        (( level > 1 )) || continue
+        _zsh_highlight_regex_end_command
+        (( level-- ))
+      else
+        (( level++ ))
+        command_words[level]= precommand[level]=0 arguments[level]= redirected[level]=0 ends[level]=0
+      fi
+      continue
+    fi
+    (( fields[1] < ends[level] )) && continue
+    ends[level]=$fields[2]
+    if [[ $style == $ZSH_HIGHLIGHT_STYLES[command] ]]; then  # Also the style of aliases, functions, builtins etc
+      [[ -n $command_words[level] ]] && _zsh_highlight_regex_end_command
+      command_words[level]="$fields[1] $fields[2]"
+    elif [[ $style == $ZSH_HIGHLIGHT_STYLES[precommand] ]]; then
+      _zsh_highlight_regex_end_command
+      precommand[level]=1
+    # Redirections share their style with `;` `|` `&&` etc, so are told apart by their `<` or `>`.
+    elif [[ $style == $ZSH_HIGHLIGHT_STYLES[redirection] && $text == *[\<\>]* ]]; then
+      redirected[level]=1
+    elif [[ $style == ($ZSH_HIGHLIGHT_STYLES[commandseparator]|$ZSH_HIGHLIGHT_STYLES[reserved-word]) ]]; then
+      _zsh_highlight_regex_end_command
+    elif (( redirected[level] )); then
+      redirected[level]=0
+    elif [[ -n $command_words[level] ]]; then
+      arguments[level]+=" $fields[1]:$fields[2]"
+    fi
+  done
+  for (( ; level >= 1; level-- )); do _zsh_highlight_regex_end_command; done  # Including any unclosed `$(`
+}
+
+# Colour the regexes in the arguments of the command at the current level of the regex highlighter's paint function (in
+# its variables), if it's one that takes Perl-style regexes, then clear the level for the next command.
+_zsh_highlight_regex_end_command() {
+  [[ -n $command_words[level] ]] &&
+    _zsh_highlight_regex_command ${=command_words[level]} $precommand[level] ${=arguments[level]}
+  command_words[level]= precommand[level]=0 arguments[level]= redirected[level]=0
+}
+
+# Usage: `_zsh_highlight_regex_command <start> <end> <after precommand> <start:end>...`
+#
+# Colour the regexes in the arguments (the `start:end` words) of the command at `$BUFFER[start+1,end]`, if it's one that
+# takes Perl-style regexes.
+_zsh_highlight_regex_command() {
+  emulate -L zsh -o extended_glob
+  local name=$BUFFER[$1+1,$2] word value option item kind flavour=pcre REPLY
+  # The arguments: their text (unquoted), and their start and end on the command line (-1 for those of an alias)
+  local -a values starts ends expansion found reply positions fields
+  local -A expanded
+  local -i i k
+  # Expand aliases as zsh would, again and again (but not an alias inside its own expansion, as in `alias rg='rg -P'`),
+  # and not after a precommand.
+  if (( ! $3 )); then
+    while (( $+aliases[$name] && ! $+expanded[$name] )); do
+      expanded[$name]=1
+      expansion=("${(@Q)${(z)aliases[$name]}}")
+      name=$expansion[1]
+      values=("${(@)expansion[2,-1]}" "${(@)values}")
+      starts=(${expansion[2,-1]/*/-1} $starts) ends=(${expansion[2,-1]/*/-1} $ends)
+    done
+  fi
+  for word in ${@:4}; do
+    starts+=(${word%:*}) ends+=(${word#*:})
+    if _zsh_highlight_regex_unquote ${word%:*} ${word#*:}; then
+      values+=("$REPLY")
+    else
+      values+=("${(Q)BUFFER[${word%:*}+1,${word#*:}]}")
+    fi
+  done
+  # Which program it is, by its name, but for grep and sed, by whether it's GNU's (whose regexes these follow), as
+  # ggrep and gsed are on macOS (where grep and sed are BSD's), and grep and sed are on Linux. Any other grep or sed
+  # isn't coloured.
+  name=${(Q)name}  # E.g. `\grep` (which skips the alias) is grep.
+  local tool=${name:t}
+  case $tool in
+    (grep|ggrep) _zsh_highlight_regex_is_gnu $name grep && tool=gnu-grep || return ;;
+    (sed|gsed) _zsh_highlight_regex_is_gnu $name sed && tool=gnu-sed || return ;;
+    (fdfind) tool=fd ;;  # fd's name on Debian and Ubuntu
+  esac
+  # Find the regexes, as "index offset kind": the regex is in the index'th argument, starting at its offset'th
+  # character, and it's a pattern, Perl code (with regexes in), or a pattern optionally written `/like this/`.
+  case $tool in
+    (gnu-grep|rg)
+      local short
+      local -a long
+      # The options that take a value, and for rg, its regex engine (pcre for PCRE2, else rust, its default) and whether
+      # the regexes are fixed strings (the last of the options that set these wins). For grep, the matchers given (-P
+      # -E -G -F), as "letter index", of which it rejects a mix, e.g. -E with my alias's -P.
+      if [[ $tool == gnu-grep ]]; then
+        short=efmdDABC
+        long=(regexp file max-count directories devices before-context after-context context label binary-files include
+          exclude exclude-from exclude-dir group-separator)
+      else
+        short=efEmjgdtTABCMr
+        long=(regexp file encoding max-count threads glob max-depth type type-not after-context before-context context
+          max-columns replace pre pre-glob dfa-size-limit engine regex-size-limit iglob ignore-file max-filesize
+          type-add type-clear color colors context-separator field-context-separator field-match-separator hostname-bin
+          hyperlink-format path-separator sort sortr generate)
+      fi
+      local engine=rust
+      local -i fixed=0 given=0 ended=0  # given: whether patterns were given by -e or -f, not positionally
+      local -a positional matchers
+      for (( i = 1; i <= $#values; i++ )); do
+        value=$values[i]
+        if (( ended )) || [[ $value != -?* ]]; then
+          positional+=($i)
+        elif [[ $value == -- ]]; then
+          ended=1
+        elif [[ $value == --* ]]; then
+          option=${${value#--}%%=*}
+          if [[ $tool == gnu-grep ]]; then
+            case $option in
+              (perl-regexp) matchers+=("P $i") ;;
+              (extended-regexp) matchers+=("E $i") ;;
+              (basic-regexp) matchers+=("G $i") ;;
+              (fixed-strings) matchers+=("F $i") ;;
+            esac
+          fi
+          if [[ $value == *=* ]]; then
+            item="$i $(( $#option + 4 ))" value=${value#*=}
+          elif (( $long[(Ie)$option] )); then
+            (( i++ ))
+            item="$i 1" value=$values[i]
+          fi
+          case $option in
+            (regexp) found+=("$item pattern"); given=1 ;;
+            (file) given=1 ;;
+            (pcre2|auto-hybrid-regex) engine=pcre ;;
+            (no-pcre2|no-auto-hybrid-regex) engine=rust ;;
+            (engine) [[ $value == default ]] && engine=rust || engine=pcre ;;  # auto uses PCRE2 for what needs it.
+            (fixed-strings) fixed=1 ;;
+            (no-fixed-strings) fixed=0 ;;
+          esac
+        else  # A bundle of short options, e.g. `-iA3`
+          for (( k = 2; k <= $#value; k++ )); do
+            if [[ $tool == gnu-grep ]]; then
+              [[ $value[k] == [PEGF] ]] && matchers+=("$value[k] $i")
+            else
+              [[ $value[k] == P ]] && engine=pcre
+              [[ $value[k] == F ]] && fixed=1
+            fi
+            [[ $short == *"$value[k]"* ]] || continue
+            # The option's value is the rest of the bundle, or else the next argument.
+            if (( k < $#value )); then item="$i $(( k + 1 ))"; else (( i++ )); item="$i 1"; fi
+            [[ $value[k] == e ]] && found+=("$item pattern")
+            [[ $value[k] == [ef] ]] && given=1
+            break
+          done
+        fi
+      done
+      (( ! given && $#positional )) && found+=("$positional[1] 1 pattern")
+      if [[ $tool == gnu-grep ]]; then
+        local -a letters=(${(u)matchers%% *})
+        if (( $#letters > 1 )); then  # Colour the typed matchers (not those from an alias) as errors.
+          for item in $matchers; do
+            i=${item#* }
+            (( starts[i] >= 0 )) && _zsh_highlight_add_highlight $starts[i] $ends[i] syntax-error
+          done
+          found=()
+        elif [[ $letters == P ]]; then
+          flavour=pcre
+        elif [[ $letters == E ]]; then
+          flavour=ere
+        else  # Basic regexes (the default) or fixed strings
+          found=()
+        fi
+      else
+        (( fixed )) && found=() || flavour=$engine
+      fi ;;
+    (perl)
+      # The code comes from -e (or -E) options, without which the first argument is a script's file. The switches that
+      # take a value use the rest of their bundle (or the next argument, for -e), as in p below.
+      for (( i = 1; i <= $#values; i++ )); do
+        value=$values[i]
+        [[ $value == -?* ]] || break
+        [[ $value == -- ]] && break
+        for (( k = 2; k <= $#value; k++ )); do
+          case $value[k] in
+            ([eE])
+              if (( k < $#value )); then found+=("$i $(( k + 1 )) code"); else (( i++ )); found+=("$i 1 code"); fi
+              break ;;
+            (F) found+=("$i $(( k + 1 )) slashed"); break ;;
+            (0) if [[ $value[k+1] == x ]]; then (( k++ )); while [[ $value[k+1] == [[:xdigit:]] ]]; do (( k++ )); done
+                else while [[ $value[k+1] == [0-7] ]]; do (( k++ )); done; fi ;;
+            (l) while [[ $value[k+1] == [0-7] ]]; do (( k++ )); done ;;
+            ([acnpsStTuUvwWX]) ;;
+            (*) break ;;  # Like -i, -M and -I, the rest of the switches take the rest of the bundle.
+          esac
+        done
+      done ;;
+    (p|pp)
+      (( $+functions[$name] )) || return
+      # As p parses them: switches, then the code. A switch that takes a value (like -R, -F, -i or -M) uses the rest of
+      # its bundle.
+      for (( i = 1; i <= $#values; i++ )); do
+        value=$values[i]
+        [[ $value == -* ]] || break
+        [[ $value == -- ]] && { (( i++ )); break }
+        for (( k = 2; k <= $#value; k++ )); do
+          case $value[k] in
+            ([RF]) found+=("$i $(( k + 1 )) slashed"); break ;;
+            (0) if [[ $value[k+1] == x ]]; then (( k++ )); while [[ $value[k+1] == [[:xdigit:]] ]]; do (( k++ )); done
+                else while [[ $value[k+1] == [0-7] ]]; do (( k++ )); done; fi ;;
+            (l) while [[ $value[k+1] == [0-7] ]]; do (( k++ )); done ;;
+            ([anpscSTtUuWwX]) ;;
+            (*) break ;;
+          esac
+        done
+      done
+      found+=("$i 1 code") ;;
+    (fr) (( $+functions[$name] )) && found=("1 1 slashed") ;;  # `fr <separator> <code>` (the code is the shell's)
+    (fd|ff)
+      # ff passes all its arguments but the last (the code to run for each file) to fd.
+      local -i last=$#values glob=0 fixed=0 ended=0
+      if [[ $name == ff ]]; then
+        (( $+functions[$name] )) || return
+        (( last-- ))
+      fi
+      local short=dEtecSojC
+      local -a positional long=(and max-depth min-depth exact-depth exclude type extension size changed-within
+        changed-before newer older change-newer-than change-older-than owner format batch-size ignore-file color
+        ignore-contain threads max-results base-directory path-separator search-path)
+      for (( i = 1; i <= last; i++ )); do
+        value=$values[i]
+        if (( ended )) || [[ $value != -?* ]]; then
+          positional+=($i)
+        elif [[ $value == -- ]]; then
+          ended=1
+        elif [[ $value == --* ]]; then
+          option=${${value#--}%%=*}
+          if [[ $value == *=* ]]; then
+            item="$i $(( $#option + 4 ))"
+          elif (( $long[(Ie)$option] )); then
+            (( i++ ))
+            item="$i 1"
+          fi
+          case $option in
+            (and) found+=("$item pattern") ;;  # Another pattern, which files must match too
+            (glob) glob=1 ;;
+            (regex) glob=0 ;;
+            (fixed-strings) fixed=1 ;;
+            (exec|exec-batch) _zsh_highlight_regex_skip_command ;;
+          esac
+        else  # A bundle of short options, e.g. `-HId2`
+          for (( k = 2; k <= $#value; k++ )); do
+            case $value[k] in
+              (g) glob=1 ;;
+              (F) fixed=1 ;;
+              ([xX]) _zsh_highlight_regex_skip_command; break ;;
+            esac
+            [[ $short == *"$value[k]"* ]] || continue
+            (( k < $#value )) || (( i++ ))  # The option's value is the rest of the bundle, or else the next argument.
+            break
+          done
+        fi
+      done
+      (( $#positional )) && found+=("$positional[1] 1 pattern")  # The second is the directory to search.
+      (( glob || fixed )) && found=()
+      flavour=rust ;;
+    (gnu-sed)
+      # The script comes from -e options, without which it's the first argument. Only extended regexes (-E or -r, which
+      # my alias for sed adds) are coloured, as the basic ones' differ (e.g. `\(` is a group, `(` a bracket).
+      local -i extended=0 given=0 ended=0
+      local -a positional long=(expression file line-length)
+      for (( i = 1; i <= $#values; i++ )); do
+        value=$values[i]
+        if (( ended )) || [[ $value != -?* ]]; then
+          positional+=($i)
+        elif [[ $value == -- ]]; then
+          ended=1
+        elif [[ $value == --* ]]; then
+          option=${${value#--}%%=*}
+          if [[ $value == *=* ]]; then
+            item="$i $(( $#option + 4 ))"
+          elif (( $long[(Ie)$option] )); then
+            (( i++ ))
+            item="$i 1"
+          fi
+          case $option in
+            (expression) found+=("$item sed"); given=1 ;;
+            (file) given=1 ;;
+            (regexp-extended) extended=1 ;;
+          esac
+        else  # A bundle of short options, e.g. `-nE`
+          for (( k = 2; k <= $#value; k++ )); do
+            case $value[k] in
+              ([Er]) extended=1 ;;
+              (i) break ;;  # -i takes the rest of the bundle as its backup suffix.
+              ([efl])
+                if (( k < $#value )); then item="$i $(( k + 1 ))"; else (( i++ )); item="$i 1"; fi
+                [[ $value[k] == e ]] && found+=("$item sed")
+                [[ $value[k] == [ef] ]] && given=1
+                break ;;
+            esac
+          done
+        fi
+      done
+      (( ! given && $#positional )) && found+=("$positional[1] 1 sed")
+      (( extended )) || found=() ;;
+  esac
+  for item in $found; do
+    fields=(${=item})
+    i=$fields[1] k=$fields[2] kind=$fields[3]
+    (( i <= $#values && starts[i] >= 0 )) || continue
+    _zsh_highlight_regex_unquote $starts[i] $ends[i] || continue
+    value=${REPLY[k,-1]} positions=("${(@)reply[k,-1]}")
+    (( $#value )) || continue
+    _zsh_highlight_regex_depth $positions[1]
+    case $kind in
+      (pattern) _zsh_highlight_regex_pattern $flavour $REPLY "$value" $positions ;;
+      (code) _zsh_highlight_regex_code $REPLY "$value" $positions ;;
+      (sed) _zsh_highlight_regex_sed $REPLY "$value" $positions ;;
+      (slashed)
+        if [[ $value == /?*/ ]]; then
+          _zsh_highlight_add_highlight $(( positions[1] - 1 )) $positions[1] perl-delimiter
+          _zsh_highlight_add_highlight $(( positions[-1] - 1 )) $positions[-1] perl-delimiter
+          value=$value[2,-2] positions=("${(@)positions[2,-2]}")
+        fi
+        _zsh_highlight_regex_pattern pcre $REPLY "$value" $positions ;;
+    esac
+  done
+}
+
+# Skip the command that fd's -x or -X runs, up to the `;` that ends it (or the end), in the arguments of
+# _zsh_highlight_regex_command (in its variables).
+_zsh_highlight_regex_skip_command() {
+  while (( i < last )) && [[ $values[i+1] != ';' ]]; do (( i++ )); done
+  (( i++ ))
+}
+
+# Succeed if the command $1 (a name, or a path) is GNU's $2 (e.g. GNU grep, as ggrep is on macOS and grep is on Linux),
+# going by its --version. That's run once per command (and the results passed to my ctrl+r's highlighting, see
+# .zshrc), and only for the one found in $PATH (so for a path, only if it's to that same file), so that typing the path
+# to some other program called e.g. grep never runs it.
+typeset -gA _zsh_highlight_regex_gnu  # Command's file -> 0 if it's GNU's, else 1
+_zsh_highlight_regex_is_gnu() {
+  emulate -L zsh
+  local file=$commands[${1:t}]
+  [[ -n $file ]] || return 1
+  [[ $1 != */* || ${1:A} == ${file:A} ]] || return 1
+  if (( ! $+_zsh_highlight_regex_gnu[$file] )); then
+    # E.g. "grep (GNU grep) 3.12", whereas macOS's says "grep (BSD grep, GNU compatible) 2.6.0-FreeBSD".
+    [[ ${${(f)"$($file --version 2>/dev/null </dev/null)"}[1]} == *"(GNU $2)"* ]]
+    _zsh_highlight_regex_gnu[$file]=$?
+  fi
+  (( _zsh_highlight_regex_gnu[$file] == 0 ))
+}
+
+# Put the text that the word at `$BUFFER[$1+1,$2]` passes to its command (i.e. without its quotes and backslashes) in
+# $REPLY, and the position on the command line of each of its characters in $reply. Fail if it's not passed as is (e.g.
+# it has a `$var`, `$'...'` or glob), as then the positions don't match up. An unclosed quote (e.g. while still typing)
+# counts as closed at the end of the word.
+_zsh_highlight_regex_unquote() {
+  emulate -L zsh
+  local quote= char
+  local -i i
+  REPLY= reply=()
+  for (( i = $1 + 1; i <= $2; i++ )); do
+    char=$BUFFER[i]
+    if [[ $quote == "'" ]]; then
+      [[ $char == "'" ]] && { quote=; continue }
+    elif [[ $quote == '"' ]]; then
+      case $char in
+        ('"') quote=; continue ;;
+        ('\') [[ $BUFFER[i+1] == [\$\`\"\\] ]] && (( i++ )) ;;  # Otherwise the `\` is kept.
+        ([\$\`!]) return 1 ;;
+      esac
+    else
+      case $char in
+        ([\'\"]) quote=$char; continue ;;
+        ('\') (( ++i <= $2 )) || break ;;
+        ([[:alnum:]_.,:/+%@-]) ;;
+        ('=') (( i > $1 + 1 )) || return 1 ;;  # At the start, it's an `=command` expansion.
+        ('^') [[ $zsyh_user_options[extendedglob] == off ]] || return 1 ;;
+        (*) return 1 ;;
+      esac
+    fi
+    REPLY+=$BUFFER[i] reply+=($i)
+  done
+  return 0
+}
+
+# Put in $REPLY how many of the brackets that the rainbow highlighter coloured are open at position $1 of the command
+# line.
+_zsh_highlight_regex_depth() {
+  emulate -L zsh
+  local entry
+  local -a fields
+  REPLY=0
+  for entry in $_zsh_highlight__highlighter_rainbow_cache; do  # Entries are "start end style ...".
+    fields=(${(s: :)entry})
+    (( fields[2] < $1 )) || continue
+    case $BUFFER[fields[2]] in
+      ([\(\[\{]) (( REPLY++ )) ;;
+      ([\)\]\}]) [[ ${fields[3]%,} == $ZSH_HIGHLIGHT_STYLES[bracket-unexpected] ]] || (( REPLY-- )) ;;
+    esac
+  done
+}
+
+# Usage: `_zsh_highlight_regex_pattern <flavour> <depth> <regex> <position>...`
+#
+# Colour a Perl-style regex, whose characters are at the given positions on the command line. Its brackets carry on from
+# the depth given. The flavour is pcre (PCRE2's, as in grep and rg), perl (the same, but in Perl code, so a `$` or `@`
+# followed by a name is a variable), rust (Rust's regex crate's, as in fd), which lacks lookarounds, backreferences and
+# some escapes and groups (coloured as errors), but has classes in classes, e.g. `[a-z&&[^aeiou]]`, ere (GNU's extended
+# regexes, as in grep -E), which only has the escapes `\w` `\W` `\s` `\S` `\b` `\B` `\<` `\>` and `\1` etc (others, like
+# `\d`, match the letter instead, with a warning), no `(?...)` groups or lazy quantifiers (`a*?` is `(a*)?`), and in a
+# `[...]`, a `\` is literal, or sed (the same, as in sed -E, but with sed's own escapes too, e.g. `\n` `\t` `\x41`,
+# which also work in a `[...]`, while other escapes silently match the letter).
+_zsh_highlight_regex_pattern() {
+  emulate -L zsh -o extended_glob
+  local s=$3 close style
+  local -a pos=("${@:4}") groups match mbegin mend  # groups: the positions of the `(`s still open
+  # class: how many `[`s are open (only ever 1 but in rust), and first: where the innermost one's contents start
+  local -i depth=$2 i j n=$#3 class=0 first quoted=0 rust=0 gnu=0 sed=0 interpolate=0
+  [[ $1 == rust ]] && rust=1
+  [[ $1 == (ere|sed) ]] && gnu=1
+  [[ $1 == sed ]] && sed=1
+  [[ $1 == perl ]] && interpolate=1
+  for (( i = 1; i <= n; i = j + 1 )); do
+    j=i
+    if (( quoted )); then  # In `\Q...\E`, where everything is literal
+      [[ $s[i,i+1] == '\E' ]] && { quoted=0 j=i+1; _zsh_highlight_regex_add $i $j regex-escape }
+      continue
+    fi
+    if [[ $s[i] == '\' ]]; then  # An escape: `\[` `\d` `\x41` `\x{263A}` `\p{L}` `\k<name>` `\g-1` `\12` etc
+      if (( gnu && class )) &&
+         { (( ! sed )) || [[ $s[i+1] != [ntfvarc] && $s[i+1,i+2] != (d[0-9]|o[0-7]|x[[:xdigit:]]) ]] }; then
+        continue  # A literal `\`
+      fi
+      (( j++ ))
+      case $s[j] in
+        ([xopPNgkb])
+          if [[ $s[j+1] == '{' && ( $s[j] != b || rust -eq 1 ) ]]; then  # Including rust's `\b{start}` etc
+            (( j += 2 )); while (( j < n )) && [[ $s[j] != '}' ]]; do (( j++ )); done
+          elif [[ $s[j] == [gk] && $s[j+1] == [\<\'] ]]; then
+            close=${s[j+1]/\</>}
+            (( j += 2 )); while (( j < n )) && [[ $s[j] != "$close" ]]; do (( j++ )); done
+          elif [[ $s[j] == x ]]; then
+            while (( j < i + 3 )) && [[ $s[j+1] == [[:xdigit:]] ]]; do (( j++ )); done
+          elif [[ $s[j] == g ]]; then
+            [[ $s[j+1] == - ]] && (( j++ )); while [[ $s[j+1] == [0-9] ]]; do (( j++ )); done
+          elif [[ $s[j] == [pP] ]]; then
+            (( j++ ))
+          elif (( sed )) && [[ $s[j] == o ]]; then  # sed's `\o101`
+            while (( j < i + 4 )) && [[ $s[j+1] == [0-7] ]]; do (( j++ )); done
+          fi ;;
+        (d) (( sed )) && while (( j < i + 4 )) && [[ $s[j+1] == [0-9] ]]; do (( j++ )); done ;;  # sed's `\d097`
+        (c) (( j++ )) ;;
+        ([0-9]) while [[ $s[j+1] == [0-9] ]]; do (( j++ )); done ;;
+        (Q) (( rust || gnu )) || quoted=1 ;;
+      esac
+      (( j > n )) && j=n
+      style=regex-escape
+      # Only these letters (and digits) can be escaped, while any other character can (e.g. `\(` is just `(`). PCRE's
+      # `\l` `\L` `\u` `\U` `\F` are errors, but in Perl, they're string escapes that change the case of what follows.
+      if (( rust )); then
+        [[ $s[i+1] == [[:alnum:]] && $s[i+1] != [dDwWsSbBAzxpPtnrfva] ]] && style=syntax-error
+      elif (( sed )); then
+        [[ $s[i+1] == [[:alnum:]] ]] && ! [[ $s[i+1] == [wWsSbBntfvarc1-9] ]] &&
+          ! { [[ $s[i+1] == [dox] ]] && (( j > i + 1 )) } && style=syntax-error
+      elif (( gnu )); then
+        [[ $s[i+1] == [[:alnum:]] && $s[i+1] != [wWsSbB1-9] ]] && style=syntax-error
+      else
+        [[ $s[i+1] == [iIjJmMOqTyY] || $s[i+1] == o && $s[i+2] != '{' ]] && style=syntax-error
+        (( ! interpolate )) && [[ $s[i+1] == [lLuUF] ]] && style=syntax-error
+      fi
+      _zsh_highlight_regex_add $i $j $style
+    elif (( class )); then  # In a `[...]`
+      if [[ $s[i] == ']' ]] && (( i > first )); then  # A `]` first in the class is literal.
+        _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#groups + class - 1) % 6 + 1 ))
+        (( class-- ))
+      elif [[ $s[i,-1] == (#b)(\[:\^#[[:alpha:]]##:\])* ]]; then  # E.g. `[:alpha:]`
+        (( j += $#match[1] - 1 ))
+        _zsh_highlight_regex_add $i $j regex-escape
+      elif (( rust )) && [[ $s[i] == '[' ]]; then  # A class in the class
+        _zsh_highlight_regex_class
+      elif (( rust )) && [[ $s[i,i+1] == ('&&'|'--'|'~~') ]]; then  # Intersection, difference, symmetric difference
+        (( j++ ))
+        _zsh_highlight_regex_add $i $j regex-operator
+      elif [[ $s[i] == - ]] && (( i > first )) && [[ $s[i+1] != ']' ]]; then  # A range
+        _zsh_highlight_regex_add $i $i regex-operator
+      fi
+    else
+      case $s[i] in
+        ('[') _zsh_highlight_regex_class ;;
+        ('(')
+          if [[ $s[i,i+2] == '(?#' ]]; then  # A comment, up to the next `)`
+            while (( j < n )) && [[ $s[j] != ')' ]]; do (( j++ )); done
+            (( rust || gnu )) && style=syntax-error || style=comment
+            _zsh_highlight_regex_add $i $j $style
+            continue
+          fi
+          groups+=($i)
+          _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#groups - 1) % 6 + 1 ))
+          # What kind of group it is: `?:` `?=` `?!` `?>` `?|` `?<=` `?<!` `?<name>` `?'name'` `?P<name>`, flags like
+          # `?i` or `?i-x:`, a recursion like `?R` `?1` `?&name` `?P>name` (all up to the `)`), or a verb like `*SKIP`
+          if [[ $s[i+1] == '?' ]]; then
+            j=i+1
+            case $s[i+2] in
+              ([:=!\>\|]) j=i+2 ;;
+              ('<') if [[ $s[i+3] == [=!] ]]; then j=i+3
+                    else while (( j < n )) && [[ $s[j] != '>' ]]; do (( j++ )); done; fi ;;
+              ("'") (( j++ )); while (( j < n )) && [[ $s[j+1] != "'" ]]; do (( j++ )); done; (( j++ )) ;;
+              (P) if [[ $s[i+3] == '<' ]]; then while (( j < n )) && [[ $s[j] != '>' ]]; do (( j++ )); done
+                  else while (( j < n )) && [[ $s[j+1] != ')' ]]; do (( j++ )); done; fi ;;
+              (*) while [[ $s[j+1] == [[:alnum:]_^\&+-] ]]; do (( j++ )); done; [[ $s[j+1] == : ]] && (( j++ )) ;;
+            esac
+            style=regex-group
+            # Rust only has these: `?:` `?<name>` `?P<name>` and flags (`R` being one, not a recursion).
+            (( rust )) && [[ $s[i+1,j] != ('?:'|'?<'[^=!]*|'?P<'*|'?'[imsxRU-]##(|:)) ]] && style=syntax-error
+            (( gnu )) && style=syntax-error  # GNU's have none.
+            _zsh_highlight_regex_add $(( i + 1 )) $j $style
+          elif [[ $s[i+1] == '*' && $s[i+2] == [[:upper:]] ]]; then
+            (( j++ )); while (( j < n )) && [[ $s[j+1] != ')' ]]; do (( j++ )); done
+            (( rust || gnu )) && style=syntax-error || style=regex-group
+            _zsh_highlight_regex_add $(( i + 1 )) $j $style
+          fi ;;
+        (')')
+          if (( $#groups )); then
+            _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#groups - 1) % 6 + 1 ))
+            groups[-1]=()
+          else
+            _zsh_highlight_regex_add $i $i bracket-unexpected
+          fi ;;
+        ([\$@])
+          if (( interpolate )) && [[ $s[i+1] == [[:alnum:]_:{] ]] && [[ $s[i] == '$' || $s[i+1] != [0-9] ]]; then
+            if [[ $s[i+1] == '{' ]]; then
+              while (( j < n )) && [[ $s[j] != '}' ]]; do (( j++ )); done
+            else
+              while [[ $s[j+1] == [[:alnum:]_:] ]]; do (( j++ )); done
+            fi
+            _zsh_highlight_regex_add $i $j perl-variable
+          elif [[ $s[i] == '$' ]]; then
+            _zsh_highlight_regex_add $i $i regex-operator
+          fi ;;
+        ([\|^]) _zsh_highlight_regex_add $i $i regex-operator ;;
+        (.) _zsh_highlight_regex_add $i $i regex-escape ;;
+        ([*+?{])  # A quantifier (as is a `{` before e.g. `2}` `2,}` `2,3}` `,3}`), lazy or possessive or not
+          style=regex-operator
+          if [[ $s[i] == '{' ]]; then
+            [[ $s[i,-1] == (#b)(\{[0-9]#(,[0-9]#|)\})* && $match[1] == *[0-9]* ]] || continue
+            (( j += $#match[1] - 1 ))
+            (( rust )) && [[ $match[1] == '{,'* ]] && style=syntax-error  # Rust needs the minimum.
+          fi
+          _zsh_highlight_regex_add $i $j $style
+          if [[ $s[j+1] == [?+] ]]; then  # Lazy or possessive, which GNU's don't have
+            (( j++ ))
+            (( gnu )) && style=syntax-error
+            _zsh_highlight_regex_add $j $j $style
+          fi ;;
+      esac
+    fi
+  done
+}
+
+# Colour the `[` at `$s[i]` that starts a class, and its `^` if it has one, for _zsh_highlight_regex_pattern (in its
+# variables).
+_zsh_highlight_regex_class() {
+  (( class++ ))
+  _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#groups + class - 1) % 6 + 1 ))
+  first=i+1
+  [[ $s[i+1] == '^' ]] && { _zsh_highlight_regex_add $first $first regex-operator; (( first++, j++ )) }
+}
+
+# Usage: `_zsh_highlight_regex_code <depth> <code> <position>...`
+#
+# Colour some Perl code, whose characters are at the given positions on the command line: its keywords, functions,
+# variables, strings, numbers, operators, comments and brackets (carrying on from the depth given), and its regexes, in
+# `/.../` (where a value is expected, else it's a division), `m/.../`, `s/.../.../` and `qr/.../` (with any delimiters).
+# It's a simple tokenizer rather than a parser (only perl can parse Perl), so e.g. heredocs and POD aren't recognised,
+# which one-liners rarely have.
+_zsh_highlight_regex_code() {
+  emulate -L zsh -o extended_glob
+  local s=$2 word previous style  # previous: the last token, if it was a word
+  local -a pos=("${@:3}") brackets  # brackets: the brackets still open
+  local -i depth=$1 i j k n=$#2 regex=1 parts quoted interpolate  # regex: whether a `/` here would start a regex
+  # Colour the code as text, rather than as the shell string it's in, a stretch at a time (as e.g. a `'\''` in it keeps
+  # the shell's colours).
+  for (( i = 1; i <= n; i = j + 1 )); do
+    for (( j = i; j < n && pos[j+1] == pos[j] + 1; j++ )); do :; done
+    _zsh_highlight_regex_add $i $j perl-default
+  done
+  for (( i = 1; i <= n; i++ )); do
+    [[ $s[i] == [[:space:]] ]] && continue
+    word=
+    case $s[i] in
+      ('#')
+        for (( j = i; j < n; j++ )); do [[ $s[j+1] == $'\n' ]] && break; done
+        _zsh_highlight_regex_add $i $j perl-comment
+        i=j ;;
+      ([\'\"\`])
+        for (( j = i + 1; j <= n; j++ )); do
+          [[ $s[j] == '\' ]] && { (( j++ )); continue }
+          [[ $s[j] == "$s[i]" ]] && break
+        done
+        _zsh_highlight_regex_add $i $(( j > n ? n : j )) perl-string
+        [[ $s[i] == "'" ]] && interpolate=0 || interpolate=1
+        _zsh_highlight_regex_string $(( i + 1 )) $(( j - 1 )) $interpolate "$s[i]"
+        i=j regex=0 ;;
+      ([\$@%])  # A variable, e.g. `$x` `@x` `%x` `$#x` `${x}` `$1` `$/`, or else `%` as modulus
+        if [[ $s[i] == % ]] && { (( ! regex )) || [[ $s[i+1] != [[:alpha:]_{^] ]] }; then
+          _zsh_highlight_regex_add $i $i perl-operator
+          regex=1
+          continue
+        fi
+        j=i
+        [[ $s[j,j+1] == '$#' ]] && (( j++ ))
+        case $s[j+1] in
+          ('{') while (( j < n )) && [[ $s[j] != '}' ]]; do (( j++ )); done ;;
+          ([[:alpha:]_:]) while [[ $s[j+1] == [[:alnum:]_:] ]]; do (( j++ )); done ;;
+          ([0-9]) while [[ $s[j+1] == [0-9] ]]; do (( j++ )); done ;;
+          ('^') (( j += 2 )) ;;
+          ([^[:space:]]) [[ $s[i] == '$' ]] && (( j++ )) ;;
+        esac
+        (( j > n )) && j=n
+        _zsh_highlight_regex_add $i $j perl-variable
+        i=j regex=0 ;;
+      ([0-9])  # E.g. `42` `1.5` `1_000` `0x1f` `1e3`, but not the `..` of `1..9`
+        for (( j = i; j < n; j++ )); do
+          [[ $s[j+1] == [[:alnum:]_] || $s[j+1] == . && $s[j+2] == [0-9] ]] || break
+        done
+        _zsh_highlight_regex_add $i $j perl-number
+        i=j regex=0 ;;
+      ([[:alpha:]_])  # A word, including a module's, e.g. `List::Util`
+        j=i
+        while [[ $s[j+1] == [[:alnum:]_] || $s[j+1,j+2] == '::' ]]; do
+          [[ $s[j+1] == : ]] && (( j += 2 )) || (( j++ ))
+        done
+        word=$s[i,j]
+        # A quote-like operator, unless it's a method (`->s`) or a hash key (`{s}` or `s => 1`). Its delimiter follows
+        # straight after, or after spaces if it's a bracket.
+        k=j+1 quoted=0
+        while [[ $s[k] == [[:space:]] ]]; do (( k++ )); done
+        if [[ $word == (m|qr|s|tr|y|q|qq|qw|qx) && $s[i-2,i-1] != '->' ]]; then
+          [[ $s[k] == [\(\[\{\<] ]] && quoted=1
+          (( k == j + 1 )) && [[ $s[k] == [^[:alnum:][:space:]_=\;\)\]\}\>] ]] && quoted=1
+        fi
+        if (( quoted )); then
+          _zsh_highlight_regex_add $i $j perl-quote-operator
+          parts=1
+          [[ $word == (s|tr|y) ]] && parts=2
+          _zsh_highlight_regex_quoted $k $word $parts
+          i=$REPLY regex=0 word=
+          continue
+        fi
+        style=
+        if [[ $s[k,k+1] == '=>' || $s[i-1] == '{' && $s[k] == '}' ]]; then
+          :  # A hash key
+        elif [[ $previous == (use|no|require|package) ]]; then
+          style=perl-module
+        elif [[ $previous == sub || $s[i-2,i-1] == '->' ]]; then  # A sub's name, or a method
+          style=perl-function
+        elif (( $_zsh_highlight_perl_keywords[(Ie)$word] )); then
+          style=perl-keyword
+        elif (( $_zsh_highlight_perl_word_operators[(Ie)$word] )); then
+          style=perl-operator
+        elif (( $_zsh_highlight_perl_functions[(Ie)$word] )) || [[ $s[k] == '(' ]]; then
+          style=perl-function
+        elif [[ $word == *::* ]]; then
+          style=perl-module
+        fi
+        [[ -n $style ]] && _zsh_highlight_regex_add $i $j $style
+        # After a keyword, an operator or some functions, a value is expected, so e.g. a `/` starts a regex and a `%`
+        # starts a hash.
+        [[ $style == (perl-keyword|perl-operator) ]] || (( $_zsh_highlight_perl_before_value[(Ie)$word] )) &&
+          regex=1 || regex=0
+        i=j ;;
+      ('/')
+        if (( regex )); then
+          _zsh_highlight_regex_quoted $i m 1
+          i=$REPLY regex=0
+        else  # A division, or `//` (defined-or) or `/=`
+          j=i
+          [[ $s[j+1] == / ]] && (( j++ ))
+          [[ $s[j+1] == = ]] && (( j++ ))
+          _zsh_highlight_regex_add $i $j perl-operator
+          i=j regex=1
+        fi ;;
+      ([\(\[\{])
+        brackets+=($s[i])
+        _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#brackets - 1) % 6 + 1 ))
+        regex=1 ;;
+      ([\)\]\}])
+        if (( $#brackets )) && [[ $brackets[-1]$s[i] == ('()'|'[]'|'{}') ]]; then
+          _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#brackets - 1) % 6 + 1 ))
+          brackets[-1]=()
+        else
+          _zsh_highlight_regex_add $i $i bracket-unexpected
+        fi
+        regex=0 ;;
+      ([\;,]) _zsh_highlight_regex_add $i $i perl-punctuation; regex=1 ;;
+      (*) _zsh_highlight_regex_add $i $i perl-operator; regex=1 ;;
+    esac
+    previous=$word
+  done
+}
+
+typeset -ga _zsh_highlight_perl_keywords=(my our local state if elsif else unless while until for foreach do last next
+  redo goto return sub package use no require BEGIN END)
+typeset -ga _zsh_highlight_perl_word_operators=(and or not xor eq ne lt gt le ge cmp x isa)
+typeset -ga _zsh_highlight_perl_functions=(print printf say split join push pop shift unshift splice grep map sort
+  reverse keys values each delete exists defined undef length substr index rindex sprintf lc uc lcfirst ucfirst fc chomp
+  chop chr ord abs int sqrt sin cos atan2 exp log hex oct rand srand exit die warn eval open close binmode eof readline
+  time localtime gmtime sleep system exec wantarray ref bless scalar wait waitpid unlink rename mkdir rmdir chdir
+  opendir readdir closedir stat lstat pack unpack quotemeta glob select seek tell read sysread syswrite getc fileno
+  utime chmod chown kill fork pipe caller lock)
+# The functions after which a value is expected (as after the keywords and word operators above)
+typeset -ga _zsh_highlight_perl_before_value=(split grep map join print say push unshift die warn)
+
+# Usage: `_zsh_highlight_regex_quoted <start> <operator> <parts>`
+#
+# Colour a quote-like operator (`m` `qr` `s` `q` `tr` and the like, or a `/.../`) in the code of
+# _zsh_highlight_regex_code (in its variables): its delimiters (the first at start), its contents, which are 1 or 2
+# parts (e.g. the pattern and the replacement of `s`), and its flags. Put the position of its last character in $REPLY.
+_zsh_highlight_regex_quoted() {
+  emulate -L zsh -o extended_glob
+  local open close kind flavour
+  local -i k=$1 j part nesting flags
+  for (( part = 1; part <= $3; part++ )); do
+    # The second part has its own delimiters if the first's were brackets (e.g. `s{...}{...}`, with spaces allowed
+    # between), else shares the first's closing one (e.g. `s/.../.../`).
+    if (( part == 2 )); then
+      (( j > n )) && break  # The first part is unclosed.
+      if [[ $open == "$close" ]]; then
+        k=j
+      else
+        for (( k = j + 1; k < n; k++ )); do [[ $s[k] == [[:space:]] ]] || break; done
+      fi
+    fi
+    open=$s[k] close=$s[k]
+    case $open in
+      ('(') close=')' ;;
+      ('[') close=']' ;;
+      ('{') close='}' ;;
+      ('<') close='>' ;;
+    esac
+    nesting=0
+    for (( j = k + 1; j <= n; j++ )); do
+      if [[ $s[j] == '\' ]]; then
+        (( j++ ))
+      elif [[ $s[j] == "$close" ]]; then
+        (( nesting-- == 0 )) && break
+      elif [[ $s[j] == "$open" ]]; then
+        (( nesting++ ))
+      fi
+    done
+    # What the part is: a regex (the first of `m`, `qr` and `s`), a string that variables are interpolated into (`qq`,
+    # `qx` and the second of `s`), or a plain string. A `'` delimiter stops variables being interpolated, as in a
+    # string.
+    case $2 in
+      (m|qr) kind=regex ;;
+      (s) (( part == 1 )) && kind=regex || kind=interpolated ;;
+      (qq|qx) kind=interpolated ;;
+      (*) kind=plain ;;
+    esac
+    [[ $open == "'" ]] && interpolate=0 || interpolate=1
+    [[ $kind == interpolated ]] && (( ! interpolate )) && kind=plain
+    (( j > k + 1 )) && _zsh_highlight_regex_add $(( k + 1 )) $(( j - 1 )) perl-string
+    case $kind in
+      (regex)
+        (( interpolate )) && flavour=perl || flavour=pcre
+        _zsh_highlight_regex_pattern $flavour $(( depth + $#brackets )) "$s[k+1,j-1]" "${(@)pos[k+1,j-1]}" ;;
+      (interpolated) _zsh_highlight_regex_string $(( k + 1 )) $(( j - 1 )) 1 "$close" ;;
+      (plain) _zsh_highlight_regex_string $(( k + 1 )) $(( j - 1 )) 0 "$close" ;;
+    esac
+    [[ $part == 1 || $open != "$close" ]] && _zsh_highlight_regex_add $k $k perl-delimiter
+    (( j <= n )) && _zsh_highlight_regex_add $j $j perl-delimiter
+  done
+  (( j > n )) && j=n
+  flags=j+1
+  while [[ $s[j+1] == [[:alpha:]] ]]; do (( j++ )); done  # E.g. `g` `i` `x`
+  (( j >= flags )) && _zsh_highlight_regex_add $flags $j perl-quote-operator
+  REPLY=$j
+}
+
+# Usage: `_zsh_highlight_regex_string <start> <end> <interpolate> <delimiter>`
+#
+# Colour the escapes in `$s[start,end]`, a string in the code of _zsh_highlight_regex_code (in its variables) that ends
+# with the delimiter given, and if interpolate is 1, the variables interpolated into it. Without interpolation, the only
+# escapes are `\\` and the delimiter's.
+_zsh_highlight_regex_string() {
+  emulate -L zsh
+  local -i k j
+  for (( k = $1; k <= $2; k = j + 1 )); do
+    j=k
+    if [[ $s[k] == '\' ]]; then  # E.g. `\n` `\"` `\x41` `\x{263A}` `\N{U+263A}` `\cA` `\012`
+      if (( $3 )); then
+        (( j++ ))
+        case $s[j] in
+          ([xNo])
+            if [[ $s[j+1] == '{' ]]; then
+              while (( j < $2 )) && [[ $s[j] != '}' ]]; do (( j++ )); done
+            elif [[ $s[j] == x ]]; then
+              while (( j < k + 3 )) && [[ $s[j+1] == [[:xdigit:]] ]]; do (( j++ )); done
+            fi ;;
+          (c) (( j++ )) ;;
+          ([0-7]) while (( j < k + 3 )) && [[ $s[j+1] == [0-7] ]]; do (( j++ )); done ;;
+        esac
+      elif [[ $s[k+1] == '\' || $s[k+1] == "$4" ]]; then
+        (( j++ ))
+      else
+        continue
+      fi
+      style=perl-escape
+      # Perl warns of an escape of any other letter (but any other character can be escaped, e.g. `\(` is just `(`).
+      (( $3 )) && [[ $s[k+1] == [[:alpha:]] && $s[k+1] != [tnrfbaexNocluLUFQE] ]] && style=syntax-error
+      _zsh_highlight_regex_add $k $(( j > $2 ? $2 : j )) $style
+    elif (( $3 )) && [[ $s[k] == [\$@] && $s[k+1] == [[:alpha:]_{:] || $s[k] == '$' && $s[k+1] == [0-9] ]]; then
+      if [[ $s[k+1] == '{' ]]; then
+        while (( j < $2 )) && [[ $s[j] != '}' ]]; do (( j++ )); done
+      else
+        while (( j < $2 )) && [[ $s[j+1] == [[:alnum:]_:] ]]; do (( j++ )); done
+      fi
+      _zsh_highlight_regex_add $k $j perl-variable
+    fi
+  done
+}
+
+# Usage: `_zsh_highlight_regex_sed <depth> <script> <position>...`
+#
+# Colour a sed script (as GNU sed reads it), whose characters are at the given positions on the command line: its
+# commands, addresses (line numbers and `/regex/`s), regexes, the `&` and `\1` etc in its replacements, labels, comments
+# and `{ }` (carrying on from the depth given). Its text (e.g. the replacements, and what `a` `i` and `c` add) is left
+# in the colour of the shell string it's in.
+_zsh_highlight_regex_sed() {
+  emulate -L zsh -o extended_glob
+  local s=$2
+  local -a pos=("${@:3}") brackets  # brackets: the `{`s still open
+  local -i depth=$1 i j k n=$#2
+  for (( i = 1; i <= n; i++ )); do
+    case $s[i] in
+      ([[:space:]]) ;;
+      (\;) _zsh_highlight_regex_add $i $i sed-delimiter ;;
+      ('#')
+        for (( j = i; j < n; j++ )); do [[ $s[j+1] == $'\n' ]] && break; done
+        _zsh_highlight_regex_add $i $j comment
+        i=j ;;
+      ('{')
+        brackets+=($i)
+        _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#brackets - 1) % 6 + 1 )) ;;
+      ('}')
+        if (( $#brackets )); then
+          _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#brackets - 1) % 6 + 1 ))
+          brackets[-1]=()
+        else
+          _zsh_highlight_regex_add $i $i bracket-unexpected
+        fi ;;
+      ([0-9\$])  # A line number, or `$` for the last line
+        for (( j = i; j < n; j++ )); do [[ $s[j+1] == [0-9] ]] || break; done
+        _zsh_highlight_regex_add $i $j sed-address
+        i=j ;;
+      ([,\!~+]) _zsh_highlight_regex_add $i $i sed-operator ;;  # E.g. `1,5` `/a/!` `0~2` `/a/,+3`
+      ([/\\])  # A `/regex/` address (or `\%regex%` with another delimiter), with its flags (`I` `M`)
+        k=i
+        [[ $s[i] == '\' ]] && (( k++ ))
+        _zsh_highlight_regex_sed_part $k regex
+        for (( i = REPLY; i < n; i++ )); do [[ $s[i+1] == [IM] ]] || break; done
+        (( i > REPLY )) && _zsh_highlight_regex_add $(( REPLY + 1 )) $i sed-command ;;
+      (s)  # `s/regex/replacement/flags`, the flags being e.g. `g` `2` `I`, or `w` and a file to write to
+        _zsh_highlight_regex_add $i $i sed-command
+        _zsh_highlight_regex_sed_part $(( i + 1 )) regex
+        _zsh_highlight_regex_sed_part $REPLY replacement
+        for (( i = REPLY; i < n; i++ )); do [[ $s[i+1] == [gpiImMe0-9] ]] || break; done
+        (( i > REPLY )) && _zsh_highlight_regex_add $(( REPLY + 1 )) $i sed-command
+        if [[ $s[i+1] == w ]]; then
+          _zsh_highlight_regex_add $(( i + 1 )) $(( i + 1 )) sed-command
+          for (( ; i < n; i++ )); do [[ $s[i+1] == $'\n' ]] && break; done
+        fi ;;
+      (y)  # `y/abc/xyz/`
+        _zsh_highlight_regex_add $i $i sed-command
+        _zsh_highlight_regex_sed_part $(( i + 1 )) text
+        _zsh_highlight_regex_sed_part $REPLY text
+        i=$REPLY ;;
+      ([aicrRwWe])  # Followed by text, a file or a command, up to the end of the line (with `\` continuing it)
+        _zsh_highlight_regex_add $i $i sed-command
+        for (( ; i < n; i++ )); do
+          [[ $s[i+1] == $'\n' ]] && break
+          [[ $s[i+1] == '\' ]] && (( i++ ))
+        done ;;
+      ([btT:])  # A label, after `:`, or after `b` `t` `T` to jump to it
+        _zsh_highlight_regex_add $i $i sed-command
+        for (( j = i; j < n; j++ )); do [[ $s[j+1] == [[:blank:]] ]] || break; done
+        for (( k = j; k < n; k++ )); do [[ $s[k+1] == [\;$'\n'[:blank:]] ]] && break; done
+        (( k > j )) && _zsh_highlight_regex_add $(( j + 1 )) $k sed-label
+        i=k ;;
+      ([dDgGhHlLnNpPqQxzF=]) _zsh_highlight_regex_add $i $i sed-command ;;
+    esac
+  done
+}
+
+# Colour the part of an `s` or `y` command, or `/regex/` address, in the script of _zsh_highlight_regex_sed (in its
+# variables) whose delimiter is at $1: a regex, a replacement, or text. Put the position of its closing delimiter in
+# $REPLY (or of the script's end, if it's unclosed).
+_zsh_highlight_regex_sed_part() {
+  local -i k=$1 j end
+  local delimiter=$s[$1] char style
+  for (( j = k + 1; j <= n; j++ )); do
+    [[ $s[j] == '\' ]] && { (( j++ )); continue }
+    [[ $s[j] == "$delimiter" ]] && break
+  done
+  (( end = j > n ? n : j - 1 ))
+  if (( k <= n )) && [[ $delimiter != [[:space:]] ]]; then
+    _zsh_highlight_regex_add $k $k sed-delimiter
+    (( j <= n )) && _zsh_highlight_regex_add $j $j sed-delimiter
+  fi
+  case $2 in
+    (regex) _zsh_highlight_regex_pattern sed $(( depth + $#brackets )) "$s[k+1,end]" "${(@)pos[k+1,end]}" ;;
+    # A replacement's `&` and `\1` etc are the match and its groups, and its `\L` `\U` `\l` `\u` `\E` convert the case.
+    (*)
+      for (( k = k + 1; k <= end; k++ )); do
+        char=$s[k]
+        if [[ $char == '\' ]] && (( k < end )); then
+          [[ $2 == replacement && $s[k+1] == [0-9] ]] && style=sed-reference || style=sed-escape
+          # Escapes of other letters silently give the letter (e.g. `\q` is `q`), as do those of other characters.
+          if [[ $s[k+1] == [[:alpha:]] && $s[k+1] != [ntfvarc] ]]; then
+            [[ $2 == replacement && $s[k+1] == [LlUuE] ]] || [[ $s[k+1] == [dox] && $s[k+2] == [[:xdigit:]] ]] ||
+              style=syntax-error
+          fi
+          _zsh_highlight_regex_add $k $(( k + 1 )) $style
+          (( k++ ))
+        elif [[ $2 == replacement && $char == '&' ]]; then
+          _zsh_highlight_regex_add $k $k sed-reference
+        fi
+      done ;;
+  esac
+  REPLY=$(( j > n ? n : j ))
+}
+
+# Colour `$s[$1,$2]` in style $3, given the positions on the command line of s's characters in $pos (both the caller's)
+_zsh_highlight_regex_add() {
+  _zsh_highlight_add_highlight $(( pos[$1] - 1 )) $pos[$2] $3
+}
+
 # Give the selection a background, keeping the syntax colours of the text in it, as VS Code and Vim do. Zsh's own
 # selection highlighting (zle_highlight's region) can't do this: zle draws each character in the style of the last
 # highlight covering it, rather than combining them, so a background-only highlight would also turn the selected text
@@ -473,5 +1477,6 @@ _zsh_highlight_highlighter_selection_paint() {
   done
 }
 
-# Run these after main, so they can override main's colours (and selection last, as it needs everything else's colours).
-ZSH_HIGHLIGHT_HIGHLIGHTERS=(main pathunderline arithmetic parameter keywords separators rainbow selection)
+# Run these after main, so they can override main's colours (and regex after rainbow, as it needs rainbow's brackets,
+# and selection last, as it needs everything else's colours).
+ZSH_HIGHLIGHT_HIGHLIGHTERS=(main pathunderline arithmetic parameter keywords separators rainbow regex selection)

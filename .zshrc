@@ -213,8 +213,8 @@ mkp() {
 # Replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first).
 alias sed='gsed -E'  # -E to always use extended regex, gsed to allow e.g. -i without providing a backup file
 alias head='ghead'  # For e.g. head -n -N file to get all except the last N lines
-# -E to always use extended regex, ggrep to allow GNU-specific features (but still prefer rg most of the time).
-alias grep='ggrep -E'
+# -P to always use PCRE (maximal regex features), ggrep to allow GNU-specific features (but still prefer rg most of the time).
+alias grep='ggrep -P'
 alias find='gfind'  # But still prefer fd most of the time.
 alias tac='gtac'
 
@@ -238,6 +238,9 @@ alias rg='rg -P'
 # With -R, $_ keeps its separator unless -l is given. With -l, the separator is stripped from $_ and put back by every
 # print (including -p's). This is the exact matched separator the record had, or nothing for a final unterminated
 # record. In END blocks, -l prints end in "\n" instead.
+#
+# My regex highlighter (in syntax-highlighting.zsh) parses these options too, to colour the regexes in them and the
+# code, so update it to match if they change.
 p() {
   local -a args=() flags=()
   local rs= has_rs=0 has_0=0 regex=0 fs= nl=0 inplace= ip=0 b plain c
@@ -367,7 +370,8 @@ pp() { p -0777 "$@"; }
 # before it goes to fd. Single-quote the code so it's treated as one argument and so the shell does not expand $f before
 # it reaches the function. And, double-quote the $f as normal if want to avoid word splitting. E.g.
 # `ff -e md 'echo "$f"; head -1 "$f"'`. Run in the current shell (aliases, functions and variables all work), reading
-# fd's output from fd 3 so commands in the code that read stdin don't swallow the file list.
+# fd's output from fd 3 so commands in the code that read stdin don't swallow the file list. My regex highlighter (in
+# syntax-highlighting.zsh) colours the fd pattern among the fd args, so update it to match if the arguments change.
 ff() {
   local cmd=${@[-1]} f
   while IFS= read -r -d '' f <&3; do eval "$cmd"; done 3< <(fd -0 "${@[1,-2]}")
@@ -380,7 +384,8 @@ ff() {
 # Like ff, but for records split on a regex (via p -R), with the record in $r and the exact separator that ended it in
 # $s (empty for a final unterminated record). <sep> is anything p -R takes, e.g. `'\n\n+'` or `/,\s*/`. Read stdin if no
 # files are given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`. Same quoting rules and current-shell behaviour as ff.
-# Records containing NUL bytes get split there.
+# Records containing NUL bytes get split there. My regex highlighter (in syntax-highlighting.zsh) colours <sep> as a
+# regex, so update it to match if the arguments change.
 fr() {
   local sep=$1 cmd=$2 r s; shift 2
   while IFS= read -r -d '' r <&3 && IFS= read -r -d '' s <&3; do eval "$cmd"; done \
@@ -1169,6 +1174,8 @@ if (( $+commands[cmdlog] )); then
         local f
         for f in ${(k)functions:#_*}; do print -r -- "functions[${(q)f}]=:"; done
         print -r -- "typeset -A zsyh_user_options=(${(@qkv)options})"
+        # Which of grep, sed etc are GNU's, as found so far, so it needn't check again
+        print -r -- "_zsh_highlight_regex_gnu=(${(@qkv)_zsh_highlight_regex_gnu})"
       } > $context
       # Export for cmdlog, including when run by fzf.
       local -x CMDLOG_HIGHLIGHT="zsh -f ${(q)HOME}/.zsh/highlight-commands.zsh ${(q)context}"
