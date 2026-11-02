@@ -217,7 +217,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 		}
 		u.listRows = max(u.listHeight()+step, 1)
 	case "u", "backspace":
-		u.edit("unmark", func() error { return u.mark(r, "") }, r.hash, r.kind)
+		u.edit("unmark", func() error { return u.mark(r, "") }, r, r.kind)
 	case "alt-up", "alt-down": // Option+up/down (with option acting as alt), as in VS Code
 		// Follow the commit to its copy, as moving it adds it to the rebase if it isn't already.
 		u.edit("move", func() error {
@@ -230,7 +230,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 				u.p.swap(r.entry, j)
 			}
 			return nil
-		}, r.hash, copied)
+		}, r, copied)
 	case "b":
 		u.edit("base", func() error {
 			if u.p.base.hash == r.hash {
@@ -247,7 +247,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 			}
 			u.p.setBase(commit{hash: r.hash, short: r.short, subject: r.subject}, n)
 			return u.h.fill(u.p, n+1) // Up to the commit the rebase stops at
-		}, r.hash, plain)
+		}, r, plain)
 	case "c":
 		u.edit("cutoff", func() error {
 			if r.entry < 0 {
@@ -259,7 +259,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 			}
 			u.p.setCutoff(r.hash)
 			return nil
-		}, r.hash, r.kind)
+		}, r, r.kind)
 	case "enter":
 		size := u.p.size()
 		todo, err := u.p.todo(size)
@@ -275,7 +275,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 		return true, "", "", ""
 	default:
 		if action, ok := actionKeys[key]; ok {
-			u.edit(action, func() error { return u.mark(r, action) }, r.hash, r.kind)
+			u.edit(action, func() error { return u.mark(r, action) }, r, r.kind)
 		}
 	}
 	return false, "", "", ""
@@ -294,19 +294,19 @@ func (u *ui) mark(r row, action string) error {
 	return nil
 }
 
-// edit applies a change to the plan and shows the result, with the cursor on the given commit (see load). If the
-// change fails or leaves the plan not working, it's undone, and the error shown instead, starting from what the user
-// tried (see explain), so it says why they can't do it.
-func (u *ui) edit(what string, change func() error, hash string, kind int) {
+// edit applies a change the user tried (see explain) to row r's commit, and shows the result, with the cursor on the
+// commit's row of the given kind (see load). If the change fails or leaves the plan not working, it's undone, and the
+// error shown instead, starting from what the user tried, so it says why they can't do it.
+func (u *ui) edit(what string, change func() error, r row, kind int) {
 	saved := u.p.clone()
 	err := change()
 	if err == nil {
 		if c := u.p.check(); c != nil {
-			err = errors.New(u.p.explain(*c, what, hash))
+			err = errors.New(u.p.explain(*c, what, r.hash, r.short))
 		}
 	}
 	if err == nil {
-		err = u.load(hash, kind)
+		err = u.load(r.hash, kind)
 	}
 	if err != nil {
 		*u.p = *saved // The rows are still those of the saved plan, as load only replaces them if it succeeds.

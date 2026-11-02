@@ -72,12 +72,14 @@ func (p *plan) index(hash string) int {
 }
 
 // conflict is why a plan doesn't work as arranged: the rebase covers the commit it stops at (the base or the cutoff),
-// or a squash/fixup would have nothing to fold into, as only drops are between it and that commit.
+// a squash/fixup would have nothing to fold into, as only drops are between it and that commit, or the rebase covers
+// a merge commit, which a plain `git rebase -i` can't keep.
 type conflict struct {
-	stop  int  // Position of the commit the rebase stops at
+	stop  int  // Position of the commit the rebase stops at (unused for a merge commit)
 	base  bool // Whether that commit is the base, rather than the cutoff
-	entry int  // Position of the commit that's marked or moved at or below it, or of the squash/fixup (-1 for neither)
+	entry int  // Position of the commit that's marked or moved at or below it, the squash/fixup or the merge commit
 	fold  bool // Whether entry is the squash/fixup
+	merge bool // Whether entry is the merge commit
 }
 
 // check returns why the plan doesn't work as arranged, for problems worth knowing about as soon as they're made (the
@@ -101,19 +103,30 @@ func (p *plan) check() *conflict {
 		}
 		return &conflict{stop: b, base: true, entry: -1}
 	}
+	for i, e := range p.entries[:min(size, len(p.entries))] {
+		if e.parents > 1 {
+			return &conflict{entry: i, merge: true}
+		}
+	}
 	return nil
 }
 
-// explain returns why the user can't do what they tried to the entry with the given hash, given the conflict it
-// would cause. what is an action, "unmark", "move", "base" or "cutoff".
-func (p *plan) explain(c conflict, what, hash string) string {
-	i := p.index(hash)
-	r, stop := p.entries[i], p.entries[c.stop]
+// explain returns why the user can't do what they tried to the commit with the given hash and short hash, given the
+// conflict it would cause. what is an action, "unmark", "move", "base" or "cutoff".
+func (p *plan) explain(c conflict, what, hash, short string) string {
+	i := p.index(hash) // -1 for a base that isn't on the current branch
+	tried := cant(what, short)
+	if c.merge {
+		if i >= 0 && i < p.size() && p.entries[i].parents > 1 {
+			return tried + ", as it's a merge commit"
+		}
+		return fmt.Sprintf("%s, as merge commit %s would then be in the rebase", tried, p.entries[c.entry].short)
+	}
+	stop := p.entries[c.stop]
 	role := "cutoff"
 	if c.base {
 		role = "base"
 	}
-	tried := cant(what, r.short)
 	switch {
 	case c.entry < 0:
 		return tried + ", as the base would be one of the commits being rebased"
@@ -131,9 +144,9 @@ func (p *plan) explain(c conflict, what, hash string) string {
 			who = "it"
 		}
 		return tried + ", as " + who + " would then have nothing to fold into"
-	case r.hash == stop.hash:
+	case hash == stop.hash:
 		return tried + " while it's the " + role
-	case r.orig < stop.orig:
+	case p.entries[i].orig < stop.orig:
 		// It was above where the rebase stops (as all the entries below are in their original positions until a
 		// change), so the change moves it below.
 		return fmt.Sprintf("%s below the %s %s", tried, role, stop.short)

@@ -10,7 +10,7 @@ import (
 // works.
 func explain(p *plan, what, hash string) string {
 	if c := p.check(); c != nil {
-		return p.explain(*c, what, hash)
+		return p.explain(*c, what, hash, strings.TrimPrefix(hash, "h"))
 	}
 	return ""
 }
@@ -257,6 +257,34 @@ func TestTodoErrors(t *testing.T) {
 	if _, err := p.todo(p.size()); err == nil || !strings.Contains(err.Error(), "merge") {
 		t.Errorf("merge in the rebase gave %v", err)
 	}
+}
+
+func TestMergeErrors(t *testing.T) {
+	// Whatever brings the merge commit b into the rebase is refused, rather than leaving it to the todo list.
+	p := newPlan(false, "c", "b", "a")
+	p.entries[1].parents = 2
+	p.entries[1].action = "pick"
+	expect(t, p, "pick", "hb", "can't pick b, as it's a merge commit")
+	p.entries[1].action = ""
+	p.entries[2].action = "reword"
+	expect(t, p, "reword", "ha", "can't reword a, as merge commit b would then be in the rebase")
+	p.entries[2].action = ""
+	p.swap(1, 2)
+	expect(t, p, "move", "ha", "can't move a, as merge commit b would then be in the rebase")
+	expect(t, p, "move", "hb", "can't move b, as it's a merge commit")
+	p.swap(1, 2)
+	p.setBase(commit{hash: "hx", short: "x"}, 2)
+	expect(t, p, "base", "hx", "can't make x the base, as merge commit b would then be in the rebase")
+	p.setBase(commit{hash: "hb", short: "b"}, 1)
+	expect(t, p, "base", "hb", "")
+	p.setCutoff("ha")
+	expect(t, p, "cutoff", "ha", "can't make a the cutoff, as merge commit b would then be in the rebase")
+
+	// Commits above the merge commit can still be rebased.
+	p = newPlan(false, "c", "b", "a")
+	p.entries[1].parents = 2
+	p.entries[0].action = "reword"
+	expect(t, p, "reword", "hc", "")
 }
 
 func TestRebased(t *testing.T) {
