@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // The list shows the history as it will be once rebased. git draws it (with `git log --graph`) from copies of the
@@ -22,7 +23,7 @@ import (
 const (
 	plain  = iota // A commit as it is
 	copied        // A copy of an entry, where the rebase puts it
-	ghost         // An entry where it was before the rebase moved it
+	ghost         // An entry as it was, which the rebase copies
 )
 
 type row struct {
@@ -33,6 +34,7 @@ type row struct {
 	subject string
 	entry   int // Index of the commit in the plan's entries, or -1 if it isn't one of them
 	kind    int
+	lost    bool // Whether no branch or tag will reach the commit once rebased
 }
 
 // preview draws the history as it will be once rebased.
@@ -82,19 +84,34 @@ func (v *preview) close() {
 }
 
 // rows returns the first limit commits of the history (with the graph rows between them) as it will be once rebased,
-// and whether there are more. Moved commits also appear where they were, as ghosts.
+// and whether there are more. The commits the rebase copies also appear as they were, as ghosts, where other branches
+// still reach them, or (if it moves them onto a new base) where they were. HEAD's branch is drawn in branchLine.
 func (v *preview) rows(p *plan, limit int) ([]row, bool, error) {
 	size := p.size()
 	moves := p.moves(size)
-	args := []string{"log", "--graph", "--color=always", "--no-show-signature",
-		"--format=%x00%H%x00%h%x00%D%x00%s", fmt.Sprintf("--max-count=%d", limit)}
-	copies := map[string]int{} // Index of the entry each copy is of, by the copy's hash
+	// Leave red and blue out of the colours git draws the branches in, as they mean drop and HEAD's branch here.
+	args := []string{"-c", "log.graphColors=#a6e3a1,#f9e2af,#cba6f7,#fab387,#94e2d5,#f5c2e7", "log", "--graph",
+		"--color=always", "--no-show-signature", "--format=%x00%H%x00%h%x00%D%x00%s%x00%P",
+		fmt.Sprintf("--max-count=%d", limit)}
+	copies := map[string]int{} // Index of the entry each copy (or kept commit) is of, by its hash
+	lost := map[string]bool{}
 	if size > 0 {
 		tip, err := v.copy(p, size, copies)
 		if err != nil {
 			return nil, false, err
 		}
-		if !moves {
+		if moves {
+			// HEAD's old commits stay in the list, to show where the rebase takes them from, so find out which of them
+			// nothing will reach once HEAD's branch is on the copies.
+			lostArgs := append(append([]string{"rev-list", "HEAD", "--not"}, v.exclude...), "--all", tip)
+			out, err := gitWith(v.env, lostArgs...)
+			if err != nil {
+				return nil, false, err
+			}
+			for _, hash := range strings.Fields(out) {
+				lost[hash] = true
+			}
+		} else {
 			args = append(args, v.exclude...) // Only before --all, which they apply to
 		}
 		args = append(args, "--all", tip)
@@ -112,27 +129,35 @@ func (v *preview) rows(p *plan, limit int) ([]row, bool, error) {
 	}
 	var rows []row
 	commits := 0
+	// git keeps each commit's first parent in its column, so HEAD's branch runs down the leftmost column if its newest
+	// commit comes first (as copies do, being the newest commits), until its root commit.
+	onBranch := true
 	for _, line := range strings.Split(strings.TrimSuffix(out, "\n"), "\n") {
 		graph, rest, ok := strings.Cut(line, "\x00")
 		if !ok {
+			if onBranch {
+				line = recolourFirst(line, branchLine)
+			}
 			rows = append(rows, row{graph: line, entry: -1})
 			continue
 		}
 		fields := strings.Split(rest, "\x00")
-		if len(fields) != 4 {
+		if len(fields) != 5 {
 			continue // Can't happen, as no field can contain NUL.
 		}
 		commits++
-		r := row{graph: graph, hash: fields[0], short: fields[1], refs: fields[2], subject: fields[3], entry: -1}
+		r := row{graph: graph, hash: fields[0], short: fields[1], refs: fields[2], subject: fields[3], entry: -1,
+			lost: lost[fields[0]]}
 		if i, ok := copies[r.hash]; ok {
 			r.kind, r.entry, r.hash, r.short = copied, i, p.entries[i].hash, p.entries[i].short
+			r.refs = withoutHead(r.refs) // Only a kept commit has any, which other branches still point at.
 			if i == 0 {
-				r.refs = v.head // The newest copy is where HEAD ends up.
+				r.refs = strings.TrimSuffix(v.head+", "+r.refs, ", ") // The newest copy is where HEAD ends up.
 			}
 		} else {
 			if i, ok := entries[r.hash]; ok {
 				r.entry = i
-				if moves && i < size {
+				if i < size {
 					r.kind = ghost
 				}
 			}
@@ -140,9 +165,33 @@ func (v *preview) rows(p *plan, limit int) ([]row, bool, error) {
 				r.refs = withoutHead(r.refs)
 			}
 		}
+		if commits == 1 {
+			onBranch = r.entry == 0 && r.kind != ghost
+		}
+		if onBranch {
+			r.graph = recolourFirst(r.graph, branchLine)
+			onBranch = fields[4] != "" || !strings.HasPrefix(escapeSeq.ReplaceAllString(r.graph, ""), "*")
+		}
 		rows = append(rows, r)
 	}
 	return rows, commits == limit, nil
+}
+
+// recolourFirst returns graph with its first character (the leftmost column) in the given colour.
+func recolourFirst(graph, colour string) string {
+	rest := graph
+	for {
+		loc := escapeSeq.FindStringIndex(rest)
+		if loc == nil || loc[0] != 0 {
+			break
+		}
+		rest = rest[loc[1]:]
+	}
+	c, n := utf8.DecodeRuneInString(rest)
+	if n == 0 || c == ' ' {
+		return graph
+	}
+	return colour + string(c) + "\x1b[m" + strings.TrimPrefix(rest[n:], "\x1b[m")
 }
 
 // withoutHead removes HEAD (and the branch it's on) from a commit's decoration, e.g. "HEAD -> main, origin/main".
@@ -157,7 +206,9 @@ func withoutHead(refs string) string {
 }
 
 // copy writes copies of the entries in the rebase, in todo-list order on top of where the rebase puts them, recording
-// which entry each is a copy of in copies, and returns the hash of the newest.
+// which entry each is a copy of in copies, and returns the hash of the newest. Like git, it keeps commits as they are
+// (rather than copying them) from the oldest up to the first that changes: by being marked with another action than
+// pick, or by getting a different parent.
 func (v *preview) copy(p *plan, size int, copies map[string]int) (string, error) {
 	var missing []string
 	for _, e := range p.entries[:size] {
@@ -172,15 +223,32 @@ func (v *preview) copy(p *plan, size int, copies map[string]int) (string, error)
 	if err != nil {
 		return "", err
 	}
+	keep := true // Whether no commit has changed yet
 	for i := size - 1; i >= 0; i-- {
-		hash, err := v.write(rebased(v.raw[p.entries[i].hash], parent, v.now+int64(size-i)))
-		if err != nil {
-			return "", err
+		e := p.entries[i]
+		raw := v.raw[e.hash]
+		keep = keep && p.action(i, size) == "pick" && firstParent(raw) == parent
+		hash := e.hash
+		if !keep {
+			if hash, err = v.write(rebased(raw, parent, v.now+int64(size-i))); err != nil {
+				return "", err
+			}
 		}
 		copies[hash] = i
 		parent = hash
 	}
 	return parent, nil
+}
+
+// firstParent returns the hash of the commit object raw's first parent, or "" if it has none.
+func firstParent(raw []byte) string {
+	header, _, _ := bytes.Cut(raw, []byte("\n\n"))
+	for _, line := range strings.Split(string(header), "\n") {
+		if parent, ok := strings.CutPrefix(line, "parent "); ok {
+			return parent
+		}
+	}
+	return ""
 }
 
 // fetch reads the commit objects with the given hashes into v.raw.

@@ -1,9 +1,27 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
+
+// explain returns the error for doing what to the entry with the given hash, which has left p as it is, or "" if p
+// works.
+func explain(p *plan, what, hash string) string {
+	if c := p.check(); c != nil {
+		return p.explain(*c, what, hash)
+	}
+	return ""
+}
+
+// expect fails t unless doing what to the entry with the given hash, which has left p as it is, gives the error want.
+func expect(t *testing.T, p *plan, what, hash, want string) {
+	t.Helper()
+	if got := explain(p, what, hash); got != want {
+		t.Fatalf("%s %s gave %q, want %q", what, hash, got, want)
+	}
+}
 
 // newPlan returns a plan of commits named by subjects, newest first, each with a hash of "h" + its subject.
 func newPlan(complete bool, subjects ...string) *plan {
@@ -108,29 +126,99 @@ func TestBaseAndCutoff(t *testing.T) {
 	if n := p.size(); n != 2 {
 		t.Fatalf("size with a cutoff %d, want 2", n)
 	}
-	if err := p.check(); err == nil || !strings.Contains(err.Error(), "cutoff") {
-		t.Fatalf("mark below the cutoff gave %v", err)
-	}
+	// Each error starts from the key pressed, whether it marked the commit or set the cutoff above it.
+	expect(t, p, "reword", "hb", "can't reword b while it's below the cutoff c")
+	expect(t, p, "cutoff", "hc", "can't make c the cutoff while b below it is marked")
 	p.entries[3].action = ""
-	if err := p.check(); err != nil {
-		t.Fatal(err)
-	}
-	// So is moving a commit down past it.
+	expect(t, p, "reword", "hb", "")
+	// So is moving a commit down past it, or moving the cutoff itself.
 	p.swap(1, 2)
-	if err := p.check(); err == nil {
-		t.Fatal("move below the cutoff succeeded")
-	}
+	expect(t, p, "move", "hd", "can't move d below the cutoff c")
+	expect(t, p, "move", "hc", "can't move c while it's the cutoff")
 	p.swap(1, 2)
 
 	// The base can't be one of the commits being rebased.
 	p.base = commit{hash: "hd", short: "d"}
-	if err := p.check(); err == nil || !strings.Contains(err.Error(), "onto d") {
-		t.Fatalf("base in the rebase gave %v", err)
-	}
+	expect(t, p, "base", "hd", "can't make d the base, as the base would be one of the commits being rebased")
 	// But a base at the cutoff keeps the rebase where it is.
 	p.base = commit{hash: "hc", short: "c"}
 	if p.moves(p.size()) {
 		t.Fatal("rebase onto its own cutoff moves")
+	}
+}
+
+func TestSetBaseAndCutoff(t *testing.T) {
+	p := newPlan(false, "e", "d", "c", "b", "a")
+	c := commit{hash: "hc", short: "c"}
+	d := commit{hash: "hd", short: "d"}
+
+	// Setting the base on the cutoff replaces it, and vice versa, so a commit is never both.
+	p.setCutoff("hc")
+	p.setBase(c, 2)
+	if p.cutoff != "" || p.base != c {
+		t.Fatalf("base on the cutoff left cutoff %q, base %q", p.cutoff, p.base.hash)
+	}
+	p.setCutoff("hc")
+	if p.cutoff != "hc" || p.base.hash != "" || p.baseSize != 0 {
+		t.Fatalf("cutoff on the base left cutoff %q, base %q", p.cutoff, p.base.hash)
+	}
+
+	// A base among the commits being rebased stops the rebase there, replacing the cutoff below it.
+	p.setBase(d, 1)
+	if n := p.size(); p.cutoff != "" || n != 1 {
+		t.Fatalf("base above the cutoff left cutoff %q, size %d", p.cutoff, n)
+	}
+	// Commits picked only because they were in the rebase drop out of it, but one marked with pick keeps it there.
+	p.setBase(commit{hash: "hb", short: "b"}, 3)
+	p.entries[2].action = "pick"
+	p.setBase(d, 1)
+	expect(t, p, "base", "hd", "can't make d the base while c below it is marked")
+	expect(t, p, "pick", "hc", "can't pick c while it's below the base d")
+	p.entries[2].action = ""
+	p.entries[1].action = "reword"
+	expect(t, p, "base", "hd", "can't make d the base while it's marked")
+	expect(t, p, "reword", "hd", "can't reword d while it's the base")
+	p.entries[1].action = ""
+	// Nor can it be the commit a fixup just above it would fold into.
+	p.entries[0].action = "fixup"
+	expect(t, p, "fixup", "he", "can't fixup e while d below it is the base")
+	expect(t, p, "base", "hd", `can't make d the base while e above it is marked "fixup"`)
+	p.entries[0].action = ""
+	// Dropping or moving the commit it would fold into is the same.
+	p.setBase(c, 2)
+	p.entries[0].action = "fixup"
+	p.entries[1].action = "drop"
+	expect(t, p, "drop", "hd", "can't drop d, as e would then have nothing to fold into")
+	p.entries[1].action = ""
+	p.swap(0, 1)
+	expect(t, p, "move", "he", "can't move e, as it would then have nothing to fold into")
+	expect(t, p, "move", "hd", "can't move d, as e would then have nothing to fold into")
+	p.swap(0, 1)
+	// So is a fixup just above the cutoff, as the cutoff isn't in the rebase either.
+	p.setCutoff("hc")
+	expect(t, p, "fixup", "he", "")
+	p.entries[0].action = ""
+	p.entries[1].action = "fixup"
+	expect(t, p, "fixup", "hd", "can't fixup d while c below it is the cutoff")
+	expect(t, p, "cutoff", "hc", `can't make c the cutoff while d above it is marked "fixup"`)
+	p.entries[1].action = ""
+	p.setBase(d, 1)
+
+	// A cutoff below a base on the current branch extends the rebase, replacing the base.
+	p.setCutoff("hb")
+	if n := p.size(); p.base.hash != "" || n != 3 {
+		t.Fatalf("cutoff below the base left base %q, size %d", p.base.hash, n)
+	}
+
+	// But a base below the cutoff, or on another branch, moves the rebase onto it, keeping the cutoff.
+	p.setBase(commit{hash: "ha", short: "a"}, 4)
+	if size := p.size(); p.cutoff != "hb" || size != 3 || !p.moves(size) {
+		t.Fatalf("base below the cutoff left cutoff %q, size %d, moves %v", p.cutoff, size, p.moves(size))
+	}
+	p.setBase(commit{hash: "hx", short: "x"}, 3)
+	p.setCutoff("hc")
+	if size := p.size(); p.base.hash != "hx" || size != 2 || !p.moves(size) {
+		t.Fatalf("cutoff with a base on another branch left base %q, size %d", p.base.hash, size)
 	}
 }
 
@@ -168,34 +256,6 @@ func TestTodoErrors(t *testing.T) {
 	p.entries[1].action = "pick"
 	if _, err := p.todo(p.size()); err == nil || !strings.Contains(err.Error(), "merge") {
 		t.Errorf("merge in the rebase gave %v", err)
-	}
-}
-
-func TestPushed(t *testing.T) {
-	p := newPlan(false, "c", "b", "a")
-	for i := range p.entries {
-		p.entries[i].pushed = i > 0
-	}
-	// Picking b explicitly (to extend the rebase) changes nothing, as git keeps unchanged picks.
-	p.entries[1].action = "pick"
-	if n := p.pushed(); n != 0 {
-		t.Errorf("pushed %d, want 0", n)
-	}
-	p.entries[2].action = "reword"
-	if n := p.pushed(); n != 2 {
-		t.Errorf("pushed %d, want 2", n)
-	}
-}
-
-func TestPushedWhenMoving(t *testing.T) {
-	// Moving onto a new base rewrites even unchanged picks.
-	p := newPlan(false, "c", "b", "a")
-	for i := range p.entries {
-		p.entries[i].pushed = true
-	}
-	p.base, p.baseSize = commit{hash: "hx"}, 2
-	if n := p.pushed(); n != 2 {
-		t.Errorf("pushed %d, want 2", n)
 	}
 }
 
@@ -253,26 +313,77 @@ func TestPreview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got []string
-	for _, r := range rows {
-		s := ""
-		if r.hash != "" {
-			s = []string{"", "copy ", "ghost "}[r.kind] + r.subject
-			if r.refs != "" {
-				s += " (" + r.refs + ")"
+	describe := func(rows []row) string {
+		var got []string
+		for _, r := range rows {
+			s := ""
+			if r.hash != "" {
+				s = []string{"", "copy ", "ghost "}[r.kind] + r.subject
+				if r.lost {
+					s = "lost " + s
+				}
+				if r.refs != "" {
+					s += " (" + r.refs + ")"
+				}
 			}
+			got = append(got, s)
 		}
-		got = append(got, s)
+		return strings.Join(got, "\n")
 	}
-	want := []string{"copy use parser in cli (HEAD -> topic)", "copy add cli flag", "bump deps (main)", "refactor",
-		"ghost use parser in cli", "ghost add cli flag", "add tests (feature)", "add parser", "", "init"}
-	if more || strings.Join(got, "|") != strings.Join(want, "|") {
-		t.Errorf("rows (more %v)\n%s\nwant\n%s", more, strings.Join(got, "\n"), strings.Join(want, "\n"))
+	want := strings.Join([]string{"copy use parser in cli (HEAD -> topic)", "copy add cli flag", "bump deps (main)",
+		"refactor", "lost ghost use parser in cli", "lost ghost add cli flag", "add tests (feature)", "add parser", "",
+		"init"}, "\n")
+	if got := describe(rows); more || got != want {
+		t.Errorf("rows (more %v)\n%s\nwant\n%s", more, got, want)
+	}
+	for _, r := range rows {
+		if !strings.HasPrefix(r.graph, branchLine) {
+			t.Errorf("topic's line isn't leftmost and blue at %q: %q", r.subject, r.graph)
+		}
 	}
 
-	// Rebasing in place leaves out where the commits were.
-	p.base = commit{}
+	// A commit that another branch still has isn't lost, nor are the ones below it, even once moved. Stopping at "add
+	// parser" leaves it to feature alone.
+	if _, err := git("branch", "keep", p.entries[1].hash); err != nil {
+		t.Fatal(err)
+	}
 	p.cutoff = ""
+	p.baseSize = 3
+	rows, _, err = v.rows(p, pageSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = strings.Join([]string{"copy use parser in cli (HEAD -> topic)", "copy add cli flag", "copy add tests",
+		"bump deps (main)", "refactor", "lost ghost use parser in cli", "ghost add cli flag (keep)",
+		"ghost add tests (feature)", "add parser", "", "init"}, "\n")
+	if got := describe(rows); got != want {
+		t.Errorf("rows with another branch\n%s\nwant\n%s", got, want)
+	}
+	p.baseSize = 0
+
+	// Rebasing in place shows where the commits were only where another branch still has them.
+	p.base = commit{}
+	p.entries[2].action = "reword"
+	rows, _, err = v.rows(p, pageSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The order of commits on different branches depends on their times, which are all within the same second.
+	lines := strings.Split(describe(rows), "\n")
+	slices.Sort(lines)
+	got := strings.TrimLeft(strings.Join(lines, "\n"), "\n")
+	want = strings.Join([]string{"add parser", "bump deps (main)", "copy add cli flag", "copy add tests",
+		"copy use parser in cli (HEAD -> topic)", "ghost add cli flag (keep)", "ghost add tests (feature)", "init",
+		"refactor"}, "\n")
+	if got != want {
+		t.Errorf("rows in place with another branch\n%s\nwant\n%s", got, want)
+	}
+	p.entries[2].action = ""
+	if _, err := git("branch", "-D", "keep"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Rebasing in place leaves out where the commits were, when nothing else has them.
 	p.entries[1].action = "reword"
 	rows, _, err = v.rows(p, pageSize)
 	if err != nil {
@@ -281,6 +392,29 @@ func TestPreview(t *testing.T) {
 	for _, r := range rows {
 		if r.kind == ghost || (r.kind == plain && strings.Contains(r.subject, "cli")) {
 			t.Errorf("rebase in place shows %q as it was", r.subject)
+		}
+	}
+
+	// Commits below the first change are kept as they are, like git does, so picking them all changes nothing.
+	p.entries[1].action = ""
+	before, _, err := v.rows(p, pageSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.entries[1].action = "pick"
+	rows, _, err = v.rows(p, pageSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != len(before) {
+		t.Fatalf("picking without changes drew %d rows, was %d", len(rows), len(before))
+	}
+	for i, r := range rows {
+		if r.kind == copied && r.entry == 0 && r.refs != "HEAD -> topic" {
+			t.Errorf("kept HEAD has refs %q", r.refs)
+		}
+		if r.hash != before[i].hash || r.graph != before[i].graph {
+			t.Errorf("picking without changes drew row %d as %q, was %q", i, r.subject, before[i].subject)
 		}
 	}
 	if after, _ := git("count-objects"); after != objects {

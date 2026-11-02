@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -23,20 +24,21 @@ var (
 	bgPartner   = bgColour("#282839") // The other copy of the cursor's commit, when it's being moved
 	text        = fgColour("#cdd6f4")
 	dim         = fgColour("#6c7086")
+	helpText    = fgColour("#a6adc8")
 	border      = fgColour("#585b70")
-	pointer     = fgColour("#f38ba8")
-	keyHint     = fgColour("#89b4fa")
+	pointer     = fgColour("#cdd6f4") // Currently highlighted entry
 	hash        = fgColour("#f9e2af")
 	pushed      = fgColour("#f38ba8") // Red, like origin branches in display-logs
 	refs        = fgColour("#94e2d5")
 	errText     = fgColour("#f38ba8")
-	ontoLabel   = fgColour("#89dceb")
+	baseLabel   = fgColour("#89dceb")
 	cutoffLabel = fgColour("#f5c2e7")
-	arrow       = fgColour("#a6e3a1") // As pick, the moved commits' usual action
+	arrow       = fgColour("#9399b2")
+	branchLine  = fgColour("#89b4fa") // HEAD's branch in the graph
 
 	actionColours = map[string]string{
 		"pick":   fgColour("#a6e3a1"),
-		"reword": fgColour("#89b4fa"),
+		"reword": fgColour("#f5e0dc"),
 		"edit":   fgColour("#f9e2af"),
 		"squash": fgColour("#cba6f7"),
 		"fixup":  fgColour("#fab387"),
@@ -44,30 +46,43 @@ var (
 	}
 )
 
-const tabWidth = 2 // As --tabstop in FZF_DEFAULT_OPTS
+const (
+	tabWidth   = 2  // As --tabstop in FZF_DEFAULT_OPTS
+	minPreview = 10 // Fewest rows the preview has by default, as it's hidden if its share of the space would be fewer
+	// Faint labels follow from the rest of the plan rather than being chosen, so their keys have nothing to undo.
+	faint    = "\x1b[2m"
+	notFaint = "\x1b[22m"
+)
 
-// help is the key and description of each item in the help shown under the summary.
+// help is the key and description of each item in the help shown at the top.
 var help = []struct{ key, desc string }{
 	{"p", "pick"}, {"r", "reword"}, {"e", "edit"}, {"s", "squash"}, {"f", "fixup"}, {"d", "drop"}, {"u", "unmark"},
-	{"b", "base"}, {"c", "cutoff"}, {"⌥↑/↓", "move"}, {"⇧↑/↓", "scroll preview"}, {"enter", "rebase"}, {"esc", "quit"},
+	{"b", "base"}, {"c", "cutoff"}, {"⌥↑/↓", "swap"}, {"enter", "rebase"}, {"esc", "quit"},
 }
 
+// previewHelp is the help for the preview, shown in the row above it (hiddenPreviewHelp instead while it's hidden).
+var (
+	previewHelp       = []struct{ key, desc string }{{"⇧↑/↓", "scroll"}, {"←/→", "resize"}}
+	hiddenPreviewHelp = []struct{ key, desc string }{{"→", "show"}}
+)
+
 type ui struct {
-	p       *plan
-	h       *history
-	v       *preview
-	rows    []row // The history as it will be once rebased
-	limit   int   // How many commits to load into rows
-	more    bool  // Whether there are more commits than rows has
-	cursor  int   // Index of the row the cursor is on, which always has a commit
-	offset  int   // Index of the row at the top of the list
-	width   int
-	height  int
-	status  string              // Error shown in place of the summary until the next key
-	scroll  int                 // Lines of the preview scrolled past
-	preview map[string][]string // Each commit's preview lines by hash (nil while git is still producing them)
-	events  chan func(*ui)      // Updates from other goroutines, applied by the main loop
-	wake    *os.File            // Written to after sending an event, to wake the main loop up
+	p        *plan
+	h        *history
+	v        *preview
+	rows     []row // The history as it will be once rebased
+	limit    int   // How many commits to load into rows
+	more     bool  // Whether there are more commits than rows has
+	cursor   int   // Index of the row the cursor is on, which always has a commit
+	offset   int   // Index of the row at the top of the list
+	width    int
+	height   int
+	status   string              // Error shown under the help until the next key
+	scroll   int                 // Lines of the preview scrolled past
+	listRows int                 // Rows the list has been resized to (0 for the default, see listHeight)
+	preview  map[string][]string // Each commit's preview lines by hash (nil while git is still producing them)
+	events   chan func(*ui)      // Updates from other goroutines, applied by the main loop
+	wake     *os.File            // Written to after sending an event, to wake the main loop up
 }
 
 // choose shows the history for the user to arrange, and returns the todo list of the rebase they confirm and what it
@@ -194,13 +209,20 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 		u.scroll = max(u.scroll-u.previewHeight(), 0)
 	case "ctrl-f":
 		u.scroll += u.previewHeight()
+	case "left", "right":
+		// Step from the list's height as drawn, so each key acts straight away, even if the height was limited.
+		step := 3
+		if key == "right" {
+			step = -step
+		}
+		u.listRows = max(u.listHeight()+step, 1)
 	case "u", "backspace":
-		u.edit(func() error { return u.mark(r, "") }, r.hash, r.kind)
+		u.edit("unmark", func() error { return u.mark(r, "") }, r.hash, r.kind)
 	case "alt-up", "alt-down": // Option+up/down (with option acting as alt), as in VS Code
 		// Follow the commit to its copy, as moving it adds it to the rebase if it isn't already.
-		u.edit(func() error {
+		u.edit("move", func() error {
 			if r.entry < 0 {
-				return fmt.Errorf("%s isn't on the current branch, so it can't be rebased", r.short)
+				return fmt.Errorf("%s, as it isn't on the current branch", cant("move", r.short))
 			}
 			if j := r.entry - 1; key == "alt-up" && j >= 0 {
 				u.p.swap(r.entry, j)
@@ -210,14 +232,10 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 			return nil
 		}, r.hash, copied)
 	case "b":
-		u.edit(func() error {
+		u.edit("base", func() error {
 			if u.p.base.hash == r.hash {
 				u.p.base, u.p.baseSize = commit{}, 0
 				return nil
-			}
-			// Checked here, as the plan's check would only catch it if the new base kept the commit in the rebase.
-			if r.kind != plain {
-				return fmt.Errorf("can't rebase onto %s, as it's one of the commits being rebased", r.short)
 			}
 			out, err := git("rev-list", "--first-parent", "--count", "HEAD", "^"+r.hash)
 			if err != nil {
@@ -227,20 +245,19 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 			if err != nil {
 				return err
 			}
-			u.p.base = commit{hash: r.hash, short: r.short, subject: r.subject}
-			u.p.baseSize = n
+			u.p.setBase(commit{hash: r.hash, short: r.short, subject: r.subject}, n)
 			return u.h.fill(u.p, n+1) // Up to the commit the rebase stops at
 		}, r.hash, plain)
 	case "c":
-		u.edit(func() error {
+		u.edit("cutoff", func() error {
 			if r.entry < 0 {
-				return fmt.Errorf("%s isn't on the current branch, so the rebase can't stop at it", r.short)
+				return fmt.Errorf("%s, as it isn't on the current branch", cant("cutoff", r.short))
 			}
 			if u.p.cutoff == r.hash {
 				u.p.cutoff = ""
-			} else {
-				u.p.cutoff = r.hash
+				return nil
 			}
+			u.p.setCutoff(r.hash)
 			return nil
 		}, r.hash, r.kind)
 	case "enter":
@@ -258,7 +275,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 		return true, "", "", ""
 	default:
 		if action, ok := actionKeys[key]; ok {
-			u.edit(func() error { return u.mark(r, action) }, r.hash, r.kind)
+			u.edit(action, func() error { return u.mark(r, action) }, r.hash, r.kind)
 		}
 	}
 	return false, "", "", ""
@@ -267,19 +284,26 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 // mark sets the action of row r's commit ("" to unmark it).
 func (u *ui) mark(r row, action string) error {
 	if r.entry < 0 {
-		return fmt.Errorf("%s isn't on the current branch, so it can't be rebased", r.short)
+		what := action
+		if what == "" {
+			what = "unmark"
+		}
+		return fmt.Errorf("%s, as it isn't on the current branch", cant(what, r.short))
 	}
 	u.p.entries[r.entry].action = action
 	return nil
 }
 
 // edit applies a change to the plan and shows the result, with the cursor on the given commit (see load). If the
-// change fails or leaves the plan not working, it's undone, and the error shown instead.
-func (u *ui) edit(change func() error, hash string, kind int) {
+// change fails or leaves the plan not working, it's undone, and the error shown instead, starting from what the user
+// tried (see explain), so it says why they can't do it.
+func (u *ui) edit(what string, change func() error, hash string, kind int) {
 	saved := u.p.clone()
 	err := change()
 	if err == nil {
-		err = u.p.check()
+		if c := u.p.check(); c != nil {
+			err = errors.New(u.p.explain(*c, what, hash))
+		}
 	}
 	if err == nil {
 		err = u.load(hash, kind)
@@ -362,18 +386,32 @@ func (u *ui) moved() {
 	}()
 }
 
-// The window has the header (the summary then the help, each on as many rows as it wraps onto), then the list, a
-// separator row and the preview.
+// The window has the header (the help then the messages, each on as many rows as it wraps onto), then the list, a
+// separator row and the preview. Unless resized, the list has 3/5 of the space, or all of it if the preview would
+// otherwise have fewer than minPreview rows.
 func (u *ui) listHeight() int {
-	return max(min((u.height-1-len(u.header()))*2/5, len(u.rows)), 1)
+	space := u.height - 1 - len(u.header())
+	rows := space * 3 / 5
+	if space-rows < minPreview {
+		rows = space // Hide the preview, to show more of the list.
+	}
+	if u.listRows > 0 {
+		rows = u.listRows
+	}
+	return max(min(rows, space, len(u.rows)), 1)
 }
 
 func (u *ui) previewHeight() int {
 	return max(u.height-1-len(u.header())-u.listHeight(), 0)
 }
 
+// header returns the help, then the rows kept for messages (blank when there's none).
 func (u *ui) header() []string {
-	return append(wrap(u.summary(u.p.size()), u.width), u.helpLines()...)
+	message := wrap(u.message(), u.width)
+	for len(message) < u.messageRows() {
+		message = append(message, "")
+	}
+	return append(u.helpLines(), message...)
 }
 
 // helpLines wraps the help onto as many rows as it needs at the window's width, breaking only between items.
@@ -382,7 +420,16 @@ func (u *ui) helpLines() []string {
 	var lines []string
 	line, width := "", 0
 	for _, h := range help {
-		item := keyHint + h.key + " " + dim + h.desc
+		descColour, ok := actionColours[h.desc]
+		switch {
+		case h.desc == "base":
+			descColour = baseLabel
+		case h.desc == "cutoff":
+			descColour = cutoffLabel
+		case !ok:
+			descColour = helpText
+		}
+		item := text + h.key + " " + descColour + h.desc // Labels in their colours, as a key to the list
 		itemWidth := utf8.RuneCountInString(h.key + " " + h.desc)
 		if width > 0 && width+len(gap)+itemWidth > u.width {
 			lines = append(lines, line)
@@ -415,7 +462,7 @@ func (u *ui) draw() {
 			lines = append(lines, u.line("", bg))
 		}
 	}
-	lines = append(lines, u.line(border+strings.Repeat("─", u.width), bg))
+	lines = append(lines, u.line(u.separator(), bg))
 
 	preview, ok := u.preview[u.rows[u.cursor].hash]
 	if !ok || preview == nil {
@@ -434,37 +481,67 @@ func (u *ui) draw() {
 	os.Stdout.WriteString("\x1b[?2026h\x1b[H" + strings.Join(lines[:u.height], "\r\n") + "\x1b[?2026l")
 }
 
-func (u *ui) summary(size int) string {
+// separator returns the row between the list and the preview, which has the preview's title at its left end and its
+// help at its right end, as far as they fit.
+func (u *ui) separator() string {
+	const title = "diff"
+	help := previewHelp
+	if u.previewHeight() == 0 {
+		help = hiddenPreviewHelp
+	}
+	s, width := "", 0
+	for i, h := range help {
+		if i > 0 {
+			s += "  "
+			width += 2
+		}
+		s += text + h.key + " " + helpText + h.desc
+		width += utf8.RuneCountInString(h.key + " " + h.desc)
+	}
+	left := border + "─ " + text + title + " " + border
+	leftWidth := utf8.RuneCountInString("─ " + title + " ")
+	switch {
+	case u.width >= leftWidth+width+5:
+		return left + strings.Repeat("─", u.width-leftWidth-width-4) + " " + s + " " + border + "──"
+	case u.width >= leftWidth+1:
+		return left + strings.Repeat("─", u.width-leftWidth)
+	}
+	return border + strings.Repeat("─", u.width)
+}
+
+// message returns the error or note shown under the help, or "" for none.
+func (u *ui) message() string {
 	p := u.p
+	size := p.size()
 	switch {
 	case u.status != "":
 		return errText + u.status
 	case size == 0 && p.cutoff != "":
-		return dim + "Nothing to rebase above the cutoff"
+		return helpText + "Nothing to rebase above the cutoff"
 	case size == 0 && p.base.hash != "":
-		return dim + "Nothing to rebase: " + p.base.short + " already has all of the current branch's commits"
-	case size == 0:
-		return dim + "Mark or move commits to rebase (it starts below the oldest one), or choose a base to rebase onto"
+		return helpText + "Nothing to rebase: " + p.base.short + " already has all of the current branch's commits"
 	}
-	s := fmt.Sprintf("Rebase %d commit%s onto ", size, plural(size))
-	switch {
-	case p.base.hash != "":
-		s += hash + p.base.short + text + " " + p.base.subject
-	case size < len(p.entries):
-		s += hash + p.entries[size].short + text + " " + p.entries[size].subject
-	default:
-		s += "the root"
+	return ""
+}
+
+// messageRows returns how many rows to keep under the help for messages: enough for the longest of them (or the
+// current one, if a message from git is longer still), so the list doesn't move when one appears.
+func (u *ui) messageRows() int {
+	short := strings.Repeat("0", len(u.p.entries[0].short))
+	rows := len(wrap(u.message(), u.width))
+	for _, m := range []string{
+		`can't rebase, as ` + short + ` is marked "squash" with nothing below it to fold into`,
+		"Nothing to rebase: " + short + " already has all of the current branch's commits",
+	} {
+		rows = max(rows, len(wrap(m, u.width)))
 	}
-	if n := p.pushed(); n > 0 {
-		s += errText + fmt.Sprintf(" (rewrites %d already-pushed commit%s)", n, plural(n))
-	}
-	return s
+	return rows
 }
 
 // labels is what the rows are drawn with besides their own commits.
 type labels struct {
-	onto    string // Hash of the commit the rebase goes onto, labelled as such ("" for none)
-	cutoff  string // Hash of the commit the rebase stops at, if it isn't the one it goes onto
+	base    string // Hash of the commit the rebase goes onto, labelled as its base ("" for none)
+	cutoff  string // Hash of the commit the rebase stops at, if it isn't labelled as the base
 	top     int    // First row of the arrow from moved commits' old positions to their copies (-1 for no arrow)
 	bottom  int    // Last row of the arrow
 	partner int    // Row of the cursor's commit's other copy, if it's being moved (else -1)
@@ -475,12 +552,14 @@ func (u *ui) labels(size int) labels {
 	cutoff, _ := u.p.cutoffAt(size)
 	switch {
 	case u.p.base.hash != "":
-		l.onto = u.p.base.hash
+		l.base = u.p.base.hash
 		if u.p.moves(size) {
 			l.cutoff = cutoff
 		}
+	case u.p.cutoff != "":
+		l.cutoff = u.p.cutoff // The rebase goes onto it too, but it was chosen as the cutoff (so c undoes it, not b).
 	case size > 0:
-		l.onto = cutoff
+		l.base = cutoff
 	}
 	if !u.p.moves(size) {
 		return l
@@ -501,8 +580,11 @@ func (u *ui) labels(size int) labels {
 	return l
 }
 
+// commitMarks replaces the graph's * for the actions whose commits don't stay commits of their own once rebased.
+var commitMarks = map[string]string{"drop": "×", "squash": "○", "fixup": "○"}
+
 // row draws row i of the list: the cursor's pointer, the arrow, the action or label, the graph, the hash, then the
-// subject and refs.
+// refs and subject (in the order of `git log --oneline`).
 func (u *ui) row(i, size int, l labels) string {
 	r := u.rows[i]
 	rowBg, mark := bg, " "
@@ -518,22 +600,39 @@ func (u *ui) row(i, size int, l labels) string {
 	}
 
 	label := fmt.Sprintf("%-6s", "")
+	graph := r.graph
 	subject := dim + r.subject
+	if r.lost {
+		subject = dim + "\x1b[9m" + r.subject + "\x1b[29m" // Struck through
+	}
 	switch {
 	case r.kind == copied:
 		action := u.p.action(r.entry, size)
 		label = actionColours[action] + fmt.Sprintf("%-6s", action)
+		if u.p.entries[r.entry].action == "" {
+			label = faint + label + notFaint // Picked only because it's in the rebase
+		}
 		subject = text + r.subject
 		if action == "drop" {
-			subject = dim + "\x1b[9m" + r.subject + "\x1b[29m" // Struck through
+			subject = dim + "\x1b[9m" + r.subject + "\x1b[29m"
 		}
-	case r.kind == ghost:
+		if mark, ok := commitMarks[action]; ok {
+			graph = strings.Replace(graph, "*", mark, 1)
+		}
+	case r.kind == ghost && r.lost:
 		label = dim + "moved "
-		subject = dim + "\x1b[9m" + r.subject + "\x1b[29m"
-	case r.hash == l.onto:
-		label = ontoLabel + "onto  " // Show where the rebase goes, as it isn't part of the rebase itself.
+	case r.kind == ghost:
+		label = dim + "copied" // As another branch still has it
+	case r.hash == l.base:
+		label = baseLabel + "base  " // Show where the rebase goes, as it isn't part of the rebase itself.
+		if u.p.base.hash == "" {
+			label = faint + label + notFaint // Only where the rebase happens to stop
+		}
 	case r.hash == l.cutoff:
 		label = cutoffLabel + "cutoff"
+		if r.hash != u.p.cutoff {
+			label = faint + label + notFaint
+		}
 	}
 
 	hashColour := hash
@@ -541,9 +640,9 @@ func (u *ui) row(i, size int, l labels) string {
 		hashColour = pushed
 	}
 	if r.refs != "" {
-		subject += " " + refs + "(" + r.refs + ")"
+		subject = refs + "(" + r.refs + ") " + subject
 	}
-	return u.line(start+label+" "+text+r.graph+hashColour+r.short+" "+subject, rowBg)
+	return u.line(start+label+" "+text+graph+hashColour+r.short+" "+subject, rowBg)
 }
 
 // arrow draws row i's part (two columns and a space) of the arrow from moved commits' old positions to their copies.
@@ -700,7 +799,7 @@ func runeWidth(r rune) int {
 
 // escapeKeys names the escape sequences (after the ESC) of the keys used, in the forms terminals commonly send.
 var escapeKeys = map[string]string{
-	"[A": "up", "OA": "up", "[B": "down", "OB": "down",
+	"[A": "up", "OA": "up", "[B": "down", "OB": "down", "[C": "right", "OC": "right", "[D": "left", "OD": "left",
 	"[1;2A": "shift-up", "[1;2B": "shift-down", "[1;3A": "alt-up", "[1;3B": "alt-down",
 	"[5~": "pgup", "[6~": "pgdn", "[H": "home", "OH": "home", "[1~": "home", "[F": "end", "OF": "end", "[4~": "end",
 }
@@ -737,13 +836,6 @@ func parseKey(b []byte) (string, []byte) {
 	// ESC before another key is how terminals send alt+key (when option is set to act as alt, on macOS).
 	key, rest := parseKey(b[1:])
 	return "alt-" + key, rest
-}
-
-func plural(n int) string {
-	if n == 1 {
-		return ""
-	}
-	return "s"
 }
 
 func fgColour(hex string) string {
