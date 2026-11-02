@@ -1,5 +1,6 @@
 {
   "name": "hold-queued",
   "version": "0.1.0",
-  "description": "Hold a message sent with chat:queueSubmit (Cmd+Enter) until Claude has finished its turn"
+  "description": "Hold a message sent with chat:queueSubmit (Cmd+Enter) until Claude has finished its turn",
+  "types": "./types/index.d.ts"
 }
