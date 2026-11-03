@@ -103,5 +103,18 @@
     "command": "workbench.action.terminal.sendSequence",
     "args": { "text": "\u001b[91;9u" },
     "when": "terminalFocus"
+  },
+
+  // Jump to the previous/next command's prompt, e.g. to get back past a long output (VS Code's defaults for this,
+  // cmd+up/down, are used above). Needs macOS's own ctrl+up/down turned off, which copy.sh does.
+  {
+    "key": "ctrl+up",
+    "command": "workbench.action.terminal.scrollToPreviousCommand",
+    "when": "terminalFocus"
+  },
+  {
+    "key": "ctrl+down",
+    "command": "workbench.action.terminal.scrollToNextCommand",
+    "when": "terminalFocus"
   }
 ]

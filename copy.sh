@@ -79,3 +79,61 @@ if [ -d /Applications/Maccy.app ]; then
     sleep 0.1
   done
 fi
+
+# Turn off macOS's ctrl+up (Mission Control) and ctrl+down (App Exposé, i.e. the current app's windows) shortcuts, so
+# the terminal can use them to jump between prompts (see config.ghostty). F3 or a four-finger swipe up still opens
+# Mission Control, and a four-finger swipe down (turned on below) opens App Exposé.
+#
+# 32 and 33 are macOS's ids for these shortcuts. Their default keys are kept, so System Settings still shows them (65535
+# = no character, key code 126 = up and 125 = down, 8650752 = ctrl plus the fn flag that arrow keys always carry). The
+# values are written as XML, as the shorter `{enabled = 0; ...}` form stores them as strings, which macOS ignores.
+for hotkey in '32 126' '33 125'; do
+  read -r id key_code <<< "$hotkey"
+  params="<integer>65535</integer><integer>$key_code</integer><integer>8650752</integer>"
+  value="<dict><key>parameters</key><array>$params</array><key>type</key><string>standard</string></dict>"
+  defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add "$id" \
+    "<dict><key>enabled</key><false/><key>value</key>$value</dict>"
+done
+# Apply the shortcut changes now, rather than at the next login.
+/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+
+# Usage: `trackpad_setting <trackpad name> <global name> <type flag> <value>`
+#
+# Set a trackpad setting the way System Settings does, i.e. for the built-in trackpad, for a Bluetooth (Magic) trackpad,
+# and in this Mac's global settings (under a different name). Written like this, it takes effect at the next login.
+trackpad_setting() {
+  defaults write com.apple.AppleMultitouchTrackpad "$1" "$3" "$4"
+  defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad "$1" "$3" "$4"
+  defaults -currentHost write -g "$2" "$3" "$4"
+}
+
+# Drag with three fingers (e.g. to select text or move a window), without pressing.
+trackpad_setting TrackpadThreeFingerDrag com.apple.trackpad.threeFingerDragGesture -bool true
+# Swipe with four fingers rather than three (2 = on, 0 = off), as three fingers now drag. Up opens Mission Control, down
+# opens App Exposé, and left/right move between spaces and full-screen apps. The Dock reads the up/down ones when it
+# starts, so they also take effect at the next login.
+trackpad_setting TrackpadThreeFingerVertSwipeGesture com.apple.trackpad.threeFingerVertSwipeGesture -int 0
+trackpad_setting TrackpadFourFingerVertSwipeGesture com.apple.trackpad.fourFingerVertSwipeGesture -int 2
+trackpad_setting TrackpadThreeFingerHorizSwipeGesture com.apple.trackpad.threeFingerHorizSwipeGesture -int 0
+trackpad_setting TrackpadFourFingerHorizSwipeGesture com.apple.trackpad.fourFingerHorizSwipeGesture -int 2
+defaults write com.apple.dock showMissionControlGestureEnabled -bool true
+defaults write com.apple.dock showAppExposeGestureEnabled -bool true
+# Tap to click. It's a boolean for the trackpads but an integer globally, so it can't be set with `trackpad_setting`.
+defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
+defaults -currentHost write -g com.apple.mouse.tapBehavior -int 1
+
+# Set the other settings changed from macOS's defaults. Apps read these when they start, so they may only take effect
+# once the app restarts (e.g. at the next login).
+defaults write -g AppleShowAllExtensions -bool true  # Show every file's extension in Finder.
+defaults write -g NSAutomaticCapitalizationEnabled -bool false  # Don't capitalise words automatically.
+defaults write -g NSAutomaticPeriodSubstitutionEnabled -bool false  # Don't turn two spaces into a full stop.
+defaults write -g AppleKeyboardUIMode -int 2  # Tab moves between all controls in dialogs, not just text fields.
+defaults write com.apple.finder ShowPathbar -bool true
+defaults write com.apple.finder ShowStatusBar -bool true
+defaults write com.apple.finder FXPreferredViewStyle -string Nlsv  # List view by default in Finder
+defaults write com.apple.finder FXRemoveOldTrashItems -bool true  # Delete items from the Bin after 30 days.
+defaults write com.apple.screencapture location -string '~/Downloads'  # Save screenshots to Downloads, not Desktop.
+# Only show the desktop when clicking the wallpaper in Stage Manager, not normally.
+defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false
+defaults write com.apple.WindowManager EnableTiledWindowMargins -bool false  # No gaps between tiled windows

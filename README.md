@@ -96,6 +96,10 @@ Note all selections refer to the PROGRAM's selection (e.g. as manipulated by abo
 
 # Other shortcuts
 
+## Terminal (Ghostty & VS Code)
+
+* Ctrl+↑/↓ - scroll to the previous/next command's prompt, e.g. to get back past a long output. `./copy.sh` turns off macOS's own Ctrl+↑/↓ (Mission Control / App Exposé) to free them up, and sets 4-finger swipe up/down for those features instead.
+
 ## Zsh
 
 ### Search and navigation
@@ -219,6 +223,19 @@ Extensions are listed in `vscode-extensions.txt` and automatically installed by 
 
 Maccy's settings are applied by `./copy.sh` with `defaults write` (see the Maccy section there).
 
+# macOS
+
+`./copy.sh` changes these from macOS's defaults (with `defaults write`, at the end of `copy.sh`). Most take effect at the next login.
+
+* Ctrl+↑/↓ no longer open Mission Control / App Exposé, freeing them for other apps.
+* Trackpad: tap to click, three-finger drag, four-finger swipes (up: Mission Control, down: App Exposé, left/right: spaces).
+* Finder: show all file extensions, path bar, status bar, list view, delete items from the Bin after 30 days.
+* Typing: no auto-capitalisation, no double-space full stop.
+* Tab moves between all controls in dialogs.
+* Screenshots save to Downloads.
+* Clicking the wallpaper only shows the desktop in Stage Manager.
+* No gaps between tiled windows.
+
 # cmdlog
 
 Every command run in an interactive shell is recorded by `cmdlog` (a Go program in `cmdlog/`, built into `~/.local/bin` by `./copy.sh`), along with when and where it ran, its exit status and its output. Ctrl+r in Zsh searches this history. I.e., `cmdlog` is my alternative to fzf's or atuin's own ctrl+r shortcut, which I found not sufficiently customisable.
@@ -240,6 +257,7 @@ Every command run in an interactive shell is recorded by `cmdlog` (a Go program 
 * Esc Esc - opens `/rewind`
 * Cmd+Enter - sends prompt to queue, only to be run when Claude has finished answering its current prompt (and any others already in the queue). Queued messages are listed above the prompt box until they are sent.
 * Option+↑/↓ - navigate through queued messages for editing. Enter or Cmd+Enter puts the edited text back in its place in the queue, or deletes it if the box is empty. Option+C cancels the editing instead, undoing every edit since the first Option+↑. While editing queued messages, Claude is prevented from moving onto anything in the queue, to let you make any edits without fear that it will read anything before you are ready.
+* Claude Code's own Ctrl+↑/↓ (previous/next group in the agents view, previous/next file in the diff view) never reach it, as the terminal takes them (see Terminal above). Rebind them in `keybindings.json` if ever needed.
 * `hooks/guard-process-kill.sh` (requires `jq`) - runs before every shell command and file write Claude makes, and makes Claude Code ask before anything that could kill processes it didn't start (`pkill`, `killall`, `kill` with `pgrep`/`ps`/`lsof`, `kill -1`, process groups, `psutil`/`killpg` in code). Added after a pattern kill force-closed all my open terminals. If the hook itself fails (e.g. `jq` missing), it blocks the action rather than letting it through. Review or disable it with `/hooks` in Claude Code.
 
 Also, Claude Code is prevented from loading my full .zshrc by the `[[ -n "$CLAUDECODE" ]] && return` line there. This prevents the shell commands it runs having behaviour it doesn't expect.

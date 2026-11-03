@@ -39,3 +39,8 @@ keybind = cmd+shift+z=text:\x1b/
 # Override Ghostty default of cmd+]/[ meaning "go to next/previous split" (cmd+alt+arrows still navigate splits).
 keybind = cmd+]=text:\x1b[93;9u
 keybind = cmd+[=text:\x1b[91;9u
+
+# Jump to the previous/next command's prompt, e.g. to get back past a long output (Ghostty's defaults for this,
+# cmd+up/down and cmd+shift+up/down, are used above). Needs macOS's own ctrl+up/down turned off, which copy.sh does.
+keybind = ctrl+up=jump_to_prompt:-1
+keybind = ctrl+down=jump_to_prompt:1
