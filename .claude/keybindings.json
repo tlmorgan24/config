@@ -17,7 +17,11 @@
         "alt+down": "app:toggleDiffPreSession",
         "alt+c": "app:toggleReplTab",
         "cmd+x": "app:cycleDiffBase",
-        "cmd+c": "strip:jump9"
+        "cmd+c": "strip:jump9",
+        "cmd+up": "strip:jump1",
+        "cmd+down": "strip:jump2",
+        "cmd+shift+up": "strip:jump5",
+        "cmd+shift+down": "strip:jump6"
       }
     }
   ]

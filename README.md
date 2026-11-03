@@ -51,48 +51,48 @@ Note there are different notations to represent the same bytes:
 
 The keybinding I choose is either the most standard one for the intended behaviour (maximising the likelihood it will be properly interpreted by various programs, therefore minimising amount of program-specific config required), or the one already used by Ghostty & VS Code (presumably with the same reason in mind).
 
-In the table, I specify whether the keybinding is already used by the terminal (Ghostty / VS Code) by default or if I custom-specified it. I also specify whether the keybinding used is responded to by the program (Zsh) with the intended behaviour by default or if I wrote a custom function for it.
+In the table, I specify whether the keybinding is already used by the terminal (Ghostty / VS Code) by default or if I custom-specified it. I also specify whether the keybinding used is responded to by the program (Zsh) with the intended behaviour by default or if I wrote a custom function for it. The Claude Code column compares Claude Code's prompt box with the intended Zsh behaviour, saying whether it does so by default or through my `prompt-select` mod (see Claude Code below).
 
-| **Shortcut** | **Keybinding used** | **Other popular bindings** | **Ghostty** | **VS Code** | **Intended Zsh behaviour** | **Zsh** | **Intended Vim behaviour** | **Vim** |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Type a printable ASCII character | N/A | N/A | N/A | N/A | (1) If text is selected, erase that text (2) Insert the character | Default satisfies (2), wrote custom function to additionally satisfy (1) | Default Vim | Default |
-| ← | `\e[D` | `^B` | Default | Default | (1) If nothing selected, move back one character (2) Else, cancel selection | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default |
-| →  | `\e[C` | `^F` | Default | Default | (1) If nothing selected, move forward one character (2) Else, cancel selection | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default |
-| Alt + ← | `\eb` | | Default | Default | Move back one word, cancelling selection if there is one | Default satisfies movement, wrote custom function to additionally cancel selection | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| Alt + → | `\ef` | | Default | Default | Move forward one word, cancelling selection if there is one | Default satisfies movement, wrote custom function to additionally cancel selection | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| Cmd + ← | `^A` | | Default | Default | Move to start of line, cancelling selection if there is one | Default satisfies movement, wrote custom function to additionally cancel selection | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| Cmd + → | `^E` | | Default | Default | Move to end of line, cancelling selection if there is one | Default satisfies movement, wrote custom function to additionally cancel selection | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| ↑ | `\e[A` | `^P` | Default | Default | (1) If nothing selected, move up a line (or to previous command if on first line) (2) Else, cancel selection and do the same | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default |
-| ↓ | `\e[B` | `^N` | Default | Default | (1) If nothing selected, move down a line (or to next command if on last line) (2) Else, cancel selection and do the same | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default |
-| Cmd + ↑ | `\e[1;9A` | | Custom | Custom | Move to start of command, cancelling selection if there is one | Custom | Move to start of file in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| Cmd + ↓ | `\e[1;9B` | | Custom | Custom | Move to end of command, cancelling selection if there is one | Custom | Move to end of file in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom |
-| ⌫ | `^?` | `^H` | Default | Default | (1) If nothing selected, delete the character before cursor (2) Else, delete the selected text. | Default satisfies (1), wrote custom function to additionally satisfy (2) | Delete character before cursor in INSERT mode, act like `c` in VISUAL mode | Default satisfies INSERT behaviour, custom adjustment to act like `c` in VISUAL mode instead of `d` |
-| fn + ⌫ | `\e[3~` | `^D` | Default | Default | Delete character under cursor (i.e., after cursor, if cursor is a thin line rather than block) | Default | | |
-| Alt + ⌫ | `\e^?` | `^W` | Default | Default | Delete back to start of word | Default | Do so in INSERT mode | Custom |
-| Cmd + ⌫ | `^U` |  | Default | Default | Delete back to start of line | Custom | Do so in INSERT mode | Custom |
-| Shift + ← | `\e[1;2D` |  | Default | Default | Expand selection left by one character | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Shift + → | `\e[1;2C` |  | Default | Default | Expand selection right by one character | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Alt + Shift + ← | `\e[1;4D` |  | Default | Default | Expand selection to start of word | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Alt + Shift + → | `\e[1;4C` |  | Default | Default | Expand selection to end of word | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Cmd + Shift + ← | `\e[1;10D` |  | Default | Custom | Expand selection to start of line | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Cmd + Shift + → | `\e[1;10C` |  | Default | Custom | Expand selection to end of line | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Shift + ↑ | `\e[1;2A` |  | Default | Default | Expand selection up a line (or to start of command if on first line) | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Shift + ↓ | `\e[1;2B` |  | Default | Default | Expand selection down a line (or to end of command if on last line) | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Cmd + Shift + ↑ | `\e[1;10A` |  | Custom | Custom | Expand selection to start of command | Custom | Expand selection to start of file in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Cmd + Shift + ↓ | `\e[1;10B` |  | Custom | Custom | Expand selection to end of command | Custom | Expand selection to end of file in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom |
-| Cmd + Shift + c | `\e[99;9u` |  | Custom | Custom | Copy program's selection to clipboard | Custom | Copy visual mode selection to clipboard (not to Vim register, which is done with `y`) | Custom |
-| Cmd + x | `\e[120;9u` |  | Custom | Custom | Cut selection (i.e. delete and copy to clipboard) | Custom | As for copy, but also erase selected text and enter insert mode | Custom |
-| Cmd + v | | | | | (1) If text is selected, delete the selected text (2) Then, paste from clipboard. | Default (not sure specifically how Ghostty / VS Code handle it, but whatever it is they do, it ends up working exactly as desired in Zsh) | Paste from clipboard in INSERT mode | Default |
-| Cmd + z | `^_` |  | Custom | Custom | Undo | Default | Undo | Custom |
-| Cmd + Shift + z | `^[/` |  | Custom | Custom | Redo | Mapped existing function to respond as desired | Redo | Custom |
-| Tab | `^I` |  | Default | Default | Autocomplete | Default | Insert indent in INSERT mode, indent selected lines by one level in VISUAL mode | Default satisfies INSERT behaviour, custom for VISUAL |
-| Shift + Tab | `\e[Z` |  | Default | Default | | | Unindent current line (INSERT mode) or selected lines (VISUAL mode) by one level | Custom |
-| Cmd + ] | `\e[93;9u` |  | Custom | Custom | | | Indent current line (NORMAL/INSERT mode) or selected lines (VISUAL mode) by one level | Custom |
-| Cmd + [ | `\e[91;9u` |  | Custom | Custom | | | Unindent current line (NORMAL/INSERT mode) or selected lines (VISUAL mode) by one level | Custom |
-| Cmd + Enter | `\e[13;9u` |  | Custom | Custom | Queue a command (see details below) | Custom | | |
-| Cmd + e | `\e[101;9u` | `^X^E` | Custom | Custom | Edit command line (or just the selection, if there is one) in `$EDITOR` (Vim). Saving and quitting puts the edited text back on the command line, without running it | Wrapped existing function, to pass the shell's aliases etc to Vim | Colour the command line exactly as zsh does, as you type (the same highlighters run in the background, see `.vim/plugin/zsh-command-line.vim`) | Custom |
+| **Shortcut** | **Keybinding used** | **Other popular bindings** | **Ghostty** | **VS Code** | **Intended Zsh behaviour** | **Zsh** | **Intended Vim behaviour** | **Vim** | **Claude Code** |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Type a printable ASCII character | N/A | N/A | N/A | N/A | (1) If text is selected, erase that text (2) Insert the character | Default satisfies (2), wrote custom function to additionally satisfy (1) | Default Vim | Default | Same as Zsh |
+| ← | `\e[D` | `^B` | Default | Default | (1) If nothing selected, move back one character (2) Else, cancel selection | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default | Same as Zsh |
+| →  | `\e[C` | `^F` | Default | Default | (1) If nothing selected, move forward one character (2) Else, cancel selection | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default | Same as Zsh |
+| Alt + ← | `\eb` | | Default | Default | Move back one word, cancelling selection if there is one | Default satisfies movement, wrote custom function to additionally cancel selection | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom | Same as Zsh |
+| Alt + → | `\ef` | | Default | Default | Move forward one word, cancelling selection if there is one | Default satisfies movement, wrote custom function to additionally cancel selection | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom | Same as Zsh |
+| Cmd + ← | `^A` | | Default | Default | Move to start of line, cancelling selection if there is one | Default satisfies movement, wrote custom function to additionally cancel selection | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom | Same as Zsh |
+| Cmd + → | `^E` | | Default | Default | Move to end of line, cancelling selection if there is one | Default satisfies movement, wrote custom function to additionally cancel selection | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom | Same as Zsh |
+| ↑ | `\e[A` | `^P` | Default | Default | (1) If nothing selected, move up a line (or to previous command if on first line) (2) Else, cancel selection and do the same | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default | Same as Zsh, except moves by line as wrapped on screen |
+| ↓ | `\e[B` | `^N` | Default | Default | (1) If nothing selected, move down a line (or to next command if on last line) (2) Else, cancel selection and do the same | Default satisfies (1), wrote custom function to additionally satisfy (2) | Move in NORMAL/INSERT mode, expand selection in VISUAL mode | Default | Same as Zsh, except moves by line as wrapped on screen |
+| Cmd + ↑ | `\e[1;9A` | | Custom | Custom | Move to start of command, cancelling selection if there is one | Custom | Move to start of file in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom | Same as Zsh |
+| Cmd + ↓ | `\e[1;9B` | | Custom | Custom | Move to end of command, cancelling selection if there is one | Custom | Move to end of file in NORMAL/INSERT mode, expand selection in VISUAL mode | Custom | Same as Zsh |
+| ⌫ | `^?` | `^H` | Default | Default | (1) If nothing selected, delete the character before cursor (2) Else, delete the selected text. | Default satisfies (1), wrote custom function to additionally satisfy (2) | Delete character before cursor in INSERT mode, act like `c` in VISUAL mode | Default satisfies INSERT behaviour, custom adjustment to act like `c` in VISUAL mode instead of `d` | Same as Zsh |
+| fn + ⌫ | `\e[3~` | `^D` | Default | Default | Delete character under cursor (i.e., after cursor, if cursor is a thin line rather than block) | Default | | | Same as Zsh |
+| Alt + ⌫ | `\e^?` | `^W` | Default | Default | Delete back to start of word | Default | Do so in INSERT mode | Custom | Same as Zsh |
+| Cmd + ⌫ | `^U` |  | Default | Default | Delete back to start of line | Custom | Do so in INSERT mode | Custom | Same as Zsh |
+| Shift + ← | `\e[1;2D` |  | Default | Default | Expand selection left by one character | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Same as Zsh |
+| Shift + → | `\e[1;2C` |  | Default | Default | Expand selection right by one character | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Same as Zsh |
+| Alt + Shift + ← | `\e[1;4D` |  | Default | Default | Expand selection to start of word | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Same as Zsh |
+| Alt + Shift + → | `\e[1;4C` |  | Default | Default | Expand selection to end of word | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Same as Zsh |
+| Cmd + Shift + ← | `\e[1;10D` |  | Default | Custom | Expand selection to start of line | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Same as Zsh |
+| Cmd + Shift + → | `\e[1;10C` |  | Default | Custom | Expand selection to end of line | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Same as Zsh |
+| Shift + ↑ | `\e[1;2A` |  | Default | Default | Expand selection up a line (or to start of command if on first line) | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Not possible: the prompt box handles Shift + ↑/↓ itself without telling mods, and no keybinding can take them first |
+| Shift + ↓ | `\e[1;2B` |  | Default | Default | Expand selection down a line (or to end of command if on last line) | Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Not possible (see Shift + ↑) |
+| Cmd + Shift + ↑ | `\e[1;10A` |  | Custom | Custom | Expand selection to start of command | Custom | Expand selection to start of file in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Same as Zsh, except forced to make the cursor end up at the far end of the selection rather than going to the start (a mod can't otherwise make ⌫ delete a selection reaching the start) |
+| Cmd + Shift + ↓ | `\e[1;10B` |  | Custom | Custom | Expand selection to end of command | Custom | Expand selection to end of file in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT) | Custom | Same as Zsh |
+| Cmd + Shift + c | `\e[99;9u` |  | Custom | Custom | Copy program's selection to clipboard | Custom | Copy visual mode selection to clipboard (not to Vim register, which is done with `y`) | Custom | Same as Zsh, except if nothing selected in the prompt box, copies what is selected with the mouse instead |
+| Cmd + x | `\e[120;9u` |  | Custom | Custom | Cut selection (i.e. delete and copy to clipboard) | Custom | As for copy, but also erase selected text and enter insert mode | Custom | Same as Zsh |
+| Cmd + v | | | | | (1) If text is selected, delete the selected text (2) Then, paste from clipboard. | Default (not sure specifically how Ghostty / VS Code handle it, but whatever it is they do, it ends up working exactly as desired in Zsh) | Paste from clipboard in INSERT mode | Default | Same as Zsh, except required custom for case (1) |
+| Cmd + z | `^_` |  | Custom | Custom | Undo | Default | Undo | Custom | Same as Zsh |
+| Cmd + Shift + z | `^[/` |  | Custom | Custom | Redo | Mapped existing function to respond as desired | Redo | Custom | Not supported: Claude Code has no redo, and reads `^[/` as Alt + /, which types `/` (and reaches mods exactly like typing `/`, so a mod can't add redo) |
+| Tab | `^I` |  | Default | Default | Autocomplete | Default | Insert indent in INSERT mode, indent selected lines by one level in VISUAL mode | Default satisfies INSERT behaviour, custom for VISUAL | Same as Zsh |
+| Shift + Tab | `\e[Z` |  | Default | Default | | | Unindent current line (INSERT mode) or selected lines (VISUAL mode) by one level | Custom | |
+| Cmd + ] | `\e[93;9u` |  | Custom | Custom | | | Indent current line (NORMAL/INSERT mode) or selected lines (VISUAL mode) by one level | Custom | |
+| Cmd + [ | `\e[91;9u` |  | Custom | Custom | | | Unindent current line (NORMAL/INSERT mode) or selected lines (VISUAL mode) by one level | Custom | |
+| Cmd + Enter | `\e[13;9u` |  | Custom | Custom | Queue a command (see details below) | Custom | | | Queue a prompt (see custom mod below) |
+| Cmd + e | `\e[101;9u` | `^X^E` | Custom | Custom | Edit command line (or just the selection, if there is one) in `$EDITOR` (Vim). Saving and quitting puts the edited text back on the command line, without running it | Wrapped existing function, to pass the shell's aliases etc to Vim, and ensured Vim colours the command exactly as zsh does | | | Edit the whole prompt in `$EDITOR` (Vim), even if there is a selection (default action, bound in `keybindings.json`). Default. |
 
-Note all selections refer to the PROGRAM's selection (e.g. as manipulated by above shortcuts), rather than TERMINAL's selection (e.g. from mouse drag in most situations). Both Ghostty and VS Code use Cmd+c to copy the terminal's selection, so I am forced to use Cmd+Shift+c if wanting to copy the program's selection. There is no way to merge the behaviours, because the program (e.g. Zsh) cannot know what/when the terminal (e.g. Ghostty) has highlighted text, and vice versa.
+Note all selections refer to the PROGRAM's selection (e.g. as manipulated by above shortcuts), rather than TERMINAL's selection (e.g. from mouse drag in most situations). Both Ghostty and VS Code use Cmd+c to copy the terminal's selection, so I am forced to use Cmd+Shift+c if wanting to copy the program's selection. There is no way to merge the behaviours, because the program (e.g. Zsh) cannot know what/when the terminal (e.g. Ghostty) has highlighted text, and vice versa. Claude Code is the exception, as it draws its own mouse selection rather than leaving that to the terminal, so Cmd+Shift+c there can copy either. Also, in Claude Code the first character of a leftward selection sadly shows unhighlighted, as Claude Code never highlights the character under the cursor.
 
 # Other shortcuts
 
@@ -195,6 +195,22 @@ Note (to make the tools work intuitively), `pick` can mark any commit HEAD doesn
 
 The usual vim keybindings continue to work (d/y/c to delete/yank/change, etc).
 
+## Claude Code
+
+`.claude/` is copied to `~/.claude` by `./copy.sh`, so it applies to every Claude Code account on the machine.
+
+* `CLAUDE.md` - instructions for every project (e.g. no Claude attribution in anything it writes; never kill processes by name or pattern).
+* `settings.json` - settings, including hooks/mods as below. Note, this replaces the machine's `~/.claude/settings.json`, so settings changed from inside Claude Code (e.g. `/model`) are lost on the next `./copy.sh` unless copied into the repo.
+* Cmd+E - opens the prompt in `$EDITOR` (Vim), for proper text editing
+* Ctrl+R - opens `/resume`
+* Esc Esc - opens `/rewind`
+* Cmd+Enter - sends prompt to queue, only to be run when Claude has finished answering its current prompt (and any others already in the queue). Queued messages are listed above the prompt box until they are sent.
+* Option+↑/↓ - navigate through queued messages for editing. Enter or Cmd+Enter puts the edited text back in its place in the queue, or deletes it if the box is empty. Option+C cancels the editing instead, undoing every edit since the first Option+↑. While editing queued messages, Claude is prevented from moving onto anything in the queue, to let you make any edits without fear that it will read anything before you are ready.
+* Claude Code's own Ctrl+↑/↓ (previous/next group in the agents view, previous/next file in the diff view) never reach it, as the terminal takes them (see Terminal above). Rebind them in `keybindings.json` if ever needed.
+* `hooks/guard-process-kill.sh` (requires `jq`) - runs before every shell command and file write Claude makes, and makes Claude Code ask before anything that could kill processes it didn't start (`pkill`, `killall`, `kill` with `pgrep`/`ps`/`lsof`, `kill -1`, process groups, `psutil`/`killpg` in code). Added after a pattern kill force-closed all my open terminals. If the hook itself fails (e.g. `jq` missing), it blocks the action rather than letting it through. Review or disable it with `/hooks` in Claude Code.
+
+Also, Claude Code is prevented from loading my full .zshrc by the `[[ -n "$CLAUDECODE" ]] && return` line there. This prevents the shell commands it runs having behaviour it doesn't expect.
+
 ## VS Code
 
 ### Useful default behaviours
@@ -243,22 +259,6 @@ Every command run in an interactive shell is recorded by `cmdlog` (a Go program 
 * Recording works by running zsh under `cmdlog record`, which passes everything between the terminal and zsh through untouched. zsh's preexec/precmd hooks print invisible markers telling it where each command's output starts and ends (see the cmdlog section of `.zshrc`, and `cmdlog/marker.go`).
 * The history is a SQLite database at `~/.local/share/cmdlog/history.db` (table `commands`), readable only by you. Query it directly with e.g. `sqlite3 ~/.local/share/cmdlog/history.db "select command, status from commands where dir = '$PWD'"`.
 * Output from interactive programs (vim, fzf, a pager you scrolled through like `git log`...) isn't kept (but if they print anything after they exit, this is kept). Output short enough that the pager exits by itself (e.g. `git log -1`) is kept. Each command keeps at most the last 4MB of its output.
-* Ctrl+r inserts the chosen command at the cursor, rather than replacing the command line, so e.g. `cmd1 && <ctrl+r>` can find cmd2 to follow cmd1. Therefore, unlike fzf's ctrl+r, the search starts empty, rather than with what's already typed. If prefer fzf's behaviour instead, drop the appropriate commit to revert to it.
+* Ctrl+r inserts the chosen command at the cursor, rather than replacing the command line, so e.g. `cmd1 && <ctrl+r>` can find cmd2 to follow cmd1. Therefore, unlike fzf's ctrl+r, the search starts empty, rather than with what's already typed. If prefer fzf's behaviour instead, drop commit 0692347.
 * Ctrl+r can show commands with the same syntax highlighting as the command line. The ctrl+r widget points cmdlog (via `$CMDLOG_HIGHLIGHT`) at `.zsh/highlight-commands.zsh`, which runs zsh-syntax-highlighting with my settings from `.zsh/syntax-highlighting.zsh`, plus the shell's aliases, function names and options (saved by the widget). This takes about 2ms per command, so with a long history the list can take a moment to fill in (newest first). For better performance, the list starts uncoloured by default, with only the preview highlighted, which costs ~20ms per preview independent of history size. You can then choose to press ctrl+t to toggle whether the list is coloured. To start with it coloured, set `colour_rows=1` in .zshrc's `cmdlog-history-widget`.
 * Errors are logged to `~/.local/share/cmdlog/errors.log`. If cmdlog can't record, the shell still starts, unrecorded. To stop recording entirely, delete `~/.local/bin/cmdlog`.
-
-# Claude Code
-
-`.claude/` is copied to `~/.claude` by `./copy.sh`, so it applies to every Claude Code account on the machine.
-
-* `CLAUDE.md` - instructions for every project (e.g. no Claude attribution in anything it writes; never kill processes by name or pattern).
-* `settings.json` - settings, including hooks/mods as below. Note, this replaces the machine's `~/.claude/settings.json`, so settings changed from inside Claude Code (e.g. `/model`) are lost on the next `./copy.sh` unless copied into the repo.
-* Cmd+E - opens the prompt in `$EDITOR` (Vim), for proper text editing
-* Ctrl+R - opens `/resume`
-* Esc Esc - opens `/rewind`
-* Cmd+Enter - sends prompt to queue, only to be run when Claude has finished answering its current prompt (and any others already in the queue). Queued messages are listed above the prompt box until they are sent.
-* Option+↑/↓ - navigate through queued messages for editing. Enter or Cmd+Enter puts the edited text back in its place in the queue, or deletes it if the box is empty. Option+C cancels the editing instead, undoing every edit since the first Option+↑. While editing queued messages, Claude is prevented from moving onto anything in the queue, to let you make any edits without fear that it will read anything before you are ready.
-* Claude Code's own Ctrl+↑/↓ (previous/next group in the agents view, previous/next file in the diff view) never reach it, as the terminal takes them (see Terminal above). Rebind them in `keybindings.json` if ever needed.
-* `hooks/guard-process-kill.sh` (requires `jq`) - runs before every shell command and file write Claude makes, and makes Claude Code ask before anything that could kill processes it didn't start (`pkill`, `killall`, `kill` with `pgrep`/`ps`/`lsof`, `kill -1`, process groups, `psutil`/`killpg` in code). Added after a pattern kill force-closed all my open terminals. If the hook itself fails (e.g. `jq` missing), it blocks the action rather than letting it through. Review or disable it with `/hooks` in Claude Code.
-
-Also, Claude Code is prevented from loading my full .zshrc by the `[[ -n "$CLAUDECODE" ]] && return` line there. This prevents the shell commands it runs having behaviour it doesn't expect.

@@ -1,12 +1,17 @@
 import type { EngineInterface, PromptDecoration, Register, UiCopyArgs } from 'claude-code'
 
 // Select text in the prompt box like in a GUI text editor (and my zsh). Shift with any cursor move (arrows,
-// Option+arrows, Cmd+arrows) selects from where the cursor was, and a move without Shift drops the selection. Typing or
-// pasting replaces the selection, and a deletion (Backspace, Delete, Ctrl+W, ...) deletes it. Cmd+X cuts the selection
-// and Cmd+Shift+C copies it (or, with nothing selected in the prompt box, what is selected with the mouse).
+// Option+arrows, Cmd+arrows) selects from where the cursor was, and a move without Shift drops the selection
+// (Left/Right collapsing it to its left/right edge). Typing, pasting, Backspace and Delete replace the selection. Cmd+X
+// cuts the selection and Cmd+Shift+C copies it (or, with nothing selected in the prompt box, what is selected with the
+// mouse). Cmd+Up/Down move to the start/end of the whole prompt, and Cmd+Shift+Up/Down select to there (the cursor
+// staying at the far end for Cmd+Shift+Up, see `moveToEdge`).
 //
-// The keys reach the mod through hidden buttons naming otherwise unused Claude Code actions that keybindings.json binds
-// to them, which also keeps them from typing a letter when there is nothing to cut or copy.
+// Cmd+X, Cmd+Shift+C and Cmd+(Shift+)Up/Down reach the mod through hidden buttons naming otherwise unused Claude Code
+// actions that keybindings.json binds to them, which also keeps Cmd+X and Cmd+Shift+C from typing a letter when there
+// is nothing to cut or copy.
+
+const NAME = 'prompt-select'
 
 const SELECTED_BACKGROUND = '#585b70'  // Catppuccin Mocha surface2
 
@@ -22,6 +27,24 @@ type Surface = UiCopyArgs['surface']
 
 let anchor: number | null = null  // Where the selection started (pad included), the cursor being its other end
 let isPadded = false  // Whether the box starts with `PAD`
+let lastCursor: number | null = null  // Where the cursor was when the mod last saw it
+let isPainted = false  // Whether `moveToEdge` painted a selection with `$.prompt.paint`
+
+// Clear what `moveToEdge` painted. Unlike the decorations an edit answers with, a paint stays through later edits while
+// any plugin hooks them, so it would otherwise keep showing a selection that has since changed or gone.
+async function clearPaint($: EngineInterface) {
+  if (isPainted) {
+    isPainted = false
+    await $.prompt.paint({ decorations: [] })
+  }
+}
+
+// Note where the cursor ends up after an edit.
+function seen<T extends { cursor: number }>(box: T): T {
+  lastCursor = box.cursor
+
+  return box
+}
 
 const range = (cursor: number): [number, number] =>
   anchor === null ? [cursor, cursor] : [Math.min(anchor, cursor), Math.max(anchor, cursor)]
@@ -82,6 +105,7 @@ async function cut($: EngineInterface, surface: Surface) {
     const from = removalStart(box.text, start, isPadded)
     anchor = null
     isPadded = false
+    await clearPaint($)
     await $.prompt.fill({ text: box.text.slice(0, from) + box.text.slice(end), cursor: from })
   }
 }
@@ -96,11 +120,45 @@ async function copySelection($: EngineInterface, surface: Surface) {
   }
 }
 
+// Cmd+Up/Down: move to the start/end of the whole prompt, or with Shift, select to there. A fill can't add the pad, so
+// Cmd+Shift+Up instead selects from the start with the cursor left at the selection's far end, where Backspace still
+// raises an edit.
+async function moveToEdge($: EngineInterface, isEnd: boolean, isSelecting: boolean) {
+  const box = await $.prompt.read()
+  const shift = isPadded && box.text.startsWith(PAD) ? 1 : 0
+  const text = box.text.slice(shift)
+  const from = (anchor ?? box.cursor) - shift  // Where the selection reaches from (Shift) or the cursor was
+  let cursor = isEnd ? text.length : 0
+  anchor = isSelecting ? from : null
+  if (isSelecting && !isEnd) {
+    cursor = from
+    anchor = from > 0 ? 0 : null
+  }
+  isPadded = false
+  if (shift === 1) {
+    await $.prompt.fill({ text, cursor })  // A fill drops the pad.
+  } else {
+    await $.prompt.fill({ text: '', mode: 'insert', cursor })
+  }
+  lastCursor = cursor
+  await clearPaint($)
+  const decorations = paint(cursor)
+  if (decorations.length > 0) {
+    isPainted = (await $.prompt.paint({ text, decorations })).isPainted
+  }
+}
+
 export const register: Register = on => {
   on('prompt.edit', async ($, e, next) => {
     const k = e.key
+    await clearPaint($)
     const wasPadded = isPadded && e.text.startsWith(PAD)
     isPadded = false
+    // Drop the selection if the cursor moved without the mod seeing (e.g. a click), as it would otherwise reach
+    // somewhere the person never saw highlighted.
+    if (lastCursor !== null && e.cursor !== lastCursor) {
+      anchor = null
+    }
 
     // Make Cmd+Backspace (Ctrl+U from Ghostty) delete back to the start of the line between newlines, as in my zsh
     // (whether or not there is a selection), rather than to the start of the line as wrapped on screen.
@@ -108,21 +166,29 @@ export const register: Register = on => {
       anchor = null
       const lineStart = e.text.lastIndexOf('\n', e.cursor - 1) + 1
       if (lineStart === e.cursor) {
-        return { text: e.text, cursor: e.cursor }
+        return seen({ text: e.text, cursor: e.cursor })
       }
 
-      return next({ ...e, start: lineStart, end: e.cursor })
+      return seen(await next({ ...e, start: lineStart, end: e.cursor }))
     }
 
-    // Make an edit at the cursor replace the selection, if there is one.
+    // Make typing, pasting, Backspace or Delete at the cursor replace the selection, if there is one. Other deletions
+    // (Option+Backspace, Ctrl+W, ...) ignore the selection, as in my zsh. Keys that arrive together (e.g. a held
+    // Backspace repeating) come as one edit without `key`.
     if (e.inputText !== '' || e.start !== e.end) {
       const [start, end] = range(e.cursor)
       anchor = null
-      if (start < end && e.start <= e.cursor && e.cursor <= e.end) {
-        return next({ ...e, start: removalStart(e.text, start, wasPadded), end })
+      const isPlainDelete = (k?.key === 'backspace' || k?.key === 'delete') && k.meta !== true && k.ctrl !== true
+      const isReplacing = e.inputText !== '' || isPlainDelete || k === undefined
+      if (isReplacing && start < end && e.start <= e.cursor && e.cursor <= e.end) {
+        return seen(await next({ ...e, start: removalStart(e.text, start, wasPadded), end }))
+      }
+      const r = await next(e)
+      if (wasPadded && r.text.startsWith(PAD)) {
+        return seen({ ...r, text: r.text.slice(1), cursor: Math.max(r.cursor - 1, 0) })
       }
 
-      return next(e)
+      return seen(r)
     }
 
     // For a cursor move, drop the pad (if any), then select from where the cursor was if Shift is held. Keys that
@@ -132,13 +198,20 @@ export const register: Register = on => {
     if (r.text !== e.text) {
       anchor = null
 
-      return r
+      return seen(r)
     }
     const shift = wasPadded ? 1 : 0
     let text = r.text.slice(shift)
     const isShiftOnly = k?.shift === true && k.meta !== true && k.ctrl !== true
     let cursor = Math.max((isShiftOnly ? toLineEdge(r.text, e.cursor, r.cursor, k.key) : r.cursor) - shift, 0)
     const isSelecting = k?.shift === true || (k === undefined && anchor !== null)
+    const isCollapsing = (k?.key === 'left' || k?.key === 'right') && !k.shift && !k.meta && !k.ctrl && anchor !== null
+    if (isCollapsing) {
+      // Left/Right with a selection: collapse it to its left/right edge (as in my zsh), rather than moving on from the
+      // cursor.
+      const [start, end] = range(e.cursor)
+      cursor = (k.key === 'left' ? start : end) - shift
+    }
     anchor = isSelecting ? (anchor ?? e.cursor) - shift : null
     if (anchor !== null && anchor > 0 && cursor === 0) {
       text = PAD + text
@@ -149,13 +222,19 @@ export const register: Register = on => {
     const offset = (isPadded ? 1 : 0) - shift  // How far the box's text moved, for other plugins' decorations
     const others = (r.decorations ?? []).map(d => ({ ...d, start: d.start + offset, end: d.end + offset }))
 
-    return { ...r, text, cursor, decorations: [...others, ...paint(cursor)] }
+    return seen({ ...r, text, cursor, decorations: [...others, ...paint(cursor)] })
   })
 
-  // Drop the selection when the box changes some other way (history, a clear, a submit, a fill).
-  on('prompt.change', (_$, e, next) => {
-    anchor = null
-    isPadded = false
+  // Drop the selection when the box changes some other way (history, a clear, a submit, another plugin's fill), but not
+  // for this mod's own fills. An undo can bring back a text with the pad, so treat it as padded, which drops the pad at
+  // the next key (or submit).
+  on('prompt.change', async ($, e, next) => {
+    lastCursor = e.cursor
+    if (e.origin.kind !== 'plugin' || e.origin.name !== NAME) {
+      anchor = null
+      isPadded = e.origin.kind === 'undo' && e.text.startsWith(PAD)
+      await clearPaint($)
+    }
 
     return next(e)
   })
@@ -185,6 +264,15 @@ export const register: Register = on => {
         <Box display="none">
           <Button key="cut" label="Cut" action="app:cycleDiffBase" onPress={press => cut($, press.surface)} />
           <Button key="copy" label="Copy" action="strip:jump9" onPress={press => copySelection($, press.surface)} />
+          <Button key="top" label="Top" action="strip:jump1" onPress={() => moveToEdge($, false, false)} />
+          <Button key="bottom" label="Bottom" action="strip:jump2" onPress={() => moveToEdge($, true, false)} />
+          <Button key="selectTop" label="Select top" action="strip:jump5" onPress={() => moveToEdge($, false, true)} />
+          <Button
+            key="selectBottom"
+            label="Select bottom"
+            action="strip:jump6"
+            onPress={() => moveToEdge($, true, true)}
+          />
         </Box>
       </Box>
     )
