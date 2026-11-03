@@ -10,9 +10,9 @@ import type { Editing, Held } from '../types'
 //
 // Option+Up takes back the newest held message for editing, and further presses step to older ones (Option+Down to
 // newer ones, and past the newest back to the draft). While one is taken back, Enter and Cmd+Enter both put the box's
-// text back in its place, or delete it from the queue if the box is empty, Option+C cancels the editing (undoing every
-// edit since the first Option+Up), and no held message is submitted until then. The keys reach the mod through the
-// list's buttons, which name otherwise unused Claude Code actions that keybindings.json binds to these keys.
+// text back in its place, or delete it from the queue if the box is empty, Option+Esc cancels the editing (undoing
+// every edit since the first Option+Up), and no held message is submitted until then. The keys reach the mod through
+// the list's buttons, which name otherwise unused Claude Code actions that keybindings.json binds to these keys.
 
 const held = atom({ plugin: 'hold-queued', key: 'held' } as const, [] as Held)
 const editing = atom({ plugin: 'hold-queued', key: 'editing' } as const, null as Editing)
@@ -137,7 +137,7 @@ async function editNewer($: EngineInterface) {
   }
 }
 
-// Option+C: cancel the editing, undoing every edit since the first Option+Up and putting the draft back in the box.
+// Option+Esc: cancel the editing, undoing every edit since the first Option+Up and putting the draft back in the box.
 async function cancelEditing($: EngineInterface) {
   if ((await read($, editing)) === null) {
     return
@@ -232,8 +232,8 @@ export const register: Register = on => {
   })
 
   // List the held messages above the prompt box, one line each, while there are any. The buttons carry the Option+Up,
-  // Option+Down and (while editing) Option+C keys (see above). Whatever else is drawn there (e.g. other mods' buttons)
-  // is kept, after the list.
+  // Option+Down and (while editing) Option+Esc keys (see above). Whatever else is drawn there (e.g. other mods'
+  // buttons) is kept, after the list.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const below = await next(e)
     const list = await read($, held)
@@ -266,11 +266,12 @@ export const register: Register = on => {
               onPress={() => editNewer($)}
             />
             {index !== null && <Text dimColor> · cancel </Text>}
-            {/* Not Option+.: the terminal sends Esc then `.`, which Claude Code takes as Esc, interrupting Claude. */}
+            {/* The terminal sends Option+Esc as Esc Esc, which Claude Code reads as one key (Alt+Esc), unlike e.g.
+                Option+. (Esc then `.`), which it takes as Esc, interrupting Claude. */}
             {index !== null && (
               <Button
                 key="cancel"
-                label="⌥C"
+                label="⌥esc"
                 plain
                 dimColor
                 action="app:toggleReplTab"
