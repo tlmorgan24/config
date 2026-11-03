@@ -156,16 +156,17 @@ ZSH_HIGHLIGHT_STYLES[double-quoted-argument-unclosed]='fg=#f38ba8'
 ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument-unclosed]='fg=#f38ba8'
 ZSH_HIGHLIGHT_STYLES[back-quoted-argument-unclosed]='fg=#f38ba8'
 
-# Colour the shell code given to my ff, fr and fl functions (in .zshrc), which they run with eval, as the shell's own
-# code, as zsh-syntax-highlighting colours the code in a `$( )`. This wraps the plugin's internal (undocumented)
-# function that colours a list of commands, so a plugin upgrade could stop it working (see the pathunderline highlighter
-# below for what to do then). Once the plugin's function has coloured the whole command line, it finds the code's words
-# among the results (as the regex highlighter below finds regexes), and runs the plugin's function again on the code in
-# each, adding the results straight after the word's own. That's only for code that reaches the function as typed (bar
-# quotes and backslashes), so e.g. not in `"..."` with a `$f` in, which the shell would expand first. The highlighters
-# below then see the code as more commands, as in a `$( )`, and colour it as they colour the rest, e.g. its regexes.
+# Colour the shell code given to my ff, fr, fl, bf, br and bl functions (in .zshrc), which they run with eval, as the
+# shell's own code, as zsh-syntax-highlighting colours the code in a `$( )`. This wraps the plugin's internal
+# (undocumented) function that colours a list of commands, so a plugin upgrade could stop it working (see the
+# pathunderline highlighter below for what to do then). Once the plugin's function has coloured the whole command line,
+# it finds the code's words among the results (as the regex highlighter below finds regexes), and runs the plugin's
+# function again on the code in each, adding the results straight after the word's own. That's only for code that
+# reaches the function as typed (bar quotes and backslashes), so e.g. not in `"..."` with a `$f` in, which the shell
+# would expand first. The highlighters below then see the code as more commands, as in a `$( )`, and colour it as they
+# colour the rest, e.g. its regexes.
 #
-# If the arguments of ff, fr or fl change, update _zsh_highlight_code_command to match.
+# If the arguments of ff, fr, fl, bf, br or bl change, update _zsh_highlight_code_command to match.
 typeset -gA _zsh_highlight_code_words  # The code's words: start -> "end <how many of the results are the word's own>"
 typeset -gi _zsh_highlight_code_busy  # Whether the code is being looked for, so the function's own calls are left alone
 functions[_zsh_highlight_code_list_plain]=$functions[_zsh_highlight_main_highlighter_highlight_list]
@@ -180,7 +181,7 @@ _zsh_highlight_main_highlighter_highlight_list() {
     ret=$? saved=$REPLY
     _zsh_highlight_code_words=()
     # Unless there can't be any, as is quick to rule out
-    [[ $BUFFER == *f[frl]* ]] || (( ${#${(M)aliases:#*f[frl]*}} )) && _zsh_highlight_code_expand
+    [[ $BUFFER == *[fb][frl]* ]] || (( ${#${(M)aliases:#*[fb][frl]*}} )) && _zsh_highlight_code_expand
     REPLY=$saved
   } always {
     _zsh_highlight_code_busy=0
@@ -188,10 +189,10 @@ _zsh_highlight_main_highlighter_highlight_list() {
   return ret
 }
 
-# Add the results for the shell code in the arguments of ff, fr and fl to $reply, the results of the plugin's function
-# (as "start end style" triples, the style being a name in ZSH_HIGHLIGHT_STYLES), each straight after those of the
-# code's word, and note the words in _zsh_highlight_code_words. This runs in the main highlighter's paint function (with
-# its options and variables, which the plugin's function needs).
+# Add the results for the shell code in the arguments of ff, fr, fl, bf, br and bl to $reply, the results of the
+# plugin's function (as "start end style" triples, the style being a name in ZSH_HIGHLIGHT_STYLES), each straight after
+# those of the code's word, and note the words in _zsh_highlight_code_words. This runs in the main highlighter's paint
+# function (with its options and variables, which the plugin's function needs).
 _zsh_highlight_code_expand() {
   local start end_ style word code
   local -a triples=("${reply[@]}") entries found nested positions
@@ -224,7 +225,7 @@ _zsh_highlight_code_expand() {
         nested+=($(( positions[i] - 1 )) $positions[k] $style)
       done
     done
-    # The code can have its own ff, fr and fl in.
+    # The code can have its own ff, fr, fl, bf, br and bl in.
     reply=("${nested[@]}")
     _zsh_highlight_code_expand
     triples[3*after-2,3*after-3]=("${reply[@]}")
@@ -245,19 +246,19 @@ _zsh_highlight_code_list() {
 
 # Usage: `_zsh_highlight_code_command <start> <end> <after precommand> <start:end>...`
 #
-# If the command at `$BUFFER[start+1,end]` is ff, fr or fl, add the word of its arguments (the `start:end` words) that's
-# the code to $found (the caller's), as "start end".
+# If the command at `$BUFFER[start+1,end]` is ff, fr, fl, bf, br or bl, add the word of its arguments (the `start:end`
+# words) that's the code to $found (the caller's), as "start end".
 _zsh_highlight_code_command() {
   emulate -L zsh
   local name
   local -a values starts ends
   local -i i
-  _zsh_highlight_command_args '(ff|fr|fl)' "$@" || return
+  _zsh_highlight_command_args '(ff|fr|fl|bf|br|bl)' "$@" || return
   (( $+functions[$name] )) || return
   case $name in
-    (ff) i=$#values ;;  # `ff [fd args] <code>`
-    (fr) i=2 ;;  # `fr <sep> <code> [files]`
-    (fl) i=1 ;;  # `fl <code> [files]`
+    (ff|bf) i=$#values ;;  # `ff [fd args] <code>`, and bf alike
+    (fr|br) i=2 ;;  # `fr <sep> <code> [files]`, and br alike
+    (fl|bl) i=1 ;;  # `fl <code> [files]`, and bl alike
   esac
   (( i >= 1 && i <= $#values && starts[i] >= 0 )) && found+=("$starts[i] $ends[i]")
 }
@@ -527,7 +528,8 @@ _zsh_highlight_highlighter_rainbow_paint() {
   for entry in $_zsh_highlight__highlighter_main_cache; do  # Entries are "start end style ...".
     fields=(${(s: :)entry})
     style=${fields[3]%,} text=$BUFFER[fields[1]+1,fields[2]]
-    # The string that the shell code given to ff, fr or fl is in doesn't count, as the code's own entries follow.
+    # The string that the shell code given to ff, fr, fl, bf, br or bl is in doesn't count, as the code's own entries
+    # follow.
     if (( ! code_entries )); then
       code=$_zsh_highlight_code_words[$fields[1]]
       [[ ${code%% *} == $fields[2] ]] && code_entries=${code#* }
@@ -566,20 +568,21 @@ _zsh_highlight_highlighter_rainbow_paint() {
 }
 
 # Colour the regexes given to the commands that take Perl-style ones, or much the same (see
-# _zsh_highlight_regex_pattern): GNU grep with -P or -E, rg, fd, GNU sed with -E, and perl and my p, pp, fr and ff
-# functions (in .zshrc). That's the pattern arguments of grep, rg and fd (and ff, which passes them to fd), the -F field
-# separators of perl and p, and the -R record separators of p and fr. The code given to perl and p, and the scripts
-# given to sed, are coloured as a whole, with their regexes among them. What a command is, and so which regexes it
-# takes, is worked out as it would be run: aliases are expanded as zsh would (so my `grep` is `ggrep -P`, and `sed` is
-# `gsed -E`), and a grep or sed counts only if it's GNU's (as ggrep and gsed are on macOS, and grep and sed are on
+# _zsh_highlight_regex_pattern): GNU grep with -P or -E, rg, fd, GNU sed with -E, and perl and my p, pp, fr, br, ff and
+# bf functions (in .zshrc). That's the pattern arguments of grep, rg and fd (and ff and bf, which pass them to fd), the
+# -F field separators of perl and p, and the -R record separators of p, fr and br. The code given to perl and p, and the
+# scripts given to sed, are coloured as a whole, with their regexes among them. What a command is, and so which regexes
+# it takes, is worked out as it would be run: aliases are expanded as zsh would (so my `grep` is `ggrep -P`, and `sed`
+# is `gsed -E`), and a grep or sed counts only if it's GNU's (as ggrep and gsed are on macOS, and grep and sed are on
 # Linux), by its --version. Then the options decide: e.g. -P or -E for grep (a mix, like `grep -E` with my alias, has
 # the ones typed coloured as errors, as grep rejects it), -P for rg (else its default, Rust's regexes, as fd's), and -F
 # or -g (for fd) for none. Only arguments that reach the command as typed (bar quotes and backslashes) are coloured, so
 # not ones with a `$var`, `$(command)`, glob etc in. Like the highlighters above, this relies on the main highlighter's
 # cache, which lists the words in order, including those of commands in `$( )` and `<( )` and in the shell code given to
-# ff, fr and fl (and the rainbow highlighter's, so a regex's brackets carry on the depth of the brackets around it).
+# ff, fr, fl, bf, br and bl (and the rainbow highlighter's, so a regex's brackets carry on the depth of the brackets
+# around it).
 #
-# If the options of p, fr or ff change, update the parsing of them below to match.
+# If the options of p, fr, br, ff or bf change, update the parsing of them below to match.
 _zsh_highlight_highlighter_regex_predicate() { _zsh_highlight_highlighter_main_predicate }
 
 _zsh_highlight_highlighter_regex_paint() {
@@ -593,8 +596,8 @@ _zsh_highlight_highlighter_regex_paint() {
 # "start end style ..."), as `<function> <start> <end> <after precommand> <start:end>...`: the command's word is at
 # `$BUFFER[start+1,end]`, it follows a precommand or not (1 or 0, as aliases aren't expanded after one, e.g.
 # `sudo grep`), and its arguments are the `start:end` words. The entries list the words in order, including those of
-# commands in `$( )` and `<( )`, and in the shell code given to ff, fr and fl (as noted in _zsh_highlight_code_words,
-# see above), which are commands of their own.
+# commands in `$( )` and `<( )`, and in the shell code given to ff, fr, fl, bf, br and bl (as noted in
+# _zsh_highlight_code_words, see above), which are commands of their own.
 _zsh_highlight_commands() {
   emulate -L zsh
   local callback=$1 entry text style code
@@ -707,7 +710,7 @@ _zsh_highlight_regex_command() {
   # The arguments: their text (unquoted), and their start and end on the command line (-1 for those of an alias)
   local -a values starts ends found reply positions fields
   local -i i k
-  _zsh_highlight_command_args '(grep|ggrep|rg|fd|fdfind|ff|perl|p|pp|fr|sed|gsed)' "$@" || return
+  _zsh_highlight_command_args '(grep|ggrep|rg|fd|fdfind|ff|bf|perl|p|pp|fr|br|sed|gsed)' "$@" || return
   # Which program it is, by its name, but for grep and sed, by whether it's GNU's (whose regexes these follow), as
   # ggrep and gsed are on macOS (where grep and sed are BSD's), and grep and sed are on Linux. Any other grep or sed
   # isn't coloured.
@@ -848,11 +851,12 @@ _zsh_highlight_regex_command() {
         done
       done
       found+=("$i 1 code") ;;
-    (fr) (( $+functions[$name] )) && found=("1 1 slashed") ;;  # `fr <separator> <code>` (the code is the shell's)
-    (fd|ff)
-      # ff passes all its arguments but the last (the code to run for each file) to fd.
+    # `fr <separator> <code>`, and br alike (the code is the shell's)
+    (fr|br) (( $+functions[$name] )) && found=("1 1 slashed") ;;
+    (fd|ff|bf)
+      # ff and bf pass all their arguments but the last (the code to run) to fd.
       local -i last=$#values glob=0 fixed=0 ended=0
-      if [[ $name == ff ]]; then
+      if [[ $name == (ff|bf) ]]; then
         (( $+functions[$name] )) || return
         (( last-- ))
       fi

@@ -129,6 +129,7 @@ Note fzf provides ctrl+r (search command history) ctrl+t (search for file/direct
 * `ff [fd args] <code>` - "for each file": runs arbitrary shell code for each file/directory `fd` finds, with the path in `$f`. E.g. `ff -e md 'echo $f; head -1 $f'` prints each Markdown file's name and first line.
 * `fr <sep> <code> [files]` - "for each record": like `ff`, but for records split on a regex (as with `p -R`), with the record (excluding separator) in `$r` and the separator that ended it in `$s`. Reads stdin if no files given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`.
 * `fl <code> [files]` - "for each line": `fr` with a newline separator, but with the line in `$l`. E.g. `fl 'mkdir $l' names.txt` makes a directory for each line.
+* `bf [fd args] <code>` / `br <sep> <code> [files]` / `bl <code> [files]` - "batch files/records/lines": like `ff`/`fr`/`fl`, but run the code once, with all the paths/records/lines in the array `$f`/`$r`/`$l` (and no `$s`). Can then make use of the fact that providing an array (without extra quotes) in Zsh passes each element as its own argument. E.g., while `ff -e md 'wc -l $f'` runs `wc` once per file (`wc -l file1`, `wc -l file2`, ...), `bf -e md 'wc -l $f'` runs it once on all of them (`wc -l file1 file2 ...`). This is like `fd -x` vs `fd -X`.
 * `cp`/`mv` - ask before overwriting an existing file (declining is the default). Use `\cp`/`\mv` (or `command cp`/`command mv`) to overwrite without asking.
 * `rm [-dfrRv] <file>...` - moves files/directories to the Bin instead of deleting them, so Finder's Put Back can restore them to where they were. Also asks for confirmation before removing your home directory, a directory directly in it (e.g. `~/Downloads`), or a directory above it. Otherwise behaves like `rm` (e.g. directories need `-r`). Use `\rm` (or `command rm`) to delete permanently, e.g. to free up space straight away. Needs macOS 15 or later (for `/usr/bin/trash`).
 * `mkcd <dir>` - like `cd`, but creates the directory first if does not exist.
@@ -137,7 +138,17 @@ Note fzf provides ctrl+r (search command history) ctrl+t (search for file/direct
 * `govi [directory [module name]]` - quickly run a draft Go program: `mkcd`s into `directory` (uses current directory if empty string or not provided), inits a module (named `draft` if `module name` not provided), opens a hello world `main.go` in vim for you to edit, then formats, tidies modules and runs. Exits early if `main.go` already exists. Quit vim with `:cq` to skip running (loses unsaved changes).
 * `goco [directory [module name]]` - like `govi`, but opens the directory in VS Code for more in-depth work, and doesn't format/tidy/run automatically.
 
-Note the `cp`/`mv`/`rm` protections only apply to commands the shell itself runs: typed directly, loops, subshells etc. Commands started by other programs get the real ones, e.g. `fd -x`, `find -exec`/`-delete`, `xargs`, `sudo`, `sh -c` and scripts. However, my custom `ff`/`fr`/`fl` are set up to run through the shell, so the protections apply. Therefore, prefer `ff` over `fd -x` for anything that might be destructive.
+Note the `cp`/`mv`/`rm` protections only apply to commands the shell itself runs: typed directly, loops, subshells etc. Commands started by other programs get the real ones, e.g. `fd -x`, `find -exec`/`-delete`, `xargs`, `sudo`, `sh -c` and scripts. However, my custom `ff`/`fr`/`fl`/`bf`/`br`/`bl` are set up to run through the shell, so the protections apply. Therefore, prefer `ff`/`bf` over `fd -x`/`fd -X` for anything that might be destructive.
+
+Limitations of `ff`/`fr`/`fl`/`bf`/`br`/`bl`:
+* Single-quote the code, otherwise the shell expands `$f` etc. before the function sees it.
+* When `fr`/`fl`/`br`/`bl` get their input from stdin (e.g. `cat list | fl ...`, rather than `fl ... list`), commands in the code would share that stdin by default (only overridden by pipe/redirect *inside* the code). This would be dangerous, as the parts read by the commands in the code would be stolen away from `fr`/`fl`/`br`/`bl` and wouldn't be part of the record parsing. So:
+  * When `fr`/`fl`/`br`/`bl` get their input from stdin, commands in the code have their stdin redirected to read from terminal's keyboard input by default (so no clash). If there is no terminal, commands get empty input by default.
+  * When `fr`/`fl`/`br`/`bl` get their input from a file argument, commands in the code can read stdin as normal.
+* Zsh's behaviour is for an empty value to disappear when unquoted. E.g. for an empty line, `cat $l` becomes `cat`, meaning `cat` will wait for stdin to come from elsewhere (e.g. terminal input, as per above). To instead keep an empty argument, use e.g. `"$l"` in `fl` or `"$l[@]"` in `bl`.
+* The code runs in the current shell, so a `cd` or variable assignment carries over to the next file/record and stays afterwards, and `exit` closes the terminal. Wrap the code in `( )` to prevent this.
+* Records containing NUL bytes are split at them.
+* Unlike `fd -X` and `xargs` (which split a long list of arguments across several runs), `bf`/`br`/`bl` pass all arguments at once. If it's a huge list (tens of thousands), the command taking the arguments can fail with "argument list too long".
 
 ## Git
 

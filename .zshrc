@@ -483,15 +483,67 @@ ff() {
   while IFS= read -r -d '' f <&3; do eval "$_ff_cmd"; done 3< <(fd -0 "${@[1,-2]}")
 }
 
+# Usage: `bf [fd args] <code>`
+#
+# bf stands for "Batch Files" or "Batch output of Fd".
+#
+# Like fd -X, but the batch counterpart of ff: run arbitrary shell code once, with every path fd finds in the array $f,
+# so e.g. `wc -l $f` passes them all to one wc. The same code works in ff, but runs once per file there. Same arguments,
+# quoting rules and current-shell behaviour as ff, and $f needs no double quotes either, as each path stays one word.
+# Don't run the code if fd finds nothing. Unlike fd -X, don't split a long list across several runs, so an external
+# command given a huge list can fail with "argument list too long" (functions and builtins have no limit). My syntax
+# highlighting (in syntax-highlighting.zsh) colours the code as shell code, and the fd pattern among the fd args as a
+# regex, so update it to match if the arguments change.
+bf() {
+  local _bf_cmd=${@[-1]} _bf_out  # The names are prefixed so the code can't change them by accident.
+  local -a f
+  _bf_out=$(fd -0 "${@[1,-2]}") || return
+  f=(${(0)_bf_out})
+  (( $#f )) || return 0
+  eval "$_bf_cmd"
+}
+
+# Usage: `_record_code_stdin [files]`
+#
+# Succeed if fr, fl, br or bl would read their records from stdin (no files given, or one is -), putting in REPLY what
+# their code reads as its stdin instead: the terminal, or /dev/null if there isn't one, as with xargs -o. The code can't
+# share stdin with the records, as in fr and fl it would race p for them (losing some), and in br and bl they've all
+# been read by the time it runs.
+_record_code_stdin() {
+  (( ! $# || ${@[(Ie)-]} )) || return
+  REPLY=/dev/null
+  { : </dev/tty } 2>/dev/null && REPLY=/dev/tty
+  return 0
+}
+
 # Usage: `_for_each_record <name> <sep> <code> [files]`
 #
-# Run the code for each record, as fr does, but with the record in the variable named, for fr and fl.
+# Run the code for each record, as fr does, but with the record in the variable named, for fr and fl. The code reads its
+# stdin from fd 4 if _record_code_stdin says to, else from the function's own.
 _for_each_record() {
-  local _fr_name=$1 _fr_sep=$2 _fr_cmd=$3 s
+  local _fr_name=$1 _fr_sep=$2 _fr_cmd=$3 _fr_tty=/dev/null s REPLY
+  local -i _fr_in=0  # The fd the code reads its stdin from
   local $_fr_name
   shift 3
-  while IFS= read -r -d '' $_fr_name <&3 && IFS= read -r -d '' s <&3; do eval "$_fr_cmd"; done \
-    3< <(p -l -R"$_fr_sep" 'printf "%s\0%s\0", $_, $\' "$@")
+  _record_code_stdin "$@" && _fr_in=4 _fr_tty=$REPLY
+  while IFS= read -r -d '' $_fr_name <&3 && IFS= read -r -d '' s <&3; do eval "$_fr_cmd" <&$_fr_in; done \
+    3< <(p -l -R"$_fr_sep" 'printf "%s\0%s\0", $_, $\' "$@") 4<$_fr_tty
+}
+
+# Usage: `_batch_records <name> <sep> <code> [files]`
+#
+# Run the code once, as br does, but with every record in the array named, for br and bl. The code reads its stdin from
+# fd 4 if _record_code_stdin says to, else from the function's own.
+_batch_records() {
+  local _br_name=$1 _br_cmd=$3 _br_out _br_tty=/dev/null REPLY
+  local -i _br_in=0  # The fd the code reads its stdin from
+  local -a $_br_name
+  _br_out=$(p -l -R"$2" 'printf "%s\0", $_' "${@:4}") || return
+  set -A $_br_name "${(@0)_br_out}"
+  shift -p $_br_name  # Drop the empty string after the last record's NUL.
+  (( ${(P)#_br_name} )) || return 0
+  _record_code_stdin "${@:4}" && _br_in=4 _br_tty=$REPLY
+  { eval "$_br_cmd" <&$_br_in } 4<$_br_tty
 }
 
 # Usage: `fr <sep> <code> [files]`
@@ -500,9 +552,11 @@ _for_each_record() {
 #
 # Like ff, but for records split on a regex (via p -R), with the record in $r and the exact separator that ended it in
 # $s (empty for a final unterminated record). <sep> is anything p -R takes, e.g. `'\n\n+'` or `/,\s*/`. Read stdin if no
-# files are given. E.g. `printf 'a,b,c' | fr , 'echo item: $r'`. Same quoting rules and current-shell behaviour as ff.
-# Records containing NUL bytes get split there. My syntax highlighting (in syntax-highlighting.zsh) colours <sep> as a
-# regex and <code> as shell code, so update it to match if the arguments change.
+# files are given (or one is -), and then connect the code's stdin to the keyboard instead (or to empty input if there's
+# no terminal, e.g. under cron), so commands in the code can't steal records from it. It's still only the default source
+# of stdin, so a pipe or redirect in the code takes priority. Records containing NUL bytes get split there. My syntax 
+# highlighting (in syntax-highlighting.zsh) colours <sep> as a regex and <code> as shell code, so update it to match if 
+# the arguments change.
 fr() { _for_each_record r "$@"; }
 
 # Usage: `fl <code> [files]`
@@ -514,6 +568,27 @@ fr() { _for_each_record r "$@"; }
 # splitting. My syntax highlighting (in syntax-highlighting.zsh) colours <code> as shell code, so update it to match if
 # the arguments change.
 fl() { _for_each_record l $'\n' "$@"; }
+
+# Usage: `br <sep> <code> [files]`
+#
+# br stands for "Batch Records".
+#
+# The batch counterpart of fr: run the code once, with every record in the array $r (and no $s), so e.g. `cmd $r` passes
+# them all to one cmd. E.g. `printf 'a,b,c' | br , 'echo $#r items: $r'`. Same arguments, quoting rules, current-shell
+# behaviour and stdin handling as fr, and like bf, don't run the code if there are no records, and don't split a long
+# list across several runs. Keep empty records in $r, which an unquoted $r drops (as with any array) but `"$r[@]"`
+# keeps. My syntax highlighting (in syntax-highlighting.zsh) colours <sep> as a regex and <code> as shell code, so
+# update it to match if the arguments change.
+br() { _batch_records r "$@"; }
+
+# Usage: `bl <code> [files]`
+#
+# bl stands for "Batch Lines".
+#
+# br with a newline separator, but with the lines in $l. E.g. `bl 'mkdir $l' names.txt` makes every directory with one
+# mkdir. As with fl, a literal newline lets p skip the slower regex splitting. My syntax highlighting (in
+# syntax-highlighting.zsh) colours <code> as shell code, so update it to match if the arguments change.
+bl() { _batch_records l $'\n' "$@"; }
 
 # Like echo, but arguments end up joined without a space separating them. E.g. `concat hello world` gives `helloworld`,
 # whereas `echo hello world` gives `hello world`.
