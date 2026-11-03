@@ -1307,7 +1307,10 @@ _save_highlight_context() {
   {
     alias -L
     local f
-    for f in ${(k)functions:#_*}; do print -r -- "functions[${(q)f}]=:"; done
+    # Not the ones named like completion functions (`_*`), bar those that aliases run (e.g. rm's _rm_bin).
+    for f in ${(u)${(k)functions:#_*}} ${(u)${(M)${(v)aliases%% *}:#_*}}; do
+      (( $+functions[$f] )) && print -r -- "functions[${(q)f}]=:"
+    done
     print -r -- "typeset -A zsyh_user_options=(${(@qkv)options})"
     # Which of grep, sed etc are GNU's, as found so far, so it needn't check again
     print -r -- "_zsh_highlight_regex_gnu=(${(@qkv)_zsh_highlight_regex_gnu})"
