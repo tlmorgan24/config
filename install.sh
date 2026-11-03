@@ -83,6 +83,8 @@ brew install python  # But executable is python3 (I alias it back to python in .
 brew install --cask font-jetbrains-mono-nerd-font
 # My preferred terminal
 brew install --cask ghostty
+# Terminal I'm trying as Ghostty's replacement (config in .config/kitty)
+brew install --cask kitty
 # My preferred prompt customiser (i.e. to replace "user@MacBook"). powerlevel10k is an alternative, but not actively
 # maintained.
 brew install starship

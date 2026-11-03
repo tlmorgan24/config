@@ -1415,8 +1415,23 @@ if (( $+commands[cmdlog] )); then
       'if (( plain )); then label+=" · highlighting off" env="CMDLOG_HIGHLIGHT= "; else label+=" · highlighting on" env=; fi'
       'echo "reload(${env}cmdlog search $args)+change-border-label: $label "'
     )
+    # Ctrl+s cycles the search mode between fuzzy, words (each word exact, in any order) and phrase (the whole query
+    # exact, spaces included). The prompt shows the mode, and doubles as the cycle's memory of it. Each time the query
+    # or mode changes, fzf searches for the query as rewritten for the mode by ~/.zsh/cmdlog-search-query.zsh, while the
+    # query box keeps showing what was typed.
+    local cycle=(
+      'mode=fuzzy'
+      '[[ $FZF_PROMPT == fuzzy* ]] && mode=words'
+      '[[ $FZF_PROMPT == words* ]] && mode=phrase'
+      'echo "change-prompt($mode> )+trigger(change)"'
+    )
     local highlighting=off
     (( colour_rows )) && highlighting=on
+    # Help for the keys, coloured like rebase's help (see rebase/ui.go). It's shown at the top, in the preview's border,
+    # as fzf's --header can only go next to the list.
+    local key=$'\e[38;2;205;214;244m' desc=$'\e[38;2;166;173;200m'
+    local help="${key}⌃r ${desc}directory  ${key}⌃s ${desc}search mode  ${key}⌃t ${desc}highlighting  "
+    help+="${key}enter ${desc}insert  ${key}esc ${desc}quit"
     local FZF_OPTS=(  # fzf options specific to this widget, in addition to FZF_DEFAULT_OPTS
       --delimiter=$'\t'  # cmdlog search gives `id<TAB>time<TAB>status<TAB>command`.
       --with-nth=2..  # Hide the id.
@@ -1429,7 +1444,12 @@ if (( $+commands[cmdlog] )); then
       --preview='cmdlog show {1}'
       --preview-window=up,50%,sharp,wrap
       --border-label=" all directories · highlighting $highlighting "
+      --preview-label=" $help "
+      --preview-label-pos=3
       --bind="ctrl-r,ctrl-t:transform:${(j:; :)toggle}"
+      --prompt='fuzzy> '
+      --bind="ctrl-s:transform:${(j:; :)cycle}"
+      --bind="change:transform-search:zsh -f ${(q)HOME}/.zsh/cmdlog-search-query.zsh"
     )
     # cmdlog colours the commands (in the list and the preview) as they're coloured on the command line, using
     # ~/.zsh/highlight-commands.zsh, which needs this shell's context.
@@ -1457,11 +1477,17 @@ if (( $+commands[cmdlog] )); then
   bindkey -M vicmd '^R' cmdlog-history-widget
 fi
 
-# Ghostty and VS Code only set up their shell integration (e.g. Ghostty's click-to-move-cursor) automatically in the
-# shell they start themselves, which cmdlog replaced with this one, so set it up manually here.
+# Ghostty, kitty and VS Code only set up their shell integration (e.g. Ghostty's click-to-move-cursor) automatically in
+# the shell they start themselves, which cmdlog replaced with this one, so set it up manually here.
 if [[ -n "$CMDLOG_SESSION" ]]; then
   if [[ -n "$GHOSTTY_RESOURCES_DIR" ]]; then
     source "$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration"
+  fi
+  if [[ -n "$KITTY_INSTALLATION_DIR" ]]; then
+    export KITTY_SHELL_INTEGRATION=enabled  # kitty's script reads its options from this (unset once the first shell ran).
+    autoload -Uz -- "$KITTY_INSTALLATION_DIR/shell-integration/zsh/kitty-integration"
+    kitty-integration
+    unfunction kitty-integration
   fi
   if [[ "$TERM_PROGRAM" == vscode && -r "$CMDLOG_VSCODE_RC" && -z "$VSCODE_SHELL_INTEGRATION" ]]; then
     unset VSCODE_INJECTION  # Otherwise VS Code's script would source this file again.
