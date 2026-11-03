@@ -1123,6 +1123,22 @@ if [[ -n "$_cmdlog_secret" ]]; then
   precmd_functions=(_cmdlog_precmd ${precmd_functions:#_cmdlog_precmd})
 fi
 
+# Save the context ~/.zsh/highlight-commands.zsh needs to colour commands as they're coloured on the command line (for
+# my ctrl+r and cmd+e) to a new temp file, and put its path in $REPLY. This is the shell's aliases, function names and
+# options, as they decide how commands are coloured (e.g. without an alias, it's an unknown command, so red). Functions
+# starting with _ are left out, as they're mostly completions. The caller deletes the file.
+_save_highlight_context() {
+  REPLY=$(mktemp) || return
+  {
+    alias -L
+    local f
+    for f in ${(k)functions:#_*}; do print -r -- "functions[${(q)f}]=:"; done
+    print -r -- "typeset -A zsyh_user_options=(${(@qkv)options})"
+    # Which of grep, sed etc are GNU's, as found so far, so it needn't check again
+    print -r -- "_zsh_highlight_regex_gnu=(${(@qkv)_zsh_highlight_regex_gnu})"
+  } > $REPLY
+}
+
 # Ctrl+r: search the recorded history (replacing fzf's own ctrl+r, set up by `source <(fzf --zsh)` above). Shows each
 # distinct command once (its most recent run), and previews its directory, time, exit status and output. Press enter to
 # put the command on the command line (not run it), as fzf's ctrl+r does.
@@ -1164,19 +1180,11 @@ if (( $+commands[cmdlog] )); then
       --bind="ctrl-r,ctrl-t:transform:${(j:; :)toggle}"
     )
     # cmdlog colours the commands (in the list and the preview) as they're coloured on the command line, using
-    # ~/.zsh/highlight-commands.zsh. That needs this shell's aliases, function names and options, as they decide how
-    # commands are coloured, so save them to a file for it. (Functions starting with _ are left out, as they're mostly
-    # completions.)
-    local context=$(mktemp)
+    # ~/.zsh/highlight-commands.zsh, which needs this shell's context.
+    local REPLY context
+    _save_highlight_context || return
+    context=$REPLY
     {
-      {
-        alias -L
-        local f
-        for f in ${(k)functions:#_*}; do print -r -- "functions[${(q)f}]=:"; done
-        print -r -- "typeset -A zsyh_user_options=(${(@qkv)options})"
-        # Which of grep, sed etc are GNU's, as found so far, so it needn't check again
-        print -r -- "_zsh_highlight_regex_gnu=(${(@qkv)_zsh_highlight_regex_gnu})"
-      } > $context
       # Export for cmdlog, including when run by fzf.
       local -x CMDLOG_HIGHLIGHT="zsh -f ${(q)HOME}/.zsh/highlight-commands.zsh ${(q)context}"
       local id
@@ -1694,9 +1702,26 @@ bindkey $'\e[120;9u' cut-selection-to-clipboard
 # Cmd+e: edit the command line in $EDITOR. Zsh's temp file ends in .zsh, so Vim highlights it as zsh. 
 # Saving and quitting puts the edited text back on the command line, without running it. 
 # With a selection active, only the selection is edited.
+# Vim then colours it exactly as the command line is coloured (see ~/.vim/plugin/zsh-command-line.vim), given this
+# shell's context in $ZSH_HIGHLIGHT_CONTEXT.
 autoload -Uz edit-command-line
-zle -N edit-command-line
-bindkey $'\e[101;9u' edit-command-line
+edit-command-line-highlighted() {
+  local REPLY
+  if ! _save_highlight_context; then
+    edit-command-line
+    return
+  fi
+  local context=$REPLY
+  {
+    local -x ZSH_HIGHLIGHT_CONTEXT=$context
+    edit-command-line
+  } always {
+    rm -f -- $context
+  }
+}
+
+zle -N edit-command-line-highlighted
+bindkey $'\e[101;9u' edit-command-line-highlighted
 
 # Bind redo (undo is already the response to '^_', so needs no binding).
 bindkey '^[/' redo
