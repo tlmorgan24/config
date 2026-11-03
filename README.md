@@ -90,7 +90,7 @@ In the table, I specify whether the keybinding is already used by the terminal (
 | Cmd + ] | `\e[93;9u` |  | Custom | Custom | | | Indent current line (NORMAL/INSERT mode) or selected lines (VISUAL mode) by one level | Custom | |
 | Cmd + [ | `\e[91;9u` |  | Custom | Custom | | | Unindent current line (NORMAL/INSERT mode) or selected lines (VISUAL mode) by one level | Custom | |
 | Cmd + Enter | `\e[13;9u` |  | Custom | Custom | Queue a command (see details below) | Custom | | | Queue a prompt (see custom mod below) |
-| Cmd + e | `\e[101;9u` | `^X^E` | Custom | Custom | Edit command line (or just the selection, if there is one) in `$EDITOR` (Vim). Saving and quitting puts the edited text back on the command line, without running it | Wrapped existing function, to pass the shell's aliases etc to Vim, and ensured Vim colours the command exactly as zsh does | | | Edit the whole prompt in `$EDITOR` (Vim), even if there is a selection (default action, bound in `keybindings.json`). Default. |
+| Cmd + e | `\e[101;9u` | `^X^E` | Custom | Custom | Edit command line (or just the selection, if there is one) in `$EDITOR` (Vim), starting in INSERT mode at the cursor. Saving and quitting puts the edited text back on the command line, without running it | Wrapped existing function, to pass the shell's aliases etc to Vim, and ensured Vim colours the command exactly as zsh does. Vim starts in INSERT mode at the cursor by `.vim/plugin/insert-at-cursor.vim` | | | Edit the whole prompt in `$EDITOR` (Vim), even if there is a selection (default action, bound in `keybindings.json`), starting in INSERT mode at the end of the cursor's line (Claude Code tells Vim the cursor's line, but not its column). |
 
 Note all selections refer to the PROGRAM's selection (e.g. as manipulated by above shortcuts), rather than TERMINAL's selection (e.g. from mouse drag in most situations). Both Ghostty and VS Code use Cmd+c to copy the terminal's selection, so I am forced to use Cmd+Shift+c if wanting to copy the program's selection. There is no way to merge the behaviours, because the program (e.g. Zsh) cannot know what/when the terminal (e.g. Ghostty) has highlighted text, and vice versa. Claude Code is the exception, as it draws its own mouse selection rather than leaving that to the terminal, so Cmd+Shift+c there can copy either. Also, in Claude Code the first character of a leftward selection sadly shows unhighlighted, as Claude Code never highlights the character under the cursor.
 
@@ -202,7 +202,6 @@ The usual vim keybindings continue to work (d/y/c to delete/yank/change, etc).
 
 * `CLAUDE.md` - instructions for every project (e.g. no Claude attribution in anything it writes; never kill processes by name or pattern).
 * `settings.json` - settings, including hooks/mods as below. Note, this replaces the machine's `~/.claude/settings.json`, so settings changed from inside Claude Code (e.g. `/model`) are lost on the next `./copy.sh` unless copied into the repo.
-* Cmd+E - opens the prompt in `$EDITOR` (Vim), for proper text editing
 * Ctrl+R - opens `/resume`
 * Esc Esc - opens `/rewind`
 * Cmd+Enter - sends prompt to queue, only to be run when Claude has finished answering its current prompt (and any others already in the queue). Queued messages are listed above the prompt box until they are sent.
