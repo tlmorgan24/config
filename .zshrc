@@ -216,6 +216,90 @@ mkp() {
 alias cp='cp -i'
 alias mv='mv -i'
 
+# Usage: `rm [-dfrRv] <file>...`
+#
+# Like rm, but move things to the Bin rather than deleting them, so they can be restored with Finder's Put Back (the Bin
+# deletes items after 30 days, see copy.sh). Also ask for confirmation before removing my home directory, a directory
+# directly in it (e.g. ~/Downloads) or a directory above it, cancelling the whole rm if declined. Otherwise, behave like
+# rm: a directory needs -r (or -d if empty), -f ignores missing files, and a problem with one file doesn't stop the
+# others. Use `command rm` to delete permanently (e.g. to free up space straight away, or for secrets), or for other
+# flags. Only defined where macOS has /usr/bin/trash (macOS 15 onwards). My functions use `command rm` for their own
+# temporary files.
+if [[ -x /usr/bin/trash ]]; then
+  rm() {
+    setopt local_options extended_glob  # For /## (one or more slashes) below
+    local recursive=0 force=0 dirs=0 verbose=0 ret=0 arg name real c
+    while [[ "$1" == -?* ]]; do
+      [[ "$1" == -- ]] && { shift; break }
+      for c in ${(s::)1#-}; do
+        case $c in
+          r|R) recursive=1 ;;
+          f) force=1 ;;
+          d) dirs=1 ;;
+          v) verbose=1 ;;
+          *) echo "rm: -$c isn't supported (as rm moves to the Bin), so use \`command rm\` instead" >&2; return 1 ;;
+        esac
+      done
+      shift
+    done
+    if (( ! $# )); then
+      (( force )) && return 0
+      echo 'usage: rm [-dfrRv] file ...' >&2
+      return 64  # Same as rm
+    fi
+
+    local home="${HOME:A}"
+    local -a targets protected contents
+    for arg in "$@"; do
+      name="${arg%%/##}"  # trash ignores trailing slashes, so removes a symlink itself rather than its target.
+      [[ -z "$name" ]] && name=/
+      if [[ "${name:t}" == (.|..) ]]; then
+        echo 'rm: "." and ".." may not be removed' >&2
+        ret=1
+        continue
+      elif [[ ! -e "$name" && ! -L "$name" ]]; then
+        (( force )) || { echo "rm: $arg: No such file or directory" >&2; ret=1 }
+        continue
+      elif [[ -d "$name" && ! -L "$name" ]]; then
+        if (( ! recursive )); then
+          contents=("$name"/*(DN[1]))
+          if (( ! dirs )); then
+            echo "rm: $arg: is a directory" >&2
+            ret=1
+            continue
+          elif (( ${#contents} )); then
+            echo "rm: $arg: Directory not empty" >&2
+            ret=1
+            continue
+          fi
+        fi
+        real="${name:A}"
+        if [[ "$real" == "$home" || "${real:h}" == "$home" || "$home" == "$real"/* || "$real" == / ]]; then
+          protected+=("$real")
+        fi
+      fi
+      [[ "$name" == -* ]] && name="./$name"  # Otherwise trash takes it as an option.
+      targets+=("$name")
+    done
+
+    if (( ${#protected} )); then
+      echo 'rm: these are your home directory, a directory directly in it, or a directory above it:' >&2
+      print -rl -- "  "${^protected} >&2
+      read -q "?Move them to the Bin anyway? [y/N] "
+      local answer=$?
+      echo
+      (( answer == 0 )) || return 1
+    fi
+
+    (( ${#targets} )) || return $ret
+    if ! /usr/bin/trash ${${verbose:#0}:+-v} "${targets[@]}"; then
+      echo 'rm: not everything could be moved to the Bin (see above), so use `command rm` to delete permanently' >&2
+      return 1
+    fi
+    return $ret
+  }
+fi
+
 # Replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first).
 alias sed='gsed -E'  # -E to always use extended regex, gsed to allow e.g. -i without providing a backup file
 alias head='ghead'  # For e.g. head -n -N file to get all except the last N lines
@@ -770,7 +854,7 @@ pr() {
     push || return 1
     gh pr create -t "$title" -F "$tmp" "${opts[@]}"
   } always {
-    rm -f "$tmp"
+    command rm -f "$tmp"
   }
 }
 
@@ -1255,7 +1339,7 @@ if (( $+commands[cmdlog] )); then
         LBUFFER+=$(cmdlog get "$id")  # Leaves the cursor after the inserted command
       fi
     } always {
-      rm -f -- $context
+      command rm -f -- $context
     }
     zle reset-prompt
   }
@@ -1782,7 +1866,7 @@ edit-command-line-highlighted() {
     local -x ZSH_HIGHLIGHT_CONTEXT=$context
     edit-command-line
   } always {
-    rm -f -- $context
+    command rm -f -- $context
     print -n '\e[5 q'
   }
 }
