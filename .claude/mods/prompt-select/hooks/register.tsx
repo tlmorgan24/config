@@ -19,14 +19,16 @@ const SELECTED_BACKGROUND = '#585b70'  // Catppuccin Mocha surface2
 // selection reaches the start, the box therefore starts with this invisible pad, giving Backspace something to delete
 // (and the mod an edit to see). The pad goes as soon as the selection no longer reaches the start.
 //
-// Delete at the very end raises no edit either, and the box takes the Delete key before any keybinding, so that case is
-// not handled.
+// Likewise, Right or Delete at the very end raises no edit, so while a rightward selection reaches the end, the box
+// ends with `TAIL`. A fill drops the zero-width pad, so the tail is a no-break space instead, invisible at the end.
 const PAD = '​'
+const TAIL = '\u00a0'
 
 type Surface = UiCopyArgs['surface']
 
 let anchor: number | null = null  // Where the selection started (pad included), the cursor being its other end
 let isPadded = false  // Whether the box starts with `PAD`
+let isTailed = false  // Whether the box ends with `TAIL`
 let lastCursor: number | null = null  // Where the cursor was when the mod last saw it
 let isPainted = false  // Whether `moveToEdge` painted a selection with `$.prompt.paint`
 
@@ -45,6 +47,19 @@ function seen<T extends { cursor: number }>(box: T): T {
 
   return box
 }
+
+// Drop the tail from `box` if it still ends with it and `wasTailed`, keeping the cursor before it.
+function untail<T extends { text: string; cursor: number }>(box: T, wasTailed: boolean): T {
+  if (!wasTailed || !box.text.endsWith(TAIL)) {
+    return box
+  }
+  const text = box.text.slice(0, -TAIL.length)
+
+  return { ...box, text, cursor: Math.min(box.cursor, text.length) }
+}
+
+// Whether the selection runs rightward to the end of `text`, needing the tail.
+const needsTail = (text: string, cursor: number) => anchor !== null && anchor < cursor && cursor === text.length
 
 const range = (cursor: number): [number, number] =>
   anchor === null ? [cursor, cursor] : [Math.min(anchor, cursor), Math.max(anchor, cursor)]
@@ -103,10 +118,12 @@ async function cut($: EngineInterface, surface: Surface) {
   const [start, end] = range(box.cursor)
   if (start < end && (await copy($, box.text.slice(start, end), surface))) {
     const from = removalStart(box.text, start, isPadded)
+    const rest = untail({ text: box.text.slice(end), cursor: 0 }, isTailed).text
     anchor = null
     isPadded = false
+    isTailed = false
     await clearPaint($)
-    await $.prompt.fill({ text: box.text.slice(0, from) + box.text.slice(end), cursor: from })
+    await $.prompt.fill({ text: box.text.slice(0, from) + rest, cursor: from })
   }
 }
 
@@ -126,25 +143,32 @@ async function copySelection($: EngineInterface, surface: Surface) {
 async function moveToEdge($: EngineInterface, isEnd: boolean, isSelecting: boolean) {
   const box = await $.prompt.read()
   const shift = isPadded && box.text.startsWith(PAD) ? 1 : 0
-  const text = box.text.slice(shift)
-  const from = (anchor ?? box.cursor) - shift  // Where the selection reaches from (Shift) or the cursor was
+  const wasTailed = isTailed && box.text.endsWith(TAIL)
+  const text = untail(box, wasTailed).text.slice(shift)
+  // Where the selection reaches from (Shift) or the cursor was
+  const from = Math.min((anchor ?? box.cursor) - shift, text.length)
   let cursor = isEnd ? text.length : 0
   anchor = isSelecting ? from : null
   if (isSelecting && !isEnd) {
     cursor = from
     anchor = from > 0 ? 0 : null
   }
+  const isTailing = needsTail(text, cursor)
   isPadded = false
-  if (shift === 1) {
-    await $.prompt.fill({ text, cursor })  // A fill drops the pad.
+  let filled
+  if (shift === 1 || (wasTailed && !isTailing)) {
+    filled = await $.prompt.fill({ text: text + (isTailing ? TAIL : ''), cursor })  // A fill drops the pad.
+  } else if (isTailing && !wasTailed) {
+    filled = await $.prompt.fill({ text: TAIL, mode: 'append', cursor })
   } else {
-    await $.prompt.fill({ text: '', mode: 'insert', cursor })
+    filled = await $.prompt.fill({ text: '', mode: 'insert', cursor })
   }
+  isTailed = isTailing && filled.text.endsWith(TAIL)
   lastCursor = cursor
   await clearPaint($)
   const decorations = paint(cursor)
   if (decorations.length > 0) {
-    isPainted = (await $.prompt.paint({ text, decorations })).isPainted
+    isPainted = (await $.prompt.paint({ text: filled.text, decorations })).isPainted
   }
 }
 
@@ -153,7 +177,10 @@ export const register: Register = on => {
     const k = e.key
     await clearPaint($)
     const wasPadded = isPadded && e.text.startsWith(PAD)
+    const wasTailed = isTailed && e.text.endsWith(TAIL)
     isPadded = false
+    isTailed = false
+    const done = <T extends { text: string; cursor: number }>(box: T): T => seen(untail(box, wasTailed))
     // Drop the selection if the cursor moved without the mod seeing (e.g. a click), as it would otherwise reach
     // somewhere the person never saw highlighted.
     if (lastCursor !== null && e.cursor !== lastCursor) {
@@ -166,10 +193,10 @@ export const register: Register = on => {
       anchor = null
       const lineStart = e.text.lastIndexOf('\n', e.cursor - 1) + 1
       if (lineStart === e.cursor) {
-        return seen({ text: e.text, cursor: e.cursor })
+        return done({ text: e.text, cursor: e.cursor })
       }
 
-      return seen(await next({ ...e, start: lineStart, end: e.cursor }))
+      return done(await next({ ...e, start: lineStart, end: e.cursor }))
     }
 
     // Make typing, pasting, Backspace or Delete at the cursor replace the selection, if there is one. Other deletions
@@ -181,29 +208,31 @@ export const register: Register = on => {
       const isPlainDelete = (k?.key === 'backspace' || k?.key === 'delete') && k.meta !== true && k.ctrl !== true
       const isReplacing = e.inputText !== '' || isPlainDelete || k === undefined
       if (isReplacing && start < end && e.start <= e.cursor && e.cursor <= e.end) {
-        return seen(await next({ ...e, start: removalStart(e.text, start, wasPadded), end }))
+        return done(await next({ ...e, start: removalStart(e.text, start, wasPadded), end }))
       }
       const r = await next(e)
       if (wasPadded && r.text.startsWith(PAD)) {
-        return seen({ ...r, text: r.text.slice(1), cursor: Math.max(r.cursor - 1, 0) })
+        return done({ ...r, text: r.text.slice(1), cursor: Math.max(r.cursor - 1, 0) })
       }
 
-      return seen(r)
+      return done(r)
     }
 
-    // For a cursor move, drop the pad (if any), then select from where the cursor was if Shift is held. Keys that
-    // arrive together (e.g. a held Shift+Left repeating) come as one edit without `key`, so keep selecting through
+    // For a cursor move, drop the pad and tail (if any), then select from where the cursor was if Shift is held. Keys
+    // that arrive together (e.g. a held Shift+Left repeating) come as one edit without `key`, so keep selecting through
     // those.
     const r = await next(e)
     if (r.text !== e.text) {
       anchor = null
 
-      return seen(r)
+      return done(r)
     }
     const shift = wasPadded ? 1 : 0
-    let text = r.text.slice(shift)
+    const moved = untail(r, wasTailed)
+    let text = moved.text.slice(shift)
     const isShiftOnly = k?.shift === true && k.meta !== true && k.ctrl !== true
-    let cursor = Math.max((isShiftOnly ? toLineEdge(r.text, e.cursor, r.cursor, k.key) : r.cursor) - shift, 0)
+    let cursor = isShiftOnly ? toLineEdge(moved.text, e.cursor, r.cursor, k.key) : r.cursor
+    cursor = Math.min(Math.max(cursor - shift, 0), text.length)
     const isSelecting = k?.shift === true || (k === undefined && anchor !== null)
     const isCollapsing = (k?.key === 'left' || k?.key === 'right') && !k.shift && !k.meta && !k.ctrl && anchor !== null
     if (isCollapsing) {
@@ -219,6 +248,10 @@ export const register: Register = on => {
       anchor += 1
       isPadded = true
     }
+    if (needsTail(text, cursor)) {
+      text += TAIL
+      isTailed = true
+    }
     const offset = (isPadded ? 1 : 0) - shift  // How far the box's text moved, for other plugins' decorations
     const others = (r.decorations ?? []).map(d => ({ ...d, start: d.start + offset, end: d.end + offset }))
 
@@ -226,28 +259,33 @@ export const register: Register = on => {
   })
 
   // Drop the selection when the box changes some other way (history, a clear, a submit, another plugin's fill), but not
-  // for this mod's own fills. An undo can bring back a text with the pad, so treat it as padded, which drops the pad at
-  // the next key (or submit).
+  // for this mod's own fills. An undo can bring back a text with the pad or tail, so treat it as padded or tailed,
+  // which drops them at the next key (or submit).
   on('prompt.change', async ($, e, next) => {
     lastCursor = e.cursor
     if (e.origin.kind !== 'plugin' || e.origin.name !== NAME) {
       anchor = null
       isPadded = e.origin.kind === 'undo' && e.text.startsWith(PAD)
+      isTailed = e.origin.kind === 'undo' && e.text.endsWith(TAIL)
       await clearPaint($)
     }
 
     return next(e)
   })
 
-  // Never send the pad to Claude.
+  // Never send the pad or tail to Claude.
   on('prompt.submit', (_$, e, next) => {
-    if (isPadded && e.text.startsWith(PAD)) {
-      isPadded = false
-
-      return next({ ...e, text: e.text.slice(PAD.length) })
+    let text = e.text
+    if (isPadded && text.startsWith(PAD)) {
+      text = text.slice(PAD.length)
     }
+    if (isTailed && text.endsWith(TAIL)) {
+      text = text.slice(0, -TAIL.length)
+    }
+    isPadded = false
+    isTailed = false
 
-    return next(e)
+    return text === e.text ? next(e) : next({ ...e, text })
   })
 
   // Mount the (hidden) buttons carrying the keys, after whatever else is drawn above the prompt box.
