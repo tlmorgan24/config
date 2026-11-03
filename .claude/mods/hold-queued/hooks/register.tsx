@@ -232,54 +232,60 @@ export const register: Register = on => {
   })
 
   // List the held messages above the prompt box, one line each, while there are any. The buttons carry the Option+Up,
-  // Option+Down and (while editing) Option+C keys (see above).
+  // Option+Down and (while editing) Option+C keys (see above). Whatever else is drawn there (e.g. other mods' buttons)
+  // is kept, after the list.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const below = await next(e)
     const list = await read($, held)
     if (list.length === 0 || e.props.hasSurvey) {
-      return next(e)
+      return below
     }
     const index = await read($, editing)
     const { Box, Button, Text } = $.ui.resolve(e)
 
     return (
-      <Box flexDirection="column" width={e.props.bodyColumns}>
-        <Box>
-          <Text dimColor>Held until Claude finishes ({list.length}) · edit </Text>
-          <Button
-            key="older"
-            label="⌥↑"
-            plain
-            dimColor
-            action="app:toggleDiffNoiseFilter"
-            onPress={() => editOlder($)}
-          />
-          <Text dimColor> </Text>
-          <Button
-            key="newer"
-            label="⌥↓"
-            plain
-            dimColor
-            action="app:toggleDiffPreSession"
-            onPress={() => editNewer($)}
-          />
-          {index !== null && <Text dimColor> · cancel </Text>}
-          {/* Not Option+.: the terminal sends Esc then `.`, which Claude Code takes as Esc, interrupting Claude. */}
-          {index !== null && (
+      <Box flexDirection="column">
+        <Box flexDirection="column" width={e.props.bodyColumns}>
+          <Box>
+            <Text dimColor>Held until Claude finishes ({list.length}) · edit </Text>
             <Button
-              key="cancel"
-              label="⌥C"
+              key="older"
+              label="⌥↑"
               plain
               dimColor
-              action="app:toggleReplTab"
-              onPress={() => cancelEditing($)}
+              action="app:toggleDiffNoiseFilter"
+              onPress={() => editOlder($)}
             />
-          )}
+            <Text dimColor> </Text>
+            <Button
+              key="newer"
+              label="⌥↓"
+              plain
+              dimColor
+              action="app:toggleDiffPreSession"
+              onPress={() => editNewer($)}
+            />
+            {index !== null && <Text dimColor> · cancel </Text>}
+            {/* Not Option+.: the terminal sends Esc then `.`, which Claude Code takes as Esc, interrupting Claude. */}
+            {index !== null && (
+              <Button
+                key="cancel"
+                label="⌥C"
+                plain
+                dimColor
+                action="app:toggleReplTab"
+                onPress={() => cancelEditing($)}
+              />
+            )}
+          </Box>
+          {list.map((text, i) => (
+            <Text key={`${i}`} wrap="truncate-end" bold={i === index}>
+              {i === index ? '▸ ' : '  '}{i + 1}. {text.replace(/\s*\n\s*/g, ' ⏎ ')}
+              {i === index ? ' (editing)' : ''}
+            </Text>
+          ))}
         </Box>
-        {list.map((text, i) => (
-          <Text key={`${i}`} wrap="truncate-end" bold={i === index}>
-            {i === index ? '▸ ' : '  '}{i + 1}. {text.replace(/\s*\n\s*/g, ' ⏎ ')}{i === index ? ' (editing)' : ''}
-          </Text>
-        ))}
+        {below}
       </Box>
     )
   })

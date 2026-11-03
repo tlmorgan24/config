@@ -15,7 +15,9 @@
       "bindings": {
         "alt+up": "app:toggleDiffNoiseFilter",
         "alt+down": "app:toggleDiffPreSession",
-        "alt+c": "app:toggleReplTab"
+        "alt+c": "app:toggleReplTab",
+        "cmd+x": "app:cycleDiffBase",
+        "cmd+c": "strip:jump9"
       }
     }
   ]
