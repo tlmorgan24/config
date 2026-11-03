@@ -1691,6 +1691,13 @@ cut-selection-to-clipboard() {
 zle -N cut-selection-to-clipboard
 bindkey $'\e[120;9u' cut-selection-to-clipboard
 
+# Cmd+e: edit the command line in $EDITOR. Zsh's temp file ends in .zsh, so Vim highlights it as zsh. 
+# Saving and quitting puts the edited text back on the command line, without running it. 
+# With a selection active, only the selection is edited.
+autoload -Uz edit-command-line
+zle -N edit-command-line
+bindkey $'\e[101;9u' edit-command-line
+
 # Bind redo (undo is already the response to '^_', so needs no binding).
 bindkey '^[/' redo
 

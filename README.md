@@ -90,7 +90,7 @@ In the table, I specify whether the keybinding is already used by the terminal (
 | Cmd + ] | `\e[93;9u` |  | Custom | Custom | | | Indent current line (NORMAL/INSERT mode) or selected lines (VISUAL mode) by one level | Custom |
 | Cmd + [ | `\e[91;9u` |  | Custom | Custom | | | Unindent current line (NORMAL/INSERT mode) or selected lines (VISUAL mode) by one level | Custom |
 | Cmd + Enter | `\e[13;9u` |  | Custom | Custom | Queue a command (see details below) | Custom | | |
-| Cmd + e | `\e[101;9u` |  | Custom | Custom | | | | |
+| Cmd + e | `\e[101;9u` | `^X^E` | Custom | Custom | Edit command line (or just the selection, if there is one) in `$EDITOR` (Vim, with zsh syntax highlighting). Saving and quitting puts the edited text back on the command line, without running it | Mapped existing function to respond as desired | | |
 
 Note all selections refer to the PROGRAM's selection (e.g. as manipulated by above shortcuts), rather than TERMINAL's selection (e.g. from mouse drag in most situations). Both Ghostty and VS Code use Cmd+c to copy the terminal's selection, so I am forced to use Cmd+Shift+c if wanting to copy the program's selection. There is no way to merge the behaviours, because the program (e.g. Zsh) cannot know what/when the terminal (e.g. Ghostty) has highlighted text, and vice versa.
 
