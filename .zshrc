@@ -23,7 +23,6 @@ fi
 [[ -n "$CLAUDECODE" ]] && return
 
 setopt interactive_comments  # Interpret '#' as comment, even interactively (i.e. outside scripts).
-setopt SH_WORD_SPLIT  # Split words on whitespace, for same behaviour as Bash.
 
 # Use zsh's completion system, which completes each command's subcommands, flags and arguments (e.g. git branches),
 # rather than just file and command names. Includes the completions Homebrew installs in its site-functions folder.
@@ -212,7 +211,7 @@ mkp() {
 
 # Run cp or mv ($1) with -i on the remaining args, so it asks before overwriting an existing file (declining is the
 # default). Read the answer from the terminal rather than stdin, so a prompt in e.g.
-# `fd | while read f; do cp "$f" dest/; done` doesn't use up the list being read, but keep stdin if there's no terminal
+# `fd | while read f; do cp $f dest/; done` doesn't use up the list being read, but keep stdin if there's no terminal
 # or a source is /dev/stdin (e.g. `pbpaste | cp /dev/stdin file`).
 _ask_run() {
   local cmd=$1; shift
@@ -474,9 +473,9 @@ pp() { p -0777 "$@"; }
 #
 # Like fd -x, but run arbitrary shell code for each file found, with the path in $f. The code comes last, everything
 # before it goes to fd. Single-quote the code so it's treated as one argument and so the shell does not expand $f before
-# it reaches the function. And, double-quote the $f as normal if want to avoid word splitting. E.g.
-# `ff -e md 'echo "$f"; head -1 "$f"'`. Run in the current shell (aliases, functions and variables all work), reading
-# fd's output from fd 3 so commands in the code that read stdin don't swallow the file list. My syntax highlighting (in
+# it reaches the function. $f needs no double quotes, as it stays one word even if the path contains spaces. E.g.
+# `ff -e md 'echo $f; head -1 $f'`. Run in the current shell (aliases, functions and variables all work), reading fd's
+# output from fd 3 so commands in the code that read stdin don't swallow the file list. My syntax highlighting (in
 # syntax-highlighting.zsh) colours the code as shell code, and the fd pattern among the fd args as a regex, so update it
 # to match if the arguments change.
 ff() {
@@ -501,7 +500,7 @@ _for_each_record() {
 #
 # Like ff, but for records split on a regex (via p -R), with the record in $r and the exact separator that ended it in
 # $s (empty for a final unterminated record). <sep> is anything p -R takes, e.g. `'\n\n+'` or `/,\s*/`. Read stdin if no
-# files are given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`. Same quoting rules and current-shell behaviour as ff.
+# files are given. E.g. `printf 'a,b,c' | fr , 'echo item: $r'`. Same quoting rules and current-shell behaviour as ff.
 # Records containing NUL bytes get split there. My syntax highlighting (in syntax-highlighting.zsh) colours <sep> as a
 # regex and <code> as shell code, so update it to match if the arguments change.
 fr() { _for_each_record r "$@"; }
@@ -511,7 +510,7 @@ fr() { _for_each_record r "$@"; }
 # fl stands for "For each Line".
 #
 # fr with a newline separator, but with the line in $l ($s is a newline, or empty for an unterminated last line). E.g.
-# `fl 'mkdir "$l"' names.txt`. A literal newline (rather than '\n') lets p use perl's own $/, skipping the slower regex
+# `fl 'mkdir $l' names.txt`. A literal newline (rather than '\n') lets p use perl's own $/, skipping the slower regex
 # splitting. My syntax highlighting (in syntax-highlighting.zsh) colours <code> as shell code, so update it to match if
 # the arguments change.
 fl() { _for_each_record l $'\n' "$@"; }
@@ -1692,9 +1691,6 @@ bindkey '^?' delete-selection-or-backspace
 
 # Typing: delete selection if there is one, then insert the typed character (auto-paired, if it's a quote or bracket).
 self-insert-or-replace-selection() {
-  # autopair is written for zsh's default word splitting, and SH_WORD_SPLIT (set at the top) would make it drop a typed
-  # space.
-  setopt local_options no_sh_word_split
   if (( REGION_ACTIVE )); then
     delete-active-selection
   fi
