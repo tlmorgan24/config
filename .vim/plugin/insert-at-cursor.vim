@@ -8,6 +8,9 @@ vim9script
 #
 # Claude Code passes `+{line}`, the cursor's line but not its column, so insert at the end of that line, where the
 # cursor most often is.
+#
+# Any other empty buffer (a new or empty file, or plain `vim`) has nothing to do but type, so start in insert mode there
+# too, unless it's read-only or in diff mode.
 
 def InsertAtCursor()
   for arg in v:argv
@@ -24,6 +27,8 @@ def InsertAtCursor()
   endfor
   if expand('%:t') =~# '^claude-prompt-.*\.md$'
     startinsert!
+  elseif line('$') == 1 && getline(1) == '' && &modifiable && !&readonly && !&diff
+    startinsert
   endif
 enddef
 
