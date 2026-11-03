@@ -185,7 +185,7 @@ _mkrun() {
     d="${d:h}"
   done
   mkdir -p -- "$dir" || return
-  command $cmd -i "$@" && return  # -i to match the cp/mv aliases below
+  _ask_run $cmd "$@" && return
   local ret=$?
   (( ${#created} )) && rmdir -- "${created[@]}" 2>/dev/null
   return $ret
@@ -210,11 +210,29 @@ mkp() {
   mkdir -p -- "${1:h}" && print -r -- "$1"
 }
 
-# Ask before overwriting an existing file (declining is the default). Scripts don't use these aliases. On macOS, mv -f
-# skips the prompt but cp -f doesn't, so use `command cp` to overwrite without asking. Declined cp returns 1, but
-# declined mv returns 0.
-alias cp='cp -i'
-alias mv='mv -i'
+# Run cp or mv ($1) with -i on the remaining args, so it asks before overwriting an existing file (declining is the
+# default). Read the answer from the terminal rather than stdin, so a prompt in e.g.
+# `fd | while read f; do cp "$f" dest/; done` doesn't use up the list being read, but keep stdin if there's no terminal
+# or a source is /dev/stdin (e.g. `pbpaste | cp /dev/stdin file`).
+_ask_run() {
+  local cmd=$1; shift
+  if (( ${@[(Ie)/dev/stdin]} || ${@[(Ie)/dev/fd/0]} )) || ! { : </dev/tty } 2>/dev/null; then
+    command $cmd -i "$@"
+  else
+    command $cmd -i "$@" </dev/tty
+  fi
+}
+
+# Make cp and mv ask before overwriting (as do mkcp and mkmv). Aliases to functions rather than functions named cp and
+# mv, so `\cp`/`\mv` (or `command cp`/`command mv`) still give the real commands, to overwrite without asking. On macOS,
+# mv -f also skips the prompt but cp -f doesn't. Declined cp returns 1, but declined mv returns 0. Scripts don't use
+# these aliases.
+_cp_ask() { _ask_run cp "$@"; }
+_mv_ask() { _ask_run mv "$@"; }
+compdef _cp _cp_ask  # zsh completes an alias as the command it expands to.
+compdef _mv _mv_ask
+alias cp=_cp_ask
+alias mv=_mv_ask
 
 # Usage: `rm [-dfrRv] <file>...`
 #
@@ -222,11 +240,11 @@ alias mv='mv -i'
 # deletes items after 30 days, see copy.sh). Also ask for confirmation before removing my home directory, a directory
 # directly in it (e.g. ~/Downloads) or a directory above it, cancelling the whole rm if declined. Otherwise, behave like
 # rm: a directory needs -r (or -d if empty), -f ignores missing files, and a problem with one file doesn't stop the
-# others. Use `command rm` to delete permanently (e.g. to free up space straight away, or for secrets), or for other
-# flags. Only defined where macOS has /usr/bin/trash (macOS 15 onwards). My functions use `command rm` for their own
-# temporary files.
+# others. Use `\rm` or `command rm` to delete permanently (e.g. to free up space straight away, or for secrets), or for
+# other flags. An alias to a function, like cp and mv, so `\rm` still gives the real rm. Only defined where macOS has
+# /usr/bin/trash (macOS 15 onwards). My functions use `command rm` for their own temporary files.
 if [[ -x /usr/bin/trash ]]; then
-  rm() {
+  _rm_bin() {
     setopt local_options extended_glob  # For /## (one or more slashes) below
     local recursive=0 force=0 dirs=0 verbose=0 ret=0 arg name real c
     while [[ "$1" == -?* ]]; do
@@ -298,6 +316,8 @@ if [[ -x /usr/bin/trash ]]; then
     fi
     return $ret
   }
+  compdef _rm _rm_bin
+  alias rm=_rm_bin
 fi
 
 # Replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first).
