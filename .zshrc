@@ -480,8 +480,19 @@ pp() { p -0777 "$@"; }
 # syntax-highlighting.zsh) colours the code as shell code, and the fd pattern among the fd args as a regex, so update it
 # to match if the arguments change.
 ff() {
-  local cmd=${@[-1]} f
-  while IFS= read -r -d '' f <&3; do eval "$cmd"; done 3< <(fd -0 "${@[1,-2]}")
+  local _ff_cmd=${@[-1]} f  # The name is prefixed so the code can't change it by accident.
+  while IFS= read -r -d '' f <&3; do eval "$_ff_cmd"; done 3< <(fd -0 "${@[1,-2]}")
+}
+
+# Usage: `_for_each_record <name> <sep> <code> [files]`
+#
+# Run the code for each record, as fr does, but with the record in the variable named, for fr and fl.
+_for_each_record() {
+  local _fr_name=$1 _fr_sep=$2 _fr_cmd=$3 s
+  local $_fr_name
+  shift 3
+  while IFS= read -r -d '' $_fr_name <&3 && IFS= read -r -d '' s <&3; do eval "$_fr_cmd"; done \
+    3< <(p -l -R"$_fr_sep" 'printf "%s\0%s\0", $_, $\' "$@")
 }
 
 # Usage: `fr <sep> <code> [files]`
@@ -493,21 +504,17 @@ ff() {
 # files are given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`. Same quoting rules and current-shell behaviour as ff.
 # Records containing NUL bytes get split there. My syntax highlighting (in syntax-highlighting.zsh) colours <sep> as a
 # regex and <code> as shell code, so update it to match if the arguments change.
-fr() {
-  local sep=$1 cmd=$2 r s; shift 2
-  while IFS= read -r -d '' r <&3 && IFS= read -r -d '' s <&3; do eval "$cmd"; done \
-    3< <(p -l -R"$sep" 'printf "%s\0%s\0", $_, $\' "$@")
-}
+fr() { _for_each_record r "$@"; }
 
 # Usage: `fl <code> [files]`
 #
 # fl stands for "For each Line".
 #
-# fr with a newline separator, so the line is in $r ($s is a newline, or empty for an unterminated last line). E.g.
-# `fl 'mkdir "$r"' names.txt`. A literal newline (rather than '\n') lets p use perl's own $/, skipping the slower regex
+# fr with a newline separator, but with the line in $l ($s is a newline, or empty for an unterminated last line). E.g.
+# `fl 'mkdir "$l"' names.txt`. A literal newline (rather than '\n') lets p use perl's own $/, skipping the slower regex
 # splitting. My syntax highlighting (in syntax-highlighting.zsh) colours <code> as shell code, so update it to match if
 # the arguments change.
-fl() { fr $'\n' "$@"; }
+fl() { _for_each_record l $'\n' "$@"; }
 
 # Like echo, but arguments end up joined without a space separating them. E.g. `concat hello world` gives `helloworld`,
 # whereas `echo hello world` gives `hello world`.

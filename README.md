@@ -128,7 +128,7 @@ Note fzf provides ctrl+r (search command history) ctrl+t (search for file/direct
 * `pp` - like `p`, but slurps the whole input as one record (-0777), so don't use `-R`.
 * `ff [fd args] <code>` - "for each file": runs arbitrary shell code for each file/directory `fd` finds, with the path in `$f`. E.g. `ff -e md 'echo "$f"; head -1 "$f"'` prints each Markdown file's name and first line.
 * `fr <sep> <code> [files]` - "for each record": like `ff`, but for records split on a regex (as with `p -R`), with the record (excluding separator) in `$r` and the separator that ended it in `$s`. Reads stdin if no files given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`.
-* `fl <code> [files]` - "for each line": `fr` with a newline separator, so the line is in `$r`. E.g. `fl 'mkdir "$r"' names.txt` makes a directory for each line.
+* `fl <code> [files]` - "for each line": `fr` with a newline separator, but with the line in `$l`. E.g. `fl 'mkdir "$l"' names.txt` makes a directory for each line.
 * `cp`/`mv` - ask before overwriting an existing file (declining is the default). Use `\cp`/`\mv` (or `command cp`/`command mv`) to overwrite without asking.
 * `rm [-dfrRv] <file>...` - moves files/directories to the Bin instead of deleting them, so Finder's Put Back can restore them to where they were. Also asks for confirmation before removing your home directory, a directory directly in it (e.g. `~/Downloads`), or a directory above it. Otherwise behaves like `rm` (e.g. directories need `-r`). Use `\rm` (or `command rm`) to delete permanently, e.g. to free up space straight away. Needs macOS 15 or later (for `/usr/bin/trash`).
 * `mkcd <dir>` - like `cd`, but creates the directory first if does not exist.
