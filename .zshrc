@@ -1141,7 +1141,8 @@ _save_highlight_context() {
 
 # Ctrl+r: search the recorded history (replacing fzf's own ctrl+r, set up by `source <(fzf --zsh)` above). Shows each
 # distinct command once (its most recent run), and previews its directory, time, exit status and output. Press enter to
-# put the command on the command line (not run it), as fzf's ctrl+r does.
+# insert the command at the cursor (not run it), so e.g. `cmd1 && <ctrl+r>` can find cmd2 to follow cmd1. The search
+# starts empty, rather than with what's already typed (unlike fzf's ctrl+r).
 if (( $+commands[cmdlog] )); then
   cmdlog-history-widget() {
     # Whether the list starts with its commands coloured like the command line (the preview always is). Off, as
@@ -1173,7 +1174,6 @@ if (( $+commands[cmdlog] )); then
       --ansi  # Preserve colours
       --scheme=history
       --layout=default  # Newest commands nearest the command line
-      --query="$LBUFFER"
       --preview='cmdlog show {1}'
       --preview-window=up,50%,sharp,wrap
       --border-label=" all directories · highlighting $highlighting "
@@ -1190,8 +1190,7 @@ if (( $+commands[cmdlog] )); then
       local id
       id=$(if (( colour_rows )); then cmdlog search; else CMDLOG_HIGHLIGHT= cmdlog search; fi | fzf "${FZF_OPTS[@]}")
       if [[ -n "$id" ]]; then
-        BUFFER=$(cmdlog get "$id")
-        CURSOR=${#BUFFER}
+        LBUFFER+=$(cmdlog get "$id")  # Leaves the cursor after the inserted command
       fi
     } always {
       rm -f -- $context
