@@ -476,8 +476,9 @@ pp() { p -0777 "$@"; }
 # before it goes to fd. Single-quote the code so it's treated as one argument and so the shell does not expand $f before
 # it reaches the function. And, double-quote the $f as normal if want to avoid word splitting. E.g.
 # `ff -e md 'echo "$f"; head -1 "$f"'`. Run in the current shell (aliases, functions and variables all work), reading
-# fd's output from fd 3 so commands in the code that read stdin don't swallow the file list. My regex highlighter (in
-# syntax-highlighting.zsh) colours the fd pattern among the fd args, so update it to match if the arguments change.
+# fd's output from fd 3 so commands in the code that read stdin don't swallow the file list. My syntax highlighting (in
+# syntax-highlighting.zsh) colours the code as shell code, and the fd pattern among the fd args as a regex, so update it
+# to match if the arguments change.
 ff() {
   local cmd=${@[-1]} f
   while IFS= read -r -d '' f <&3; do eval "$cmd"; done 3< <(fd -0 "${@[1,-2]}")
@@ -490,8 +491,8 @@ ff() {
 # Like ff, but for records split on a regex (via p -R), with the record in $r and the exact separator that ended it in
 # $s (empty for a final unterminated record). <sep> is anything p -R takes, e.g. `'\n\n+'` or `/,\s*/`. Read stdin if no
 # files are given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`. Same quoting rules and current-shell behaviour as ff.
-# Records containing NUL bytes get split there. My regex highlighter (in syntax-highlighting.zsh) colours <sep> as a
-# regex, so update it to match if the arguments change.
+# Records containing NUL bytes get split there. My syntax highlighting (in syntax-highlighting.zsh) colours <sep> as a
+# regex and <code> as shell code, so update it to match if the arguments change.
 fr() {
   local sep=$1 cmd=$2 r s; shift 2
   while IFS= read -r -d '' r <&3 && IFS= read -r -d '' s <&3; do eval "$cmd"; done \
@@ -504,7 +505,8 @@ fr() {
 #
 # fr with a newline separator, so the line is in $r ($s is a newline, or empty for an unterminated last line). E.g.
 # `fl 'mkdir "$r"' names.txt`. A literal newline (rather than '\n') lets p use perl's own $/, skipping the slower regex
-# splitting.
+# splitting. My syntax highlighting (in syntax-highlighting.zsh) colours <code> as shell code, so update it to match if
+# the arguments change.
 fl() { fr $'\n' "$@"; }
 
 # Like echo, but arguments end up joined without a space separating them. E.g. `concat hello world` gives `helloworld`,
