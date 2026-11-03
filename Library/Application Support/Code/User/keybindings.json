@@ -106,15 +106,17 @@
   },
 
   // Jump to the previous/next command's prompt, e.g. to get back past a long output (VS Code's defaults for this,
-  // cmd+up/down, are used above). Needs macOS's own ctrl+up/down turned off, which copy.sh does.
+  // cmd+up/down, are used above). Needs macOS's own ctrl+up/down turned off, which copy.sh does. Full-screen programs
+  // (on the alternate buffer, which has no shell prompts) get the keys instead, e.g. for Claude Code to jump between my
+  // prompts (see the prompt-jump mod).
   {
     "key": "ctrl+up",
     "command": "workbench.action.terminal.scrollToPreviousCommand",
-    "when": "terminalFocus"
+    "when": "terminalFocus && !terminalAltBufferActive"
   },
   {
     "key": "ctrl+down",
     "command": "workbench.action.terminal.scrollToNextCommand",
-    "when": "terminalFocus"
+    "when": "terminalFocus && !terminalAltBufferActive"
   }
 ]

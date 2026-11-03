@@ -21,7 +21,9 @@
         "cmd+up": "strip:jump1",
         "cmd+down": "strip:jump2",
         "cmd+shift+up": "strip:jump5",
-        "cmd+shift+down": "strip:jump6"
+        "cmd+shift+down": "strip:jump6",
+        "ctrl+up": "strip:jump3",
+        "ctrl+down": "strip:jump4"
       }
     }
   ]

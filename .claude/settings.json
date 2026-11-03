@@ -16,7 +16,7 @@
   },
   "theme": "auto",
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/hold-queued:~/.claude/mods/prompt-select"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/hold-queued:~/.claude/mods/prompt-select:~/.claude/mods/prompt-jump"
   },
   "hooks": {
     "PreToolUse": [
