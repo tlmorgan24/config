@@ -67,8 +67,8 @@ var cherryHelp = []struct{ key, desc string }{
 
 // previewHelp is the help for the preview, shown in the row above it (hiddenPreviewHelp instead while it's hidden).
 var (
-	previewHelp       = []struct{ key, desc string }{{"⇧↑/↓", "scroll"}, {"←/→", "resize"}}
-	hiddenPreviewHelp = []struct{ key, desc string }{{"→", "show"}}
+	previewHelp       = []struct{ key, desc string }{{"⇧↑/↓", "scroll"}, {"⌘↑/↓", "resize"}}
+	hiddenPreviewHelp = []struct{ key, desc string }{{"⌘↑", "show"}}
 )
 
 type ui struct {
@@ -218,10 +218,10 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 		u.scroll = max(u.scroll-u.previewHeight(), 0)
 	case "ctrl-f":
 		u.scroll += u.previewHeight()
-	case "left", "right":
+	case "cmd-up", "cmd-down": // As sent by Ghostty and VS Code (see their config), moving the separator up/down
 		// Step from the list's height as drawn, so each key acts straight away, even if the height was limited.
 		step := 3
-		if key == "right" {
+		if key == "cmd-up" {
 			step = -step
 		}
 		u.listRows = max(u.listHeight()+step, 1)
@@ -876,8 +876,9 @@ func runeWidth(r rune) int {
 
 // escapeKeys names the escape sequences (after the ESC) of the keys used, in the forms terminals commonly send.
 var escapeKeys = map[string]string{
-	"[A": "up", "OA": "up", "[B": "down", "OB": "down", "[C": "right", "OC": "right", "[D": "left", "OD": "left",
+	"[A": "up", "OA": "up", "[B": "down", "OB": "down",
 	"[1;2A": "shift-up", "[1;2B": "shift-down", "[1;3A": "alt-up", "[1;3B": "alt-down",
+	"[1;9A": "cmd-up", "[1;9B": "cmd-down",
 	"[5~": "pgup", "[6~": "pgdn", "[H": "home", "OH": "home", "[1~": "home", "[F": "end", "OF": "end", "[4~": "end",
 }
 
