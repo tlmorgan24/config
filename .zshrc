@@ -185,7 +185,7 @@ _mkrun() {
     d="${d:h}"
   done
   mkdir -p -- "$dir" || return
-  command $cmd "$@" && return
+  command $cmd -i "$@" && return  # -i to match the cp/mv aliases below
   local ret=$?
   (( ${#created} )) && rmdir -- "${created[@]}" 2>/dev/null
   return $ret
@@ -209,6 +209,12 @@ mkp() {
   (( $# == 1 )) || { echo 'usage: mkp path' >&2; return 1 }
   mkdir -p -- "${1:h}" && print -r -- "$1"
 }
+
+# Ask before overwriting an existing file (declining is the default). Scripts don't use these aliases. On macOS, mv -f
+# skips the prompt but cp -f doesn't, so use `command cp` to overwrite without asking. Declined cp returns 1, but
+# declined mv returns 0.
+alias cp='cp -i'
+alias mv='mv -i'
 
 # Replace BSD with GNU, where I prefer the GNU features (must have done `brew install coreutils` first).
 alias sed='gsed -E'  # -E to always use extended regex, gsed to allow e.g. -i without providing a backup file
@@ -275,14 +281,7 @@ p() {
   [[ $rs == /*/ && ${#rs} -ge 2 ]] && rs=${rs:1:${#rs}-2}
   [[ -z $rs ]] && { echo "p: -R separator can't be empty" >&2; return 2; }
   [[ $rs =~ '[][\\^$.|?*+(){}]' ]] && regex=1
-  if (( ip )); then
-    if (( regex )); then
-      [[ -z $inplace ]] && inplace=.prs$$
-    else
-      flags+=("-i$inplace")
-      inplace=
-    fi
-  fi
+  (( ip && !regex )) && flags+=("-i$inplace")  # Perl's own -i works with its own $/.
   local split='our @F = length $PRS::FS ? split(/$PRS::FS/) : split(" ");'
   local endfix=';END { $\ = "\n" if $ENV{PRS_L}; select STDOUT }'  # Runs before user END blocks.
 
@@ -294,7 +293,7 @@ if ($ENV{PRS_L}) { my $o = $_; chomp; $\ = substr $o, length }  # Put back exact
     return
   fi
 
-  PRS_RS=$rs PRS_FS=$fs PRS_L=$nl PRS_I=$inplace PRS_IKEEP=${inplace:+$([[ $inplace == .prs$$ ]] || echo 1)} \
+  PRS_RS=$rs PRS_FS=$fs PRS_L=$nl PRS_IP=$ip PRS_BAK=$inplace \
   perl -n -Mopen=IN,':via(PRS)' "${flags[@]}" -e '
 BEGIN {
   package PRS;
@@ -330,27 +329,30 @@ BEGIN {
   @ARGV = ("-") unless @ARGV;
   our %name;
   for (@ARGV) { if ($_ eq "-") { $_ = "/dev/stdin"; $name{$_} = "-" } }
-  # Emulate -i: read from a renamed copy, write to the original name.
-  our ($I, @tmp) = ($ENV{PRS_I});
-  if (length $I) {
-    for (@ARGV) {
-      next if exists $name{$_};
-      my $orig = $_; my $bak = "$orig$I";
-      rename $orig, $bak or die "p: cannot rename $orig: $!\n";
-      push @tmp, $bak unless $ENV{PRS_IKEEP};
-      $name{$bak} = $orig; $_ = $bak;
-    }
+  # Emulate -i the way perl does: write each file to a new temporary file beside it, which replaces the file (renamed to
+  # the backup first, if an extension was given) once the next file starts or the code ends. If the code dies, the file
+  # it was on is left untouched.
+  use Fcntl ();
+  our ($tmp, $orig);
+  sub commit {  # Return false, with a warning, if the file could not be replaced.
+    return 1 unless defined $tmp;
+    my $t = $tmp; undef $tmp;
+    my $ok = close(OUT) && (!length $ENV{PRS_BAK} || rename $orig, $orig . $ENV{PRS_BAK}) && rename $t, $orig;
+    unless ($ok) { warn "p: cannot replace $orig: $!\n"; unlink $t }
+    return $ok;
   }
+  END { if ($? == 0) { commit() or $? = 2 } elsif (defined $tmp) { close OUT; unlink $tmp } }
   our $cur = "";
-  END { unlink @PRS::tmp }
   $/ = $S;
 }
 if ($ARGV ne $PRS::cur) {
-  my $real = $ARGV;
-  $PRS::cur = $ARGV = $PRS::name{$real} // $real;
-  if (length $PRS::I && $ARGV ne "-") {
-    open PRS::OUT, ">", $ARGV or die "p: cannot write $ARGV: $!\n";
-    chmod((stat $real)[2] & 07777, $ARGV);
+  $PRS::cur = $ARGV = $PRS::name{$ARGV} // $ARGV;
+  if ($ENV{PRS_IP} && $ARGV ne "-") {
+    PRS::commit() or exit 2;
+    my $t = "$ARGV.prs$$";
+    sysopen PRS::OUT, $t, Fcntl::O_WRONLY() | Fcntl::O_CREAT() | Fcntl::O_EXCL() or die "p: cannot create $t: $!\n";
+    ($PRS::orig, $PRS::tmp) = ($ARGV, $t);  # Only once created, so the END block never removes an existing file.
+    chmod((stat $ARGV)[2] & 07777, $t);
     select PRS::OUT;
   }
 }
@@ -473,12 +475,40 @@ alias gs='git status'
 # Usage: `push [<options>]`
 #
 # Push current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the
-# upstream). Options (e.g. `--force`) are passed to `git push`.
+# upstream). Options (e.g. `--tags`) are passed to `git push`, except -f/--force becomes --force-with-lease
+# --force-if-includes, so a force push can't overwrite commits on the remote that haven't been integrated locally. Run
+# `git push --force` directly to overwrite them anyway.
 push() {
+  local -a args lease=(--force-with-lease --force-if-includes)
+  local arg pre post i
+  for (( i = 1; i <= $#; i++ )); do
+    arg="${@[i]}"
+    if [[ "$arg" == -- ]]; then
+      args+=("${@[i,-1]}")
+      break
+    elif [[ "$arg" == --force ]]; then
+      args+=("${lease[@]}")
+    elif [[ "$arg" == -[^-]* ]]; then
+      # Short flags can be bundled (e.g. -uf), and -o takes the rest of the bundle (or the next argument) as its value.
+      pre="${${arg#-}%%o*}"  # Flags before any o
+      post="${arg:$(( ${#pre} + 1 ))}"  # o and its value, if present
+      if [[ "$pre" == *f* ]]; then
+        pre="${pre//f}"
+        args+=("${lease[@]}")  # Before the rest of the bundle, which may end in an -o awaiting its value
+        [[ -n "$pre$post" ]] && args+=("-$pre$post")
+      else
+        args+=("$arg")
+      fi
+      [[ "$post" == o ]] && args+=("${@[++i]}")
+    else
+      args+=("$arg")
+    fi
+  done
+
   if git rev-parse '@{u}' >/dev/null 2>&1; then
-    git push "$@"
+    git push "${args[@]}"
   else
-    git push -u "$@" origin HEAD
+    git push -u "${args[@]}" origin HEAD
   fi
 }
 
@@ -499,8 +529,12 @@ pull() {
 # Usage: `reset-origin <branch>`
 #
 # Reset chosen local branch to its corresponding remote branch (assumes remote source is called "origin"). The remote
-# branch is automatically fetched. If specified branch is current branch, use `git reset --hard`. If specified branch is
-# NOT current branch, use `git branch -f`.
+# branch is automatically fetched. If specified branch is current branch, uses `git reset --keep`. If specified branch
+# is NOT current branch, uses `git branch -f`. Both ensure uncommitted changes are preserved (but --keep does not
+# preserve whether a change is staged vs unstaged; all become unstaged).
+#
+# Before resetting, ask for confirmation if the local branch has commits that the remote branch doesn't, listing them,
+# as the reset drops them (leaving them only in the reflog).
 reset-origin() {
   local target="$1"
   if [[ -z "$target" ]]; then
@@ -518,8 +552,20 @@ reset-origin() {
   fi
 
   git fetch origin "$target" || { echo "reset-origin: no remote branch fetched" >&2; return 1; }
+
+  local dropped  # Local commits not on the remote branch (empty if the local branch doesn't exist yet)
+  dropped="$(git log --oneline "origin/$target..refs/heads/$target" 2>/dev/null)"
+  if [[ -n "$dropped" ]]; then
+    echo "reset-origin: $target has commits that origin/$target doesn't, which the reset will drop:" >&2
+    echo "$dropped" >&2
+    read -q "?Continue? [y/N] "
+    local answer=$?
+    echo
+    [[ $answer -eq 0 ]] || return 1
+  fi
+
   if [[ "$target" == "$current_branch" ]]; then
-    git reset --hard "origin/$target"
+    git reset --keep "origin/$target"
   else
     git branch -f "$target" "origin/$target"
   fi
@@ -735,7 +781,8 @@ pr() {
 # `gh repo create`. If the path is an existing directory (e.g. `.`), it's git initialised (if not already), and any
 # commits are pushed to the new GitHub repo. If the path doesn't exist, the new GitHub repo is cloned to that location.
 # gh doesn't allow --license, --gitignore or --template in the former case. In either case, the CWD becomes the
-# directory specified by <path> (i.e., the repo clone).
+# directory specified by <path> (i.e., the repo clone). Refuse if the directory already has an origin remote, before
+# creating anything.
 repo() {
   local dir="$argv[-1]"
   if [[ $# -eq 0 || "$dir" == -* ]]; then
@@ -763,6 +810,12 @@ repo() {
     fi
   fi
 
+  # Check before creating anything, so a GitHub repo isn't created that can't then be set as the origin.
+  if [[ -d "$abs" && "$(git -C "$abs" rev-parse --show-toplevel 2>/dev/null)" == "${abs:A}" ]] &&
+    git -C "$abs" remote get-url origin >/dev/null 2>&1; then
+    echo "repo: $dir already has an origin remote" >&2
+    return 1
+  fi
   if gh repo view "$name" >/dev/null 2>&1; then
     echo "repo: you already have a GitHub repo named $name" >&2
     return 1

@@ -129,8 +129,9 @@ Note fzf provides ctrl+r (search command history) ctrl+t (search for file/direct
 * `ff [fd args] <code>` - "for each file": runs arbitrary shell code for each file/directory `fd` finds, with the path in `$f`. E.g. `ff -e md 'echo "$f"; head -1 "$f"'` prints each Markdown file's name and first line.
 * `fr <sep> <code> [files]` - "for each record": like `ff`, but for records split on a regex (as with `p -R`), with the record (excluding separator) in `$r` and the separator that ended it in `$s`. Reads stdin if no files given. E.g. `printf 'a,b,c' | fr , 'echo "item: $r"'`.
 * `fl <code> [files]` - "for each line": `fr` with a newline separator, so the line is in `$r`. E.g. `fl 'mkdir "$r"' names.txt` makes a directory for each line.
+* `cp`/`mv` - ask before overwriting an existing file (declining is the default). Use `command cp`/`command mv` to overwrite without asking (`mv -f` also works, but `cp -f` still asks on macOS).
 * `mkcd <dir>` - like `cd`, but creates the directory first if does not exist.
-* `mkcp [flags] <source>... <dest>` / `mkmv [flags] <source>... <dest>` - like `cp`/`mv`, but creates the destination directory first if does not exist. As per `cp`/`mv`'s rules, the directory is `dest` itself if it ends in `/` or there are multiple sources, otherwise its parent (or the directory given to GNU's `-t`).
+* `mkcp [flags] <source>... <dest>` / `mkmv [flags] <source>... <dest>` - like `cp`/`mv`, but creates the destination directory first if does not exist (and, like my `cp`/`mv`, asks before overwriting). As per `cp`/`mv`'s rules, the directory is `dest` itself if it ends in `/` or there are multiple sources, otherwise its parent (or the directory given to GNU's `-t`).
 * `mkp <path>` - creates the parent directory of `path` if it does not exist, then prints `path`. Useful for redirecting with automatic mkdir, e.g. `cmd > "$(mkp out/sub/file)"` (also works with `>>`, `2>`, etc).
 * `govi [directory [module name]]` - quickly run a draft Go program: `mkcd`s into `directory` (uses current directory if empty string or not provided), inits a module (named `draft` if `module name` not provided), opens a hello world `main.go` in vim for you to edit, then formats, tidies modules and runs. Exits early if `main.go` already exists. Quit vim with `:cq` to skip running (loses unsaved changes).
 * `goco [directory [module name]]` - like `govi`, but opens the directory in VS Code for more in-depth work, and doesn't format/tidy/run automatically.
@@ -160,9 +161,9 @@ Note fzf provides ctrl+r (search command history) ctrl+t (search for file/direct
 
 ### Syncing with remotes
 
-* `push [options]` - pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream). Options (e.g. `--force-with-lease`) are passed to `git push`.
+* `push [options]` - pushes current branch to its upstream (if one is configured) or the same-name branch on origin (setting this as the upstream). Options (e.g. `--tags`) are passed to `git push`, except `-f`/`--force` becomes `--force-with-lease --force-if-includes`, so a force push can't overwrite remote commits you haven't integrated locally (use `git push --force` directly to overwrite them anyway).
 * `pull [options]` - merges current branch's remote into local. Options (e.g. `--rebase`) are passed to `git pull`.
-* `reset-origin <branch>` - hard-resets chosen local branch to its corresponding remote branch. The remote branch is automatically fetched.
+* `reset-origin <branch>` - resets chosen local branch to its corresponding remote branch, keeping uncommitted changes (aborts if any are in files that differ from the remote branch). The remote branch is automatically fetched. If the local branch has commits that the remote branch doesn't, lists them and asks for confirmation before dropping them.
 * `reset-main` - equivalent to `reset-origin main`
 * `rebase-origin <branch> [options]` - rebases current branch onto chosen remote branch. The remote branch is automatically fetched before the rebase. Options (e.g. `--autostash`) are passed to `git rebase`.
 * `rebase-main [options]` - equivalent to `rebase-origin main [options]`
@@ -174,7 +175,7 @@ Note fzf provides ctrl+r (search command history) ctrl+t (search for file/direct
 ### GitHub
 
 * `pr [options]` - pushes current branch and creates PR to merge it into main. The .md file passed with `--md <filepath>` (anywhere among the options) is parsed to use its level-1 header (e.g. `# My PR title`) as the PR title and the rest of the file as the body (assuming no other level-1 headers). Other options (e.g. `--draft`) are passed to `gh pr create`, except title/body options can't be combined with `--md`. If neither these nor `--md` are provided, will be prompted to enter title and body manually.
-* `repo [gh repo create options] <path>` - creates a private GitHub repo (unless `--public`/`--internal` passed) set as the origin of the directory specified by `<path>`. If directory exists (e.g. `.`), it is `git init`ed (if not already), and any commits are pushed. If the directory doesn't exist, it is created and `git init`ed.
+* `repo [gh repo create options] <path>` - creates a private GitHub repo (unless `--public`/`--internal` passed) set as the origin of the directory specified by `<path>`. If directory exists (e.g. `.`), it is `git init`ed (if not already), and any commits are pushed. If the directory doesn't exist, it is created and `git init`ed. Refuses if the directory already has an `origin` remote.
 
 ### Interactive tools
 
