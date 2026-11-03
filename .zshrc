@@ -443,8 +443,16 @@ alias ga='git add'
 alias gaa='ga -u'  # Add tracked files (like the -a in `git commit -a`).
 alias gad='ga .'  # 'd' stands for 'dot' or 'directory', as stages entire current directory (except .gitignored)
 alias gap='ga -p .'  # Stage changes interactively, patch by patch (instead of entire files).
-alias gaar='gaa && git restore --staged'
-alias gadr='gad && git restore --staged'
+# gaar and gadr are functions rather than aliases, because zsh expands an alias before completing it, so it would
+# complete the paths as `git restore --staged` does, offering only files already staged. Complete them instead as the
+# commands that offer the files the first step will stage: `git restore` for gaar (tracked files with unstaged changes,
+# as `git add -u` stages) and `git add` for gadr (modified and untracked files, as `git add .` stages).
+compdef _git gaar=git-restore
+gaar() { gaa && git restore --staged "$@"; }
+
+compdef _git gadr=git-add
+gadr() { gad && git restore --staged "$@"; }
+
 alias gc='git commit -m'
 alias gca='gaa && gc'
 alias gcd='gad && gc'
@@ -457,6 +465,7 @@ alias gci='gadr .gitignore && gc'
 alias gcaf='gcf -a'
 alias gcdf='gad && gcf'
 alias gcif='gadr .gitignore && gcf'
+
 alias gl='git log --oneline'
 alias glt='gl --graph --all'  # Tree view of all commits
 alias gs='git status'
