@@ -49,11 +49,12 @@ let &t_EI = "\<Esc>[2 q"
 let &t_SI = "\<Esc>[5 q"  " Insert mode: blinking bar cursor
 let &t_SR = "\<Esc>[4 q"  " Replace mode: underline cursor
 " Vim only sends the above on a change of mode, so also send the block cursor on startup (and on returning from `:!`).
-" Otherwise vim starts with the shell's cursor (a line in VS Code; Ghostty's shell integration happens to reset it to a
-" block before each command).
+" Otherwise vim starts with the shell's cursor (a line in VS Code, and in Ghostty, whose shell integration resets it to
+" the default shape set in its config before each command).
 let &t_ti .= "\<Esc>[2 q"
-" On exit (and on going to `:!`), give the cursor back in the terminal's default shape (a line in VS Code, as set in its
-" settings.json), rather than leaving Vim's block for the program that ran Vim (e.g. Claude Code after cmd+e).
+" On exit (and on going to `:!`), give the cursor back in the terminal's default shape (a line, as set in VS Code's
+" settings.json and Ghostty's config), rather than leaving Vim's block for the program that ran Vim (e.g. Claude Code
+" after cmd+e).
 let &t_te .= "\<Esc>[0 q"
 " Visual mode (all three kinds): blinking bar cursor, as in insert mode. Vim has no t_ option for visual mode, so send
 " the cursor codes on entering it, and on returning to normal mode (from visual, or via e.g. `:` from visual).

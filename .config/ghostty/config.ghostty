@@ -16,6 +16,9 @@ window-padding-y = 12
 window-padding-balance = true
 
 cursor-click-to-move = true
+# Line cursor by default, as in VS Code. The shell integration shows a line at the prompt anyway, but resets to this
+# default before each command, so without it programs that don't set a shape (e.g. Claude Code) get a block.
+cursor-style = bar
 
 # Keybindings for shortcuts whose key sequences are intercepted by Ghostty
 keybind = cmd+up=text:\x1b[1;9A
