@@ -1,0 +1,50 @@
+#!/bin/zsh
+# Usage: `_claude-transcript <transcript file>`
+#
+# Print a Claude Code session's transcript file (`~/.claude/projects/<project>/<id>.jsonl`) as Markdown: a header, my
+# prompts, Claude's replies and a line for each tool call (not tool output or thinking). Used by my copy-session mod and
+# by `claude-transcripts`, rather than run directly.
+
+if (( $# != 1 )); then
+  echo 'Usage: _claude-transcript <transcript file>' >&2
+  exit 2
+fi
+
+jq -rn '
+  def time: sub("\\.[0-9]+Z$"; "Z") | fromdate | strflocaltime("%Y-%m-%d %H:%M");
+  # The first line of a tool call input value that says the most about it, cut to 200 characters
+  def summary:
+    (.command // .file_path // .pattern // .description // .url // .query // .skill // tostring)
+    | tostring | split("\n")[0] | .[0:200];
+
+  [inputs] as $rows
+  # The title of the session (as /resume lists it), and where and when it started
+  | ($rows | map(select(.type == "ai-title") | .aiTitle) | last // "Untitled session") as $title
+  | ($rows | map(select(.cwd and .timestamp)) | first) as $start
+  # Prompts I sent (typed, or released by my hold-queued mod), and Claude text and tool calls
+  | [$rows[]
+    | select(.isSidechain != true and .isMeta != true)
+    | if .type == "user" and (.origin.kind == "human" or .origin.kind == "plugin") then
+        {role: "Me", time: (.timestamp | time), text: (.message.content
+          | if type == "string" then . else map(select(.type == "text") | .text) | join("\n") end)}
+      elif .type == "assistant" then
+        .message.content[]
+        | if .type == "text" then {role: "Claude", text}
+          elif .type == "tool_use" then {role: "Claude", tool: "⏺ \(.name): \(.input | summary)"}
+          else empty end
+      else empty end
+  ]
+  # Nothing for a session without a prompt (e.g. one quit straight away). Otherwise a header (whose third line
+  # `claude-search` reads), then a heading over each of my prompts (with its time) and wherever Claude starts replying,
+  # and a blank line after a run of tool calls.
+  | select(any(.[]; .role == "Me"))
+  | "# \($title)\n", "\($start.timestamp | time) · \($start.cwd) · \($start.sessionId)\n",
+    (reduce .[] as $m ({out: [], last: null};
+      .out += (if $m.role == "Me" then ["## Me · \($m.time)\n"]
+        elif .last.role != "Claude" then ["## Claude\n"]
+        elif .last.tool and ($m.tool | not) then [""]
+        else [] end)
+        + [if $m.tool then $m.tool else "\($m.text)\n" end]
+      | .last = $m)
+    | .out[])
+' $1

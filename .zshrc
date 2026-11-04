@@ -1322,6 +1322,54 @@ switch() {
   git switch "$branch"
 }
 
+# Usage: `claude-search`
+#
+# Search every Claude Code session I've had, line by line (as `_claude-transcript` prints them, cached by
+# `claude-transcripts`), with each line labelled by its session's date and directory, and newer sessions ranked first
+# among equally good matches. The preview shows the line in its session's transcript. Press enter to continue that
+# session with `claude --resume`, in the directory it was started in (which this shell then stays in). Press ctrl+s to
+# cycle the search mode (see _fzf_search_mode_opts).
+claude-search() {
+  local cache
+  cache=$(claude-transcripts) || return
+  local transcripts=($cache/*/*.md(N.om))  # Newest session first
+  if (( ! $#transcripts )); then
+    echo 'claude-search: no Claude Code sessions found' >&2
+    return 1
+  fi
+
+  local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
+    --delimiter=$'\t'  # fzf is provided `transcript<TAB>line number<TAB>label and line` fields.
+    --with-nth=3..  # Only use the label and line for display/search.
+    --accept-nth=1  # Only output the transcript.
+    --scheme=history  # Rank equally good matches by their order, i.e. newest session first.
+    --ansi  # Preserve the label's colour
+    --preview='bat --color=always --style=plain --language=markdown --highlight-line={2} {1}'
+    --preview-window='+{2}-/2'  # Scroll the preview to put the line in the middle.
+  )
+
+  local reply
+  _fzf_help ⌃s 'search mode' ⇧↑/↓ 'scroll preview' enter resume esc quit
+  FZF_OPTS+=($reply)
+  _fzf_search_mode_opts
+  FZF_OPTS+=($reply)
+
+  # Take each session's date and directory for the label from line 3 of the header `_claude-transcript` gives it
+  # (`<date> <time> · <directory> · <session id>`), and leave out the header and blank lines.
+  local label='FNR == 3 {
+    split($0, header, " · ")
+    n = split(header[2], directory, "/")
+    label = "\033[38;2;127;132;156m" substr(header[1], 1, 10) " " directory[n] "\033[0m  "
+  }'
+  local transcript
+  transcript=$(
+    awk -v OFS='\t' "$label"' FNR > 4 && NF { print FILENAME, FNR, label $0 }' $transcripts | fzf "${FZF_OPTS[@]}"
+  ) || return  # Don't resume if fzf was cancelled.
+
+  local header=(${(s: · :)"$(sed -n 3p $transcript)"})
+  builtin cd $header[2] && claude --resume $header[3]
+}
+
 # Set up command recording with cmdlog. See the top of this file for how cmdlog gets started. The hooks below print
 # invisible "markers" telling cmdlog where each command's output starts and ends. Each marker contains a secret only
 # this shell and its cmdlog know, so program output can't fake one. cmdlog removes the markers before passing output on

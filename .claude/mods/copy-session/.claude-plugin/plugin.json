@@ -1,0 +1,5 @@
+{
+  "name": "copy-session",
+  "version": "0.1.0",
+  "description": "Copy this session's transcript to the clipboard with /copy-session"
+}

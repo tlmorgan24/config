@@ -1,0 +1,34 @@
+#!/bin/zsh
+# Usage: `claude-transcripts`
+#
+# Bring the cache of every Claude Code session's transcript, as `_claude-transcript` prints it, up to date, and print
+# the cache's directory. Each session's transcript file `~/.claude/projects/<project>/<id>.jsonl` is cached as
+# `<cache>/<project>/<id>.md`, with the same modification time, so it is only printed again once the session has
+# changed since. Cached transcripts of sessions since deleted are deleted too. A session without a prompt is cached as
+# an empty file. Used by `claude-search`, and lets every session be searched with plain
+# `rg <pattern> $(claude-transcripts)`.
+
+set -e
+
+export projects=~/.claude/projects
+export cache=${XDG_CACHE_HOME:-$HOME/.cache}/claude-transcripts
+
+stale=()
+for file in $projects/*/*.jsonl(N.); do
+  out=$cache/${${file#$projects/}%.jsonl}.md
+  [[ -e $out && ! $file -nt $out && ! $file -ot $out ]] || stale+=($file)
+done
+for out in $cache/*/*.md(N.); do
+  [[ -e $projects/${${out#$cache/}%.md}.jsonl ]] || command rm -f $out
+done
+
+# Show the changed sessions 8 at a time, each into a temporary file first, so an interrupted run leaves no half-written
+# transcript behind.
+if (( $#stale )); then
+  print -rN -- $stale | xargs -0 -n 1 -P 8 zsh -fc '
+    out=$cache/${${1#$projects/}%.jsonl}.md
+    mkdir -p ${out:h} && _claude-transcript $1 > $out.tmp && touch -r $1 $out.tmp && command mv -f $out.tmp $out
+  ' zsh
+fi
+
+print -r -- $cache
