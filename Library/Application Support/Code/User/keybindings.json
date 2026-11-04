@@ -41,6 +41,20 @@
     "args": { "text": "\u001b[1;10B" },
     "when": "terminalFocus"
   },
+  // VS Code's defaults turn option+up/down into ctrl+up/down (`\u001b[1;5A`/`B`), so send them as themselves, matching
+  // Ghostty (e.g. for Claude Code's held-message editing and the rebase tool).
+  {
+    "key": "alt+up",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[1;3A" },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "alt+down",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[1;3B" },
+    "when": "terminalFocus"
+  },
   {
     "key": "cmd+enter",
     "command": "workbench.action.terminal.sendSequence",
