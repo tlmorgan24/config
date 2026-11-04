@@ -96,7 +96,7 @@ Note all selections refer to the PROGRAM's selection (e.g. as manipulated by abo
 
 # Other shortcuts
 
-## Terminal (Ghostty & VS Code)
+## Terminal (Ghostty, Kitty & VS Code)
 
 * Ctrl+↑/↓ - scroll to the previous/next command's prompt, e.g. to get back past a long output. `./copy.sh` turns off macOS's own Ctrl+↑/↓ (Mission Control / App Exposé) to free them up, and sets 4-finger swipe up/down for those features instead.
 
@@ -222,7 +222,7 @@ The usual vim keybindings continue to work (d/y/c to delete/yank/change, etc).
 * Esc Esc - opens `/rewind`
 * Cmd+Enter - sends prompt to queue, only to be run when Claude has finished answering its current prompt (and any others already in the queue). Queued messages are listed above the prompt box until they are sent.
 * Option+↑/↓ - navigate through queued messages for editing. Enter or Cmd+Enter puts the edited text back in its place in the queue, or deletes it if the box is empty. Option+Esc cancels the editing instead, undoing every edit since the first Option+↑. While editing queued messages, Claude is prevented from moving onto anything in the queue, to let you make any edits without fear that it will read anything before you are ready.
-* Ctrl+↑/↓ - scroll the transcript to the previous/next prompt I sent, as the terminal does between shell prompts. From partway through a turn, Ctrl+↑ first goes to that turn's own prompt. Only works in VS Code's terminal, as Ghostty always takes Ctrl+↑/↓ for itself. Done by my `prompt-jump` mod. This replaces Claude Code's own Ctrl+↑/↓ for scrolling the diff view's file list.
+* Ctrl+↑/↓ - scroll the transcript to the previous/next prompt I sent, as the terminal does between shell prompts. From partway through a turn, Ctrl+↑ first goes to that turn's own prompt. Done by my `prompt-jump` mod. This replaces Claude Code's own Ctrl+↑/↓ for scrolling the diff view's file list. Only works in VS Code and Kitty's terminals, as Ghostty can't be configured to conditionally take Ctrl+↑/↓ for itself vs pass to claude.
 * `/copy-session` - copy this session's transcript to the clipboard as Markdown, e.g. to search it with `v | rg <pattern>`. Runs straight away, even while Claude is answering. Done by my `copy-session` mod.
 * `claude-search` (outside of Claude) - search every Claude Code session I've had, from any directory. Each line of every transcript is an option, labelled with its session's date and directory. Type to fuzzy search (Ctrl+s cycles the search mode, as in Ctrl+r), with newer sessions ranked first among equally good matches. The preview shows the line in its session's transcript, with Markdown highlighting. Press enter to continue that session with `claude --resume`, in the directory it was started in (the shell then stays in that directory).
 * `claude-transcripts` (outside of Claude) - bring the cache of every session's transcript (as Markdown) in `~/.cache/claude-transcripts` up to date, and print its path. E.g. `rg -i <pattern> $(claude-transcripts)`. `claude-search` runs it each time, so it is automatically up to date.
