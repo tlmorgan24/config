@@ -1279,20 +1279,29 @@ switch() {
     return
   fi
 
-  # Declare separately, as `local` would replace git's exit status with its own (always 0).
-  local branches
-  branches=$(git branch --sort=-committerdate --format='%(refname:short)')  # Most recent tip first
-  if (( $? != 0 )); then
-    echo 'switch: git branch failed: perhaps you are not in a git repository' >&2
+  if ! git rev-parse --git-dir &>/dev/null; then
+    echo 'switch: not in a git repository' >&2
     return 1
-  elif [[ -z "$branches" ]]; then
+  fi
+  # List the branches in the order their tips appear in the preview's graph (--graph implies --topo-order), so down
+  # always moves down it. Date order would jump back up wherever a branch points into the middle of another's line (e.g.
+  # a stale or merged branch), as the graph shows that line in one go. awk numbers each commit by its row in the graph,
+  # then tags each branch with its tip's row, for sort to order them by (stably, so branches on the same commit stay
+  # in name order).
+  local branches=$(
+    awk 'NR == FNR { row[$1] = NR; next } { print row[$1], $2 }' \
+      <(git log --all --topo-order --format=%H) \
+      <(git for-each-ref --format='%(objectname) %(refname:short)' refs/heads/) |
+      sort -s -n -k1,1 | cut -d' ' -f2-
+  )
+  if [[ -z "$branches" ]]; then
     echo "switch: no branches found" >&2
     return 1
   fi
 
   local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
     --preview="display-logs {}"  # `{}` injects the branch name currently selected.
-    --no-sort  # Keep the most recent first while filtering, rather than ranking by match quality.
+    --no-sort  # Keep the graph order while filtering, rather than ranking by match quality.
     --exact  # Match substrings only, as unsorted subsequence matches are mostly noise (see `zi`).
     # fzf always keeps at least one list row, plus one more for each border line the preview window has, so hide the
     # preview's border and the separator line to leave only the prompt and one list row above the preview. Then colour
@@ -1323,9 +1332,10 @@ checkout() {
     return
   fi
 
-  # Use short hashes, to exactly match the git log --oneline used in the preview.
-  local commits  # Declared separately, like `branches` in `switch`
-  commits=$(git log --all --format='%h')
+  # Use short hashes, to exactly match the git log --oneline used in the preview. --graph there implies --topo-order,
+  # so use it here too, or down would jump around the graph wherever date order differs (e.g. around merges).
+  local commits  # Declared separately, as `local` would replace git's exit status with its own (always 0).
+  commits=$(git log --all --topo-order --format='%h')
   if (( $? != 0 )); then
     echo 'checkout: git log failed: perhaps you are not in a git repository' >&2
     return 1
@@ -1337,7 +1347,7 @@ checkout() {
   local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
     # `{}` injects the commit hash currently selected (can use the same program as for branches!).
     --preview="display-logs {}"
-    --no-sort  # Keep the commits in date order while filtering, like the branches in `switch`.
+    --no-sort  # Keep the commits in graph order while filtering, like the branches in `switch`.
     --exact  # Match substrings only, as subsequence matches of hex hashes are mostly noise.
     # Make preview window take up as much space as possible, without its scroll position (see `switch`).
     --preview-window=down,99%,border-none,noinfo
