@@ -1,5 +1,5 @@
 // rebase is an interactive `git rebase -i` that lists the history as it will be once rebased: a graph of all branches
-// (newest first, like my `switch` and `checkout` in .zshrc), with a preview of the commit under the cursor. Mark the
+// (newest first, like my `switch` in .zshrc), with a preview of the commit under the cursor. Mark the
 // current branch's commits with an action (pick, reword, edit, squash, fixup or drop, whose key then unmarks it again)
 // and move them up and down, and the rebase starts just below the oldest commit marked or moved, so its base doesn't
 // need to be known upfront. To move the branch onto another commit (`git rebase --onto`), choose that commit as the
@@ -21,7 +21,8 @@
 // out the rebase as usual: stopping at edits and conflicts for `git rebase --continue` or `git rebase --abort`.
 //
 // Built under the name pick, the same program is an interactive `git cherry-pick` instead (see pick.go), and under the
-// name drop, a rebase that starts off with the commits given marked drop (see drop.go).
+// name drop, a rebase that starts off with the commits given marked drop (see drop.go). Under the name checkout, it's
+// just the list, to choose a commit to check out (see checkout.go).
 package main
 
 import (
@@ -43,6 +44,9 @@ func main() {
 		return
 	case "drop":
 		dropMain()
+		return
+	case "checkout":
+		checkoutMain()
 		return
 	}
 	onto, upstream, ok := parseArgs(os.Args[1:])
@@ -97,11 +101,11 @@ func run(verb string, preset func(*history, *plan) error) (int, error) {
 	if err := preset(h, p); err != nil {
 		return 0, err
 	}
-	todo, newBase, cutoff, err := choose(p, h)
-	if err != nil || todo == "" {
+	res, err := choose(p, h, false)
+	if err != nil || res.todo == "" {
 		return 0, err
 	}
-	return rebase(todo, newBase, cutoff)
+	return rebase(res.todo, res.onto, res.cutoff)
 }
 
 // checkRepo returns why there's nothing to do (verb, e.g. rebase) in the current directory, or nil if there's nothing
@@ -295,11 +299,17 @@ func rebase(todo, onto, cutoff string) (int, error) {
 	// git runs the sequence editor with the todo file's path as its last argument, so this copies ours over it. Only
 	// this rebase uses it: a later `git rebase --edit-todo` (or `--continue`, after a stop) opens the usual editor.
 	cmd.Env = append(os.Environ(), "GIT_SEQUENCE_EDITOR=cp "+shellQuote(f.Name()))
+	return interactive(cmd)
+}
+
+// interactive runs cmd in the terminal (for the user to see, and to answer any questions it asks), and returns its exit
+// status.
+func interactive(cmd *exec.Cmd) (int, error) {
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-	err = cmd.Run()
+	err := cmd.Run()
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
-		return exitErr.ExitCode(), nil // git has already explained what went wrong.
+		return exitErr.ExitCode(), nil // It has already explained what went wrong.
 	}
 	return 0, err
 }

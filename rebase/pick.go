@@ -65,11 +65,11 @@ func runPick(revs []string) (int, error) {
 	if err := presetPick(p, revs); err != nil {
 		return 0, err
 	}
-	todo, _, upstream, err := choose(p, h)
-	if err != nil || todo == "" {
+	res, err := choose(p, h, false)
+	if err != nil || res.todo == "" {
 		return 0, err
 	}
-	return rebase(todo, "", upstream)
+	return rebase(res.todo, "", res.cutoff)
 }
 
 // presetPick picks the commits that revs (as in `git cherry-pick <revs>`) name, in the same order, as if the user had

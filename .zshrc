@@ -1322,50 +1322,6 @@ switch() {
   git switch "$branch"
 }
 
-# Usage: `checkout [<git checkout args>]`
-#
-# Custom git checkout that previews the logs of surrounding commits. With any arguments, just run `git checkout` with
-# them instead (like `switch`).
-checkout() {
-  if (( $# )); then
-    git checkout "$@"
-    return
-  fi
-
-  # Use short hashes, to exactly match the git log --oneline used in the preview. --graph there implies --topo-order,
-  # so use it here too, or down would jump around the graph wherever date order differs (e.g. around merges).
-  local commits  # Declared separately, as `local` would replace git's exit status with its own (always 0).
-  commits=$(git log --all --topo-order --format='%h')
-  if (( $? != 0 )); then
-    echo 'checkout: git log failed: perhaps you are not in a git repository' >&2
-    return 1
-  elif [[ -z "$commits" ]]; then
-    echo "checkout: no commits found" >&2
-    return 1
-  fi
-
-  local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
-    # `{}` injects the commit hash currently selected (can use the same program as for branches!).
-    --preview="display-logs {}"
-    --no-sort  # Keep the commits in graph order while filtering, like the branches in `switch`.
-    --exact  # Match substrings only, as subsequence matches of hex hashes are mostly noise.
-    # Make preview window take up as much space as possible, without its scroll position (see `switch`).
-    --preview-window=down,99%,border-none,noinfo
-    # Leave only the prompt and a row that looks like a gap above the preview (see `switch`).
-    --no-separator
-    --color='fg+:#1e1e2e,bg+:#1e1e2e,hl+:#1e1e2e,pointer:#1e1e2e,gutter:#1e1e2e,scrollbar:#1e1e2e'
-    --color='preview-scrollbar:#585b70'
-  )
-
-  local reply
-  _fzf_help enter checkout esc quit
-  FZF_OPTS+=($reply)
-
-  local commit
-  commit=$(echo "$commits" | fzf "${FZF_OPTS[@]}") || return  # Don't check out if fzf was cancelled.
-  git checkout "$commit"
-}
-
 # Set up command recording with cmdlog. See the top of this file for how cmdlog gets started. The hooks below print
 # invisible "markers" telling cmdlog where each command's output starts and ends. Each marker contains a secret only
 # this shell and its cmdlog know, so program output can't fake one. cmdlog removes the markers before passing output on

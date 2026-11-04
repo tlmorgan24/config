@@ -16,7 +16,7 @@ import (
 	"golang.org/x/term"
 )
 
-// Colours from FZF_DEFAULT_OPTS in .zshrc (Catppuccin Mocha), so this looks like my fzf-based `switch` and `checkout`.
+// Colours from FZF_DEFAULT_OPTS in .zshrc (Catppuccin Mocha), so this looks like my fzf-based `switch`.
 var (
 	bg          = bgColour("#1e1e2e")
 	bgCursor    = bgColour("#313244")
@@ -65,6 +65,10 @@ var cherryHelp = []struct{ key, desc string }{
 	{"u", "unmark"}, {"⌥↑/↓", "swap"}, {"g/G", "top/bottom"}, {"enter", "rebase"}, {"esc", "quit"},
 }
 
+// checkoutHelp is the help shown when choosing a commit to check out, which has none of the keys for arranging a
+// rebase.
+var checkoutHelp = []struct{ key, desc string }{{"g/G", "top/bottom"}, {"enter", "checkout"}, {"esc", "quit"}}
+
 // previewHelp is the help for the preview, shown in the row above it (hiddenPreviewHelp instead while it's hidden).
 var (
 	previewHelp       = []struct{ key, desc string }{{"⇧↑/↓", "scroll"}, {"⌘↑/↓", "resize"}}
@@ -75,6 +79,7 @@ type ui struct {
 	p        *plan
 	h        *history
 	v        *preview
+	checkout bool  // Whether the user is choosing a commit to check out (see checkout.go), rather than arranging p
 	rows     []row // The history as it will be once rebased
 	limit    int   // How many commits to load into rows
 	more     bool  // Whether there are more commits than rows has
@@ -90,37 +95,55 @@ type ui struct {
 	wake     *os.File            // Written to after sending an event, to wake the main loop up
 }
 
-// choose shows the history for the user to arrange, and returns the todo list of the rebase they confirm and what it
-// goes onto and stops at (see rebase), or an empty todo list if they quit.
-func choose(p *plan, h *history) (todo, onto, cutoff string, err error) {
+// result is what the user confirmed: the todo list of the rebase and what it goes onto and stops at (see rebase), or
+// when checking out, the commit to check out. It's empty if they quit.
+type result struct{ todo, onto, cutoff, commit string }
+
+// choose shows the history for the user to arrange (or with checkout, to choose a commit to check out from), and
+// returns what they confirm.
+func choose(p *plan, h *history, checkout bool) (result, error) {
 	in, out := int(os.Stdin.Fd()), int(os.Stdout.Fd())
 	if !term.IsTerminal(in) || !term.IsTerminal(out) {
-		return "", "", "", fmt.Errorf("must be run in a terminal")
+		return result{}, fmt.Errorf("must be run in a terminal")
 	}
 	v, err := newPreview()
 	if err != nil {
-		return "", "", "", err
+		return result{}, err
 	}
 	defer v.close()
 	wakeRead, wakeWrite, err := os.Pipe()
 	if err != nil {
-		return "", "", "", err
+		return result{}, err
 	}
 	defer wakeRead.Close()
 	defer wakeWrite.Close()
-	u := &ui{p: p, h: h, v: v, limit: pageSize, preview: map[string][]string{}, events: make(chan func(*ui), 64),
-		wake: wakeWrite}
+	u := &ui{p: p, h: h, v: v, checkout: checkout, limit: pageSize, preview: map[string][]string{},
+		events: make(chan func(*ui), 64), wake: wakeWrite}
 	start := "" // When cherry-picking, the newest commit in the list, which is more likely another branch's than HEAD
-	if !p.cherry {
+	switch {
+	case checkout:
+		head, err := resolve("HEAD") // Starting from where the user already is
+		if err != nil {
+			return result{}, err
+		}
+		start = head.hash
+	case !p.cherry:
 		start = p.entries[0].hash
 	}
 	if err := u.load(start, plain); err != nil {
-		return "", "", "", err
+		return result{}, err
+	}
+	// Other branches' newer commits come first, so HEAD can be further down than the first page.
+	for checkout && u.rows[u.cursor].hash != start && u.more {
+		u.limit += pageSize
+		if err := u.load(start, plain); err != nil {
+			return result{}, err
+		}
 	}
 
 	state, err := term.MakeRaw(in)
 	if err != nil {
-		return "", "", "", err
+		return result{}, err
 	}
 	defer term.Restore(in, state)
 	// Use the alternate screen (like fzf with --height=100%), and hide the cursor, as the cursor row shows where it is.
@@ -129,7 +152,7 @@ func choose(p *plan, h *history) (todo, onto, cutoff string, err error) {
 
 	u.width, u.height, err = term.GetSize(out)
 	if err != nil {
-		return "", "", "", err
+		return result{}, err
 	}
 
 	resized := make(chan os.Signal, 1)
@@ -158,7 +181,7 @@ func choose(p *plan, h *history) (todo, onto, cutoff string, err error) {
 			if err == unix.EINTR {
 				continue
 			}
-			return "", "", "", err
+			return result{}, err
 		}
 		if fds.IsSet(wakeFd) {
 			unix.Read(wakeFd, buf)
@@ -169,13 +192,13 @@ func choose(p *plan, h *history) (todo, onto, cutoff string, err error) {
 		if fds.IsSet(in) {
 			n, err := unix.Read(in, buf)
 			if err != nil {
-				return "", "", "", err
+				return result{}, err
 			}
 			for b := buf[:n]; len(b) > 0; {
 				var key string
 				key, b = parseKey(b)
-				if done, todo, onto, cutoff := u.handle(key); done {
-					return todo, onto, cutoff, nil
+				if done, res := u.handle(key); done {
+					return res, nil
 				}
 			}
 		}
@@ -187,12 +210,27 @@ func (u *ui) send(event func(*ui)) {
 	u.wake.Write([]byte{0})
 }
 
-// handle acts on a key, and returns whether the user has finished, with the todo list and what it goes onto and stops
-// at if they confirmed.
-func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
+// handle acts on a key, and returns whether the user has finished, with what they confirmed (if they didn't quit).
+func (u *ui) handle(key string) (bool, result) {
 	u.status = ""
-	page := u.listHeight()
+	if u.navigate(key) {
+		return false, result{}
+	}
 	r := u.rows[u.cursor]
+	switch {
+	case key == "esc" || key == "q" || key == "ctrl-c":
+		return true, result{}
+	case u.checkout && key == "enter":
+		return true, result{commit: r.hash}
+	case u.checkout:
+		return false, result{} // The other keys arrange the rebase, which there isn't one of.
+	}
+	return u.arrange(key, r)
+}
+
+// navigate acts on a key that moves around the list or the preview, and returns whether it was one.
+func (u *ui) navigate(key string) bool {
+	page := u.listHeight()
 	switch key {
 	case "up", "k", "ctrl-p":
 		u.moveCursor(-1)
@@ -225,6 +263,16 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 			step = -step
 		}
 		u.listRows = max(u.listHeight()+step, 1)
+	default:
+		return false
+	}
+	return true
+}
+
+// arrange acts on a key that arranges the rebase (or confirms it) with the cursor on row r, and returns whether the
+// user has finished, with what they confirmed.
+func (u *ui) arrange(key string, r row) (bool, result) {
+	switch key {
 	case "u", "backspace":
 		u.edit("unmark", func() error { return u.mark(r, "") }, r, r.kind)
 	case "alt-up", "alt-down": // Option+up/down (with option acting as alt), as in VS Code
@@ -273,19 +321,19 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 	case "enter":
 		size := u.p.size()
 		todo, err := u.p.todo(size)
+		cutoff := ""
 		if err == nil && !u.p.cherry {
 			cutoff, err = u.p.cutoffAt(size)
 		}
 		if err != nil {
 			u.status = err.Error()
-			return false, "", "", ""
+			return false, result{}
 		}
 		if u.p.cherry {
-			return true, todo, "", u.p.base.hash // Stopping at HEAD, so the todo list goes on top of it.
+			// Stop at HEAD, so the todo list goes on top of it.
+			return true, result{todo: todo, cutoff: u.p.base.hash}
 		}
-		return true, todo, u.p.base.hash, cutoff
-	case "esc", "q", "ctrl-c":
-		return true, "", "", ""
+		return true, result{todo: todo, onto: u.p.base.hash, cutoff: cutoff}
 	default:
 		if action, ok := actionKeys[key]; ok {
 			what := action
@@ -295,7 +343,7 @@ func (u *ui) handle(key string) (done bool, todo, onto, cutoff string) {
 			u.edit(what, func() error { return u.mark(r, action) }, r, u.stay(r))
 		}
 	}
-	return false, "", "", ""
+	return false, result{}
 }
 
 // stay returns the kind of row to keep the cursor on after marking row r's commit: the same kind, except that when
@@ -468,7 +516,10 @@ func (u *ui) helpLines() []string {
 	var lines []string
 	line, width := "", 0
 	items := help
-	if u.p.cherry {
+	switch {
+	case u.checkout:
+		items = checkoutHelp
+	case u.p.cherry:
 		items = cherryHelp
 	}
 	for _, h := range items {
@@ -595,7 +646,10 @@ func (u *ui) messageRows() int {
 		`can't rebase, as ` + short + ` is marked "squash" with nothing below it to fold into`,
 		"Nothing to rebase: " + short + " already has all of the current branch's commits",
 	}
-	if u.p.cherry {
+	switch {
+	case u.checkout:
+		messages = nil // Only errors, which can't be known in advance
+	case u.p.cherry:
 		messages = []string{"can't fixup " + short + ", as " + short + " would then have nothing to fold into", cherryHint}
 	}
 	for _, m := range messages {
@@ -664,14 +718,21 @@ func (u *ui) row(i, size int, l labels) string {
 	case l.partner:
 		rowBg = bgPartner
 	}
-	start := mark + " " + u.arrow(i, l)
+	// When checking out, leave out the arrow and the label, as they only show what the rebase does.
+	start := mark + " "
 	if r.hash == "" {
-		return u.line(start+strings.Repeat(" ", 7)+text+r.graph, rowBg)
+		if !u.checkout {
+			start += u.arrow(i, l) + strings.Repeat(" ", 7)
+		}
+		return u.line(start+text+r.graph, rowBg)
 	}
 
 	label := fmt.Sprintf("%-6s", "")
 	graph := r.graph
-	subject := dim + r.subject
+	subject := dim + r.subject // Dimmed beside the rebase's own commits, which are what matter
+	if u.checkout {
+		subject = text + r.subject // No rebase to stand out from, so as in `git log`
+	}
 	if r.lost {
 		subject = dim + "\x1b[9m" + r.subject + "\x1b[29m" // Struck through
 	}
@@ -712,7 +773,10 @@ func (u *ui) row(i, size int, l labels) string {
 	if r.refs != "" {
 		subject = refs + "(" + r.refs + ") " + subject
 	}
-	return u.line(start+label+" "+text+graph+hashColour+r.short+" "+subject, rowBg)
+	if !u.checkout {
+		start += u.arrow(i, l) + label + " "
+	}
+	return u.line(start+text+graph+hashColour+r.short+" "+subject, rowBg)
 }
 
 // arrow draws row i's part (two columns and a space) of the arrow from moved commits' old positions to their copies.

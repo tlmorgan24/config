@@ -617,3 +617,24 @@ func TestMarkOutside(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckoutKeys checks that when checking out, the keys that arrange a rebase do nothing, and enter chooses the
+// cursor's commit.
+func TestCheckoutKeys(t *testing.T) {
+	u := &ui{p: &plan{complete: true}, checkout: true, width: 80, height: 24,
+		rows: []row{{hash: "ha", short: "a", entry: -1}, {graph: "|", entry: -1}, {hash: "hb", short: "b", entry: -1}},
+		// As if their previews are already loading, so moving the cursor doesn't run git
+		preview: map[string][]string{"ha": nil, "hb": nil}}
+	for _, key := range []string{"p", "d", "u", "b", "c", "P", "alt-down"} {
+		if done, _ := u.handle(key); done || u.status != "" || u.p.base.hash != "" || u.p.cutoff != "" {
+			t.Errorf("%s when checking out finished (%v) or changed something (status %q)", key, done, u.status)
+		}
+	}
+	u.handle("down") // Skipping the row without a commit
+	if done, res := u.handle("enter"); !done || res != (result{commit: "hb"}) {
+		t.Errorf("enter on b gave %v, %+v, want the commit hb", done, res)
+	}
+	if done, res := u.handle("esc"); !done || res != (result{}) {
+		t.Errorf("esc gave %v, %+v, want to quit with nothing", done, res)
+	}
+}

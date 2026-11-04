@@ -1,9 +1,9 @@
 #!/bin/bash
 # Usage: `display-logs <branch>`
 #
-# Intended as a private helper for my custom `switch` and `checkout` functions. Show a graph view of the logs of all
-# branches, while cropping to and highlighting the branch provided. Can provide a commit hash instead of a branch, and
-# the program works without adjustment (though the naming uses "branch" throughout).
+# Intended as a private helper for my custom `switch` function. Show a graph view of the logs of all branches, while
+# cropping to and highlighting the branch provided. Can provide a commit hash instead of a branch, and the program works
+# without adjustment (though the naming uses "branch" throughout).
 
 branch="$1"  # Name of fzf's highlighted branch
 [ -n "$branch" ] || exit 1
