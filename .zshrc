@@ -1324,11 +1324,12 @@ switch() {
 
 # Usage: `claude-search`
 #
-# Search every Claude Code session I've had, line by line (as `_claude-transcript` prints them, cached by
-# `claude-transcripts`), with each line labelled by its session's date and directory, and newer sessions ranked first
-# among equally good matches. The preview shows the line in its session's transcript. Press enter to continue that
-# session with `claude --resume`, in the directory it was started in (which this shell then stays in). Press ctrl+s to
-# cycle the search mode (see _fzf_search_mode_opts).
+# Search every Claude Code session I've had, message by message (each of my prompts and each of Claude's replies, as
+# `_claude-transcript` prints them, cached by `claude-transcripts`), with each message on one line, labelled by its
+# session's date and directory and who sent it. Newer sessions are ranked first among equally good matches. The preview
+# shows the message in its session's transcript. Press enter to continue that session with `claude --resume`, in the
+# directory it was started in (which this shell then stays in). Starts in the words search mode, as a short fuzzy query
+# matches almost any long message somewhere. Press ctrl+s to cycle the search mode (see _fzf_search_mode_opts).
 claude-search() {
   local cache
   cache=$(claude-transcripts) || return
@@ -1339,32 +1340,54 @@ claude-search() {
   fi
 
   local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
-    --delimiter=$'\t'  # fzf is provided `transcript<TAB>line number<TAB>label and line` fields.
-    --with-nth=3..  # Only use the label and line for display/search.
+    --delimiter=$'\t'  # fzf is provided `transcript<TAB>line number<TAB>label and message` fields.
+    --with-nth=3..  # Only use the label and message for display/search.
     --accept-nth=1  # Only output the transcript.
     --scheme=history  # Rank equally good matches by their order, i.e. newest session first.
     --ansi  # Preserve the label's colour
     --preview='bat --color=always --style=plain --language=markdown --highlight-line={2} {1}'
-    --preview-window='+{2}-/2'  # Scroll the preview to put the line in the middle.
+    --preview-window='+{2}'  # Scroll the preview to put the message's heading at the top.
   )
 
   local reply
   _fzf_help ⌃s 'search mode' ⇧↑/↓ 'scroll preview' enter resume esc quit
   FZF_OPTS+=($reply)
   _fzf_search_mode_opts
-  FZF_OPTS+=($reply)
+  FZF_OPTS+=($reply --prompt='words> ')
 
-  # Take each session's date and directory for the label from line 3 of the header `_claude-transcript` gives it
-  # (`<date> <time> · <directory> · <session id>`), and leave out the header and blank lines.
-  local label='FNR == 3 {
-    split($0, header, " · ")
-    n = split(header[2], directory, "/")
-    label = "\033[38;2;127;132;156m" substr(header[1], 1, 10) " " directory[n] "\033[0m  "
-  }'
+  # Print each message as one line, its lines joined by two spaces, after its heading's line number (where the preview
+  # starts). Take each session's date and directory for the label from line 3 of the header `_claude-transcript` gives
+  # it (`<date> <time> · <directory> · <session id>`). A message ends at the next heading or the end of its
+  # transcript, i.e. when the next transcript starts or the input ends.
+  local messages='
+    function flush() {
+      if (text != "") {
+        print file, start, label sprintf("%-6s", role) "\033[0m  " text
+      }
+      text = ""
+      start = 0
+    }
+    FNR == 1 { flush() }
+    FNR == 3 {
+      split($0, header, " · ")
+      n = split(header[2], directory, "/")
+      label = "\033[38;2;127;132;156m" substr(header[1], 1, 10) " " directory[n] "  "
+    }
+    FNR > 4 && /^## (Me ·|Claude$)/ {
+      flush()
+      file = FILENAME
+      start = FNR
+      role = $2
+      next
+    }
+    start && NF {
+      gsub(/\t/, " ")
+      text = text (text == "" ? "" : "  ") $0
+    }
+    END { flush() }
+  '
   local transcript
-  transcript=$(
-    awk -v OFS='\t' "$label"' FNR > 4 && NF { print FILENAME, FNR, label $0 }' $transcripts | fzf "${FZF_OPTS[@]}"
-  ) || return  # Don't resume if fzf was cancelled.
+  transcript=$(awk -v OFS='\t' $messages $transcripts | fzf "${FZF_OPTS[@]}") || return  # Don't resume if cancelled.
 
   local header=(${(s: · :)"$(sed -n 3p $transcript)"})
   builtin cd $header[2] && claude --resume $header[3]
