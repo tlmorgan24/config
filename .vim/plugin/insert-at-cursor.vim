@@ -11,6 +11,15 @@ vim9script
 #
 # Any other empty buffer (a new or empty file, or plain `vim`) has nothing to do but type, so start in insert mode there
 # too, unless it's read-only or in diff mode.
+#
+# A git message (`git commit`, merge, tag) is empty too if all it has is git's `#` comments, which git strips, so start
+# in insert mode at the top there. Lines from the scissors line on (the diff shown by `git commit -v`) don't count.
+
+def CommentsOnly(): bool
+  const scissors = search('^# -\+ >8 -\+$', 'nw')
+  const lines = getline(1, scissors > 0 ? scissors - 1 : '$')
+  return lines->indexof((_, l) => l !~ '^\s*$' && l !~ '^#') == -1
+enddef
 
 def InsertAtCursor()
   for arg in v:argv
@@ -28,6 +37,9 @@ def InsertAtCursor()
   if expand('%:t') =~# '^claude-prompt-.*\.md$'
     startinsert!
   elseif line('$') == 1 && getline(1) == '' && &modifiable && !&readonly && !&diff
+    startinsert
+  elseif &filetype == 'gitcommit' && CommentsOnly()
+    cursor(1, 1)
     startinsert
   endif
 enddef
