@@ -207,6 +207,8 @@ Note (to make the tools work intuitively), `pick` can mark any commit HEAD doesn
 * Mouse drag - enter visual mode and select dragged-over region
 * Shift + mouse drag - terminal selection (rather than vim selection), copyable to clipboard with cmd+c
 * Backspace - if in insert mode, deletes character before cursor. If in visual mode, acts like `c`
+* The insert mode text editing shortcuts in the table above also work on the command line (`:`, `/` and `?`): Alt + ←/→ (move by word, stopping where `b`/`w` do), Cmd + ←/→ and Cmd + ↑/↓ (start/end of command line), Alt + ⌫ and Cmd + ⌫ (delete back to start of word/line). The selection, undo and indent shortcuts have no command line equivalent
+* Pasting a command that starts with `:` (e.g. `:set number`) onto an empty `:` command line drops the pasted `:`, so it doesn't end up as `::set number`
 
 The usual vim keybindings continue to work (d/y/c to delete/yank/change, etc).
 

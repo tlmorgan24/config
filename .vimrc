@@ -199,3 +199,50 @@ xnoremap <S-Tab> <gv
 
 " Shift + Tab in INSERT mode: indent current line left by one level.
 inoremap <S-Tab> <C-d>
+
+" Command line (`:`, and also `/` and `?` searches): the same text editing shortcuts as in insert mode, where the command
+" line has an equivalent. Cmd + Backspace (Ctrl-U) and Ctrl-E already do the same there by default.
+"
+" Alt + Left/Right: move back/forward a word, stopping where `b` and `w` do (the command line's own Shift + Left/Right
+" only stop at spaces).
+function! s:CmdWordLeft()
+  let before = strpart(getcmdline(), 0, getcmdpos() - 1)
+  call setcmdpos(max([match(before, '\%(\k\+\|\%(\k\@!\S\)\+\)\s*$'), 0]) + 1)
+  return getcmdline()
+endfunction
+
+function! s:CmdWordRight()
+  let after = strpart(getcmdline(), getcmdpos() - 1)
+  call setcmdpos(getcmdpos() + matchend(after, '^\%(\k\+\|\%(\k\@!\S\)\+\)\=\s*'))
+  return getcmdline()
+endfunction
+
+cnoremap <Esc>b <C-\>e<SID>CmdWordLeft()<CR>
+cnoremap <Esc>f <C-\>e<SID>CmdWordRight()<CR>
+
+" Cmd + Left / Ctrl-A: move to start of command line.
+cnoremap <Char-0x01> <Home>
+
+" Cmd + Up/Down: move to start/end of command line.
+cnoremap <Esc>[1;9A <Home>
+cnoremap <Esc>[1;9B <End>
+
+" Alt + Backspace: delete previous word.
+cnoremap <M-BS> <C-w>
+
+" When a command starting with `:` is pasted onto an empty `:` command line (as when copying a command from elsewhere),
+" drop the pasted `:`, as the command line already has one. A change counts as a paste if it takes an empty command line
+" to more than one character at once, which typing can't.
+function! s:DropPastedColon()
+  let line = getcmdline()
+  if s:cmdline_before ==# '' && line =~# '^:.'
+    call setcmdline(line[1:], getcmdpos() - 1)
+  endif
+  let s:cmdline_before = getcmdline()
+endfunction
+
+augroup pastedcolon
+  autocmd!
+  autocmd CmdlineEnter : let s:cmdline_before = ''
+  autocmd CmdlineChanged : call s:DropPastedColon()
+augroup END
