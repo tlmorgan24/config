@@ -1,15 +1,133 @@
 #!/bin/bash
-# Usage: `display-contents <path>`
+# Usage: `display-contents <path>` or `display-contents --scroll <up|down> <path>`
 #
-# Dependencies: eza, bat. Show the contents of <path>. If <path> is a file, print the file contents. If <path> is a
-# directory, print one level of the directory's entries.
+# Dependencies: eza, bat, kitten (from kitty) and pdftoppm/pdfinfo (from poppler). Show the contents of <path>. If
+# <path> is a directory, print one level of the directory's entries. If <path> is an image or PDF (a page of it), draw
+# it to fit fzf's preview window, with the Kitty graphics protocol in Ghostty and kitty, else just describe it.
+# Otherwise print the file contents. (VS Code draws images too, but badly with both protocols it has, Sixel and
+# iTerm2's, and a PDF's page with iTerm2's breaks the whole window.)
+#
+# With --scroll, print the fzf action to scroll the preview of <path> up or down: an ordinary scroll, except that for a
+# drawn PDF it turns the page (when run by `browse`, which keeps the page in its state directory), and for any other
+# drawn image it does nothing. Scrolling a drawn image would only blank it, as fzf draws it again without its data.
+#
+# When run by `browse`, images converted to draw them (see viewable) are kept in its state directory until it exits, so
+# going back to one draws it straight away.
 
+scroll=
+if [[ "$1" == --scroll ]]; then
+  scroll="$2"
+  shift 2
+fi
 path="$1"  # Full path of highlighted entry
-if [[ -f "$path" ]]; then
-  bat --color=always --paging=always --decorations=never -- "$path"
-elif [[ -d "$path" ]]; then
+page_file="$BROWSE_STATE/page"  # The page of a PDF being shown, then the PDF's path, on separate lines
+
+# While `browse` is moving the cursor (see `placing` and `top-soon` in browse-action), wait to be stopped by fzf's next
+# preview, without drawing anything, so fzf keeps showing the previous preview until then.
+if [[ -z "$scroll" && -n "$BROWSE_STATE" && ( -e "$BROWSE_STATE/placing" || -e "$BROWSE_STATE/top-soon" ) ]]; then
+  sleep 10
+  exit
+fi
+
+# Print the page of the PDF at $path to show (1 unless `browse` has turned it).
+current_page() {
+  local page page_path
+  if [[ -n "$BROWSE_STATE" && -e "$page_file" ]] && { read -r page; read -r page_path; } < "$page_file" &&
+    [[ "$page_path" == "$path" ]]; then
+    echo "$page"
+  else
+    echo 1
+  fi
+}
+
+# Print the path of a version of the image (or page $page of the PDF) at $path that kitten can draw: the image itself if
+# it's in a common format and small enough to draw quickly, else a PNG of it at most 1600 pixels across.
+viewable() {
+  case "$mime" in
+    image/png | image/jpeg | image/gif | image/webp)
+      if (( $(stat -f %z -- "$path") < 2000000 )); then
+        echo "$path"
+        return
+      fi
+      ;;
+  esac
+  mkdir -p "$cache_dir"
+  local png="$cache_dir/$(md5 -q -s "$path")-$page.png"
+  # Converted to a temporary name first, so a conversion cut short (by fzf moving to another preview) isn't kept.
+  if [[ ! -e "$png" ]]; then
+    if [[ "$mime" == application/pdf ]]; then
+      pdftoppm -png -singlefile -f "$page" -l "$page" -scale-to 1600 "$path" "$png.part" && mv "$png.part.png" "$png"
+    else
+      sips -s format png -Z 1600 "$path" --out "$png.part.png" > /dev/null && mv "$png.part.png" "$png"
+    fi
+  fi
+  echo "$png"
+}
+
+if [[ -d "$path" ]]; then
+  if [[ -n "$scroll" ]]; then
+    echo "preview-$scroll"
+    exit
+  fi
   # Display the directory's files/subfolders with eza's tree view (whose first line is the directory path itself), and
   # simplify that path, e.g. <symbols>/Users/thomas/Downloads/bar becomes <symbols>…/Downloads/bar.
   eza -1 --tree --level=1 --no-quotes --group-directories-first --color=always --icons=always -- "$path" |
     sed -E '1s|([^/]+)/(.*)/(.*)/(.*)|\1…/\3/\4|'
+  exit
+elif [[ ! -f "$path" ]]; then
+  exit
+fi
+
+mime=$(file --brief --mime-type -- "$path")
+drawn=false  # Whether the preview is an image drawn with kitten
+if [[ ( ( "$mime" == image/* && "$mime" != image/svg+xml ) || "$mime" == application/pdf ) &&  # SVG is text.
+  ( -n "$KITTY_WINDOW_ID" || "$TERM_PROGRAM" == ghostty ) ]]; then
+  drawn=true
+fi
+pages=1
+if [[ "$drawn" == true && "$mime" == application/pdf ]]; then
+  pages=$(pdfinfo "$path" 2> /dev/null | awk '/^Pages:/ { print $2 }')
+  pages=${pages:-1}
+fi
+
+if [[ -n "$scroll" ]]; then
+  if [[ "$drawn" == false ]]; then
+    echo "preview-$scroll"
+  elif (( pages > 1 )) && [[ -n "$BROWSE_STATE" ]]; then
+    page=$(current_page)
+    if [[ "$scroll" == up ]]; then
+      new_page=$(( page > 1 ? page - 1 : 1 ))
+    else
+      new_page=$(( page < pages ? page + 1 : pages ))
+    fi
+    if (( new_page != page )); then
+      printf '%s\n%s\n' "$new_page" "$path" > "$page_file"
+      echo refresh-preview
+    fi
+  fi
+elif [[ "$drawn" == false ]]; then
+  if [[ "$mime" == image/* || "$mime" == application/pdf ]]; then
+    file --brief -- "$path"
+  else
+    bat --color=always --paging=always --decorations=never -- "$path"
+  fi
+else
+  # Where viewable puts what it converts (set here, rather than in viewable, which runs in a subshell)
+  if [[ -n "$BROWSE_STATE" ]]; then
+    cache_dir="$BROWSE_STATE/previews"
+  else
+    cache_dir=$(mktemp -d)
+    trap 'rm -r "$cache_dir"' EXIT
+  fi
+  page=$(current_page)
+  # Leave the last row empty, as fzf shows its scroll offset (e.g. `1/36`) once the preview fills the window, which here
+  # would only count rows of the image. A PDF's page count is shown above it instead.
+  lines=$(( FZF_PREVIEW_LINES - 1 ))
+  if (( pages > 1 )); then
+    printf '\e[2mPage %d of %d\e[0m\n' "$page" "$pages"
+    (( lines-- ))
+  fi
+  # Unicode placeholders let fzf place the image like text.
+  kitten icat --clear --transfer-mode=memory --unicode-placeholder --stdin=no \
+    --place="${FZF_PREVIEW_COLUMNS}x${lines}@0x0" -- "$(viewable)"
 fi

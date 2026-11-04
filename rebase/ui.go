@@ -71,7 +71,7 @@ var checkoutHelp = []struct{ key, desc string }{{"g/G", "top/bottom"}, {"enter",
 
 // previewHelp is the help for the preview, shown in the row above it (hiddenPreviewHelp instead while it's hidden).
 var (
-	previewHelp       = []struct{ key, desc string }{{"⇧↑/↓", "scroll"}, {"⌘↑/↓", "resize"}}
+	previewHelp       = []struct{ key, desc string }{{"⇧↑/↓", "scroll"}, {"⌥z", "wrap"}, {"⌘↑/↓", "resize"}}
 	hiddenPreviewHelp = []struct{ key, desc string }{{"⌘↑", "show"}}
 )
 
@@ -88,7 +88,8 @@ type ui struct {
 	width    int
 	height   int
 	status   string              // Error shown under the help until the next key
-	scroll   int                 // Lines of the preview scrolled past
+	scroll   int                 // Rows of the preview scrolled past
+	wrap     bool                // Whether the preview's long lines wrap onto more rows, rather than being cut off
 	listRows int                 // Rows the list has been resized to (0 for the default, see listHeight)
 	preview  map[string][]string // Each commit's preview lines by hash (nil while git is still producing them)
 	events   chan func(*ui)      // Updates from other goroutines, applied by the main loop
@@ -248,6 +249,8 @@ func (u *ui) navigate(key string) bool {
 		u.moveCursor(-u.cursor)
 	case "end", "G":
 		u.moveCursor(len(u.rows))
+	case "alt-z": // As VS Code toggles wrapping, and my fzf tools do (see FZF_DEFAULT_OPTS in .zshrc)
+		u.wrap = !u.wrap
 	case "shift-up":
 		u.scroll = max(u.scroll-1, 0)
 	case "shift-down":
@@ -571,6 +574,13 @@ func (u *ui) draw() {
 	if !ok || preview == nil {
 		preview = []string{dim + "Loading…"}
 	}
+	if u.wrap {
+		var rows []string
+		for _, l := range preview {
+			rows = append(rows, fold(l, u.width)...)
+		}
+		preview = rows
+	}
 	u.scroll = max(min(u.scroll, len(preview)-u.previewHeight()), 0)
 	for i := u.scroll; len(lines) < u.height; i++ {
 		if i < len(preview) {
@@ -824,6 +834,36 @@ func (u *ui) line(s, lineBg string) string {
 // takes up. Each colour reset in s (e.g. from git's colours) is followed by base, so the line keeps its background.
 // Other escape sequences are dropped, so they can't move the cursor and break the layout.
 func fit(s string, width int, base string) (string, int) {
+	fitted, cols, _ := cut(s, width, base)
+	return fitted, cols
+}
+
+// fold splits s into rows of at most width columns, breaking anywhere (as fzf's preview does when wrapping). Each row
+// after the first starts with the colours set before it and since the last reset, so colours carry across rows.
+func fold(s string, width int) []string {
+	var rows []string
+	for {
+		row, _, rest := cut(s, width, "")
+		if rest == "" || len(rest) == len(s) { // All of s fits, or none of it does (a character wider than the row).
+			return append(rows, row)
+		}
+		rows = append(rows, row)
+		var colours string
+		for _, seq := range escapeSeq.FindAllString(s[:len(s)-len(rest)], -1) {
+			if !strings.HasSuffix(seq, "m") {
+				continue
+			}
+			if resets(seq[2 : len(seq)-1]) {
+				colours = ""
+			}
+			colours += seq
+		}
+		s = colours + rest
+	}
+}
+
+// cut is fit, also returning the rest of s that didn't fit.
+func cut(s string, width int, base string) (string, int, string) {
 	var b strings.Builder
 	col := 0
 	for i := 0; i < len(s); {
@@ -851,7 +891,7 @@ func fit(s string, width int, base string) (string, int) {
 		case r == '\t':
 			spaces := tabWidth - col%tabWidth
 			if col+spaces > width {
-				return b.String(), col
+				return b.String(), col, s[i-n:]
 			}
 			b.WriteString(strings.Repeat(" ", spaces))
 			col += spaces
@@ -860,13 +900,13 @@ func fit(s string, width int, base string) (string, int) {
 		default:
 			w := runeWidth(r)
 			if col+w > width {
-				return b.String(), col
+				return b.String(), col, s[i-n:]
 			}
 			b.WriteRune(r)
 			col += w
 		}
 	}
-	return b.String(), col
+	return b.String(), col, ""
 }
 
 var escapeSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)

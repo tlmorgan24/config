@@ -4,7 +4,7 @@
 # Dependencies: fd. Like provide-contents, but for every file and directory below the directory (at any depth), not just
 # its own entries. Field 1 is the full path, field 2 the path relative to the directory (coloured by fd), tab-separated.
 # Hidden and git-ignored entries are left out (fd's defaults). If nothing is found, print `<directory>/<TAB><NEWLINE>`,
-# as provide-contents does, so browse-out etc still know where we are.
+# as provide-contents does, so browse-action still knows where we are.
 
 directory="$1"
 if [[ ! -d "$directory" ]]; then

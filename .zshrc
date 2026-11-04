@@ -1071,7 +1071,11 @@ cloneco() {
 # Without a --height, fzf uses the whole window, on the terminal's alternate screen (like vim and less), so resizing it
 # works in any terminal, and closing it leaves the screen as it was. With one, it draws below the prompt instead, where
 # a resize leaves the terminal to rewrap or crop its old frame, which fzf can't then find to clean up.
+#
+# Alt+z toggles wrapping the preview's long lines (as alt+z toggles wrapping in VS Code), in every tool with a preview.
+# fzf can't scroll the preview sideways instead.
 export FZF_DEFAULT_OPTS="\
+--bind=alt-z:toggle-preview-wrap
 --border=sharp
 --layout=reverse
 --tabstop=2
@@ -1098,11 +1102,13 @@ export FZF_TMUX_HEIGHT=100%
 #
 # Put in $reply the fzf options to show the help for an fzf tool's keys at the top of its border, so each tool lists its
 # keys in the same place. fzf runs ~/.zsh/fzf-help.zsh for the label when it starts and whenever the window is resized,
-# to fit it to the width. The binding is added to (`+`) any other `start` actions the tool has (e.g. `zi`'s).
+# to fit it to the width. The binding is added to (`+`) any other `start` actions the tool has (e.g. `zi`'s). The
+# command to print the label is also put in $REPLY, for a tool whose help changes (e.g. `browse`'s).
 _fzf_help() {
+  REPLY="zsh -f ${(q)HOME}/.zsh/fzf-help.zsh ${(j: :)${(q)@}}"
   reply=(
     --border-label-pos=3
-    --bind="start,resize:+transform-border-label:zsh -f ${(q)HOME}/.zsh/fzf-help.zsh ${(j: :)${(q)@}}"
+    --bind="start,resize:+transform-border-label:$REPLY"
   )
 }
 
@@ -1145,7 +1151,7 @@ _fzf_search_mode_opts() {
 #
 # The help's options come last, so its `start` binding adds to the one above rather than being replaced by it. They're
 # single-quoted, as zoxide splits these options like a shell would.
-_fzf_help ⇧↑/↓ 'scroll preview' enter choose esc quit
+_fzf_help ⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter choose esc quit
 export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
 --exact
 --no-sort
@@ -1173,10 +1179,16 @@ source <(fzf --zsh)
 # Usage: `browse [options] [directory]`
 #
 # Custom file browser. Output: full path to the chosen file/directory. By default, allow multi-select (select with tab,
-# confirm selection with enter, sent as separate lines of stdout). If initial directory not provided, assume current
-# working directory. From the initial directory, can interactively browse by pressing left to come out of the directory,
-# right to go into the highlighted directory. Press ctrl+f to instead search every file below the directory, and again
-# to browse the highlighted entry's directory. Press ctrl+s to cycle the search mode (see _fzf_search_mode_opts).
+# confirm selection with enter, sent as separate lines of stdout). Selections are kept while moving between
+# directories, and the header shows how many there are, along with the directory being browsed. If initial directory
+# not provided, assume current working directory. From the initial directory, can interactively browse by pressing left
+# to come out of the directory (with the cursor on the directory just left), right to go into the highlighted
+# directory. Press ctrl+f to instead search everything below the directory, and again to go back to browsing it (both
+# keeping the query). Press ctrl+s to cycle the search mode (see _fzf_search_mode_opts).
+#
+# fzf's own multi-select can't do this, as it forgets any selected entry its new list lacks. So each key runs
+# browse-action, which keeps the directory, the selections etc in a temporary directory, and shows each entry's
+# selection itself as part of the entry.
 #
 # Options:
 #   - `--group-directories-first`: self explanatory
@@ -1210,40 +1222,55 @@ browse() {
     return 1
   fi
 
-  local PROVIDE_OPTS=()
+  local -x BROWSE_PROVIDE_OPTS=  # For browse-action
   if [[ "$group" == true ]]; then
-    PROVIDE_OPTS+=(--group-directories-first)
+    BROWSE_PROVIDE_OPTS=--group-directories-first
   fi
-
-  local BROWSE_OPTS=()
-  if [[ "$group" == true ]]; then
-    BROWSE_OPTS+=(--group-directories-first)
-  fi
-  local BROWSE_OPTS_STR
-  printf -v BROWSE_OPTS_STR '%q ' "${BROWSE_OPTS[@]}"
+  local -x BROWSE_STATE=$(mktemp -d)  # See browse-action.
+  print -r -- ${directory:A} > $BROWSE_STATE/dir
+  touch $BROWSE_STATE/marks
 
   local FZF_OPTS=(  # fzf options specific to this browse function, in addition to FZF_DEFAULT_OPTS
-    --delimiter=$'\t'  # fzf is provided `full_path<TAB>pretty_path` fields.
-    --with-nth=2..  # Only use the pretty path for display/search.
+    --delimiter=$'\t'  # fzf is provided `full_path<TAB>mark<TAB>pretty_path` fields.
+    --with-nth=2..  # Only display the mark and pretty path.
+    --nth=2  # Only search the pretty path (the 2nd field displayed).
     --accept-nth=1  # Only output the full path.
-    --bind="right:transform(browse-in ${BROWSE_OPTS_STR} {1}),left:transform(browse-out ${BROWSE_OPTS_STR} {1})"
-    --bind="ctrl-f:transform(browse-search ${BROWSE_OPTS_STR} {1})"
+    --bind="right:transform(browse-action in {1}),left:transform(browse-action out)"
+    --bind="ctrl-f:transform(browse-action search)"
+    --bind="start:transform-header(browse-action header),load:transform(browse-action load)"
+    --bind="result:transform(browse-action result)"
     --preview="display-contents {1}"  # Pass the full path for displaying contents.
+    --bind="shift-up,preview-scroll-up:transform(display-contents --scroll up {1})"  # E.g. turns a PDF's pages
+    --bind="shift-down,preview-scroll-down:transform(display-contents --scroll down {1})"
     --ansi  # Preserve colours
   )
 
-  local help=(←/→ out/in ⌃f 'all files below' ⌃s 'search mode')
+  local help=(⌃s 'search mode')  # The help after ctrl+f's, whose description depends on the mode (see below)
   if [[ "$multi" == true ]]; then
-    FZF_OPTS+=(--multi)
+    FZF_OPTS+=(--bind="tab:transform(browse-action mark {1})")
     help+=(tab select)
   fi
-  local reply
-  _fzf_help $help ⇧↑/↓ 'scroll preview' enter choose esc quit
-  FZF_OPTS+=($reply)
+  help+=(⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter choose esc quit)
+  local reply REPLY
+  _fzf_help ←/→ out/in ⌃f 'everything below' $help
+  local -x BROWSE_HELP=$REPLY
+  _fzf_help ←/→ out/in ⌃f 'this level only' $help
+  local -x BROWSE_SEARCH_HELP=$REPLY
+  FZF_OPTS+=(--border-label-pos=3 --bind='start,resize:+transform-border-label:browse-action help')
   _fzf_search_mode_opts
   FZF_OPTS+=($reply)
 
-  provide-contents "${PROVIDE_OPTS[@]}" "$directory" | fzf "${FZF_OPTS[@]}"
+  # Output the selections if there are any, else the highlighted entry fzf outputs (unless fzf was cancelled).
+  local chosen
+  chosen=$(browse-action list | fzf "${FZF_OPTS[@]}")
+  local exit_status=$?
+  if (( exit_status == 0 )) && [[ -s $BROWSE_STATE/marks ]]; then
+    cat $BROWSE_STATE/marks
+  elif [[ -n $chosen ]]; then
+    print -r -- $chosen
+  fi
+  rm -r $BROWSE_STATE
+  return $exit_status
 }
 
 # Wrap cd so that, if no argument is provided, it uses my custom file browser.
@@ -1314,7 +1341,7 @@ switch() {
   )
 
   local reply
-  _fzf_help enter switch esc quit
+  _fzf_help ⌥z 'wrap preview' enter switch esc quit
   FZF_OPTS+=($reply)
 
   local branch
@@ -1350,7 +1377,7 @@ claude-search() {
   )
 
   local reply
-  _fzf_help ⌃s 'search mode' ⇧↑/↓ 'scroll preview' enter resume esc quit
+  _fzf_help ⌃s 'search mode' ⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter resume esc quit
   FZF_OPTS+=($reply)
   _fzf_search_mode_opts
   FZF_OPTS+=($reply --prompt='words> ')
@@ -1502,7 +1529,8 @@ if (( $+commands[cmdlog] )); then
       --bind="ctrl-r,ctrl-t:transform:${(j:; :)toggle}"
     )
     local reply
-    _fzf_help ⌃r directory ⌃s 'search mode' ⌃t highlighting ⇧↑/↓ 'scroll output' enter insert esc quit
+    _fzf_help ⌃r directory ⌃s 'search mode' ⌃t highlighting ⇧↑/↓ 'scroll output' ⌥z 'wrap output' \
+      enter insert esc quit
     FZF_OPTS+=($reply)
     _fzf_search_mode_opts
     FZF_OPTS+=($reply)

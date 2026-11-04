@@ -1,0 +1,237 @@
+#!/bin/bash
+# Usage: `browse-action <action> [<highlighted entry's full path>]`
+#
+# Intended as a private helper for my custom `browse` function, which fzf runs for each of its keys. Each action updates
+# the state in the directory $BROWSE_STATE, then prints the fzf actions that show it. The actions it prints never
+# contain a path (fzf runs `browse-action` again to get the list, header and label from the state), so a path can't
+# break them, whatever characters it has. The state is:
+#   - `dir`: the directory being browsed, or searched below.
+#   - `searching`: exists while searching everything below `dir` (files and directories, at any depth), rather than
+#     browsing it.
+#   - `list`: the entries last listed (`full_path<TAB>pretty_path`), so marking can show them again without listing
+#     them again (which takes 50s for everything below ~).
+#   - `list.part`: exists while listing, before `list` is replaced with it.
+#   - `marks`: the marked entries' full paths, one per line, in the order they were marked.
+#   - `focus`, `pos` or `top`: the full path or the position of the entry to put the cursor on once fzf has the new
+#     list, or (existing) to put it on the first (see `load`). Moving the cursor any earlier (e.g. with `first` after
+#     `reload-sync`) would move it in the old list, briefly showing the preview of whatever entry it lands on.
+#   - `placing`: exists from browsing a new directory until the cursor is placed in it (which needs the query cleared
+#     first, once fzf has the new list). Meanwhile, the cursor may be on any entry, of either list, so display-contents
+#     previews nothing (and fzf keeps showing the previous preview), rather than briefly previewing that entry.
+#   - `keep-query`: exists while going back to browsing from searching with a query, which is kept (so the cursor is
+#     placed once fzf has matched the new list against it, rather than once the query is cleared).
+#   - `top-soon`: exists from starting to search until the first matches come in, to put the cursor on the first. Until
+#     then, display-contents previews nothing, as for `placing`, as the cursor may be on any entry of the new list.
+#
+# Actions:
+#   - `list`: list the entries of `dir` (or everything below it), each as `full_path<TAB>mark<TAB>pretty_path`.
+#   - `relist`: list the entries last listed again, with their marks brought up to date.
+#   - `in <path>`: browse the highlighted directory.
+#   - `out`: browse the directory above the one the highlighted entry sits in (or `dir`, if nothing is highlighted),
+#     with the cursor on the latter.
+#   - `search`: toggle between browsing `dir` and searching everything below it, keeping the query. Going back to
+#     browsing without a query puts the cursor on the highlighted entry, or the directory it's below in `dir`.
+#   - `mark <path>`: toggle the highlighted entry's mark, then move down.
+#   - `load`: run by fzf once it has the new list, to put the cursor where `focus`, `pos` or `top` says.
+#   - `result`: run by fzf each time it has matched the list against the query, to finish what `load` and `search`
+#     start.
+#   - `header`: print the header, i.e. `dir` and how many entries are marked (shown as selected, as in the help).
+#   - `label`: print the preview label, which says what is being searched while searching.
+#   - `help`: print the help for the top of the border, with ctrl+f's description for the current mode, by running the
+#     command for it in $BROWSE_HELP, or $BROWSE_SEARCH_HELP while searching (see _fzf_help in .zshrc).
+#
+# $BROWSE_PROVIDE_OPTS holds the options for provide-contents (e.g. --group-directories-first), separated by spaces.
+
+state=$BROWSE_STATE
+action=$1
+path=$2
+
+# Succeed if the highlighted entry is an empty directory's placeholder entry (see provide-contents), which stands for no
+# entry.
+is_placeholder() {
+  [[ "$path" == */ && "$path" != / ]]
+}
+
+# Print the directory in which the highlighted entry sits.
+entry_dir() {
+  local cur
+  if is_placeholder; then
+    cur="${path%/}"
+  else
+    cur="${path%/*}"
+  fi
+  echo "${cur:-/}"
+}
+
+# Print the entries from stdin (`full_path<TAB>pretty_path`), each with its mark (a green bar, like fzf's own marker)
+# between, as fzf is given them. An unmarked entry has a blank braille pattern (U+2800) instead, which shows as a space
+# but isn't whitespace. fzf ranks equally good matches by their length without leading whitespace, so marking would
+# otherwise move the entry down the list (and the cursor with it, onto another entry).
+render() {
+  awk -F '\t' -v OFS='\t' -v mark=$'\e[38;2;166;227;161m┃\e[0m' '
+    FILENAME == ARGV[1] { marked[$0]; next }
+    { print $1, ($1 in marked ? mark : "⠀"), $2 }
+  ' "$state/marks" -
+}
+
+# The fzf actions to bring the header, preview label and help up to date
+labels='+transform-header(browse-action header)+transform-preview-label(browse-action label)'
+labels+='+transform-border-label(browse-action help)'
+
+# Print the fzf actions to show the list for the new state. The query is cleared once fzf has the new list (see
+# `load`), as clearing it any earlier would show the old list in full, with the cursor on its first entry.
+show() {
+  touch "$state/placing"
+  echo "reload-sync(browse-action list)$labels"
+}
+
+# Print the fzf actions to put the cursor where `focus` or `top` says, which needs the query to be clear (so the
+# position counts from the top of the whole list), then stop holding previews and preview the entry it's on (see
+# `placing`). fzf stops holding them, after moving the cursor, as stopping here (before fzf moves it) could let the
+# entry the cursor is still on be previewed.
+place() {
+  local actions=
+  if [[ -e "$state/focus" ]]; then
+    # Find the entry's position in the list (counting from 1, as pos does).
+    actions=$(FOCUS=$(<"$state/focus") awk -F '\t' '$1 == ENVIRON["FOCUS"] { print "pos(" NR ")"; exit }' "$state/list")
+  elif [[ -e "$state/top" ]]; then
+    actions=first
+  fi
+  echo "${actions:+$actions+}execute-silent(rm \"\$BROWSE_STATE/placing\")+refresh-preview"
+  rm -f "$state/focus" "$state/top"
+}
+
+case "$action" in
+  list)
+    dir=$(<"$state/dir")
+    if [[ -e "$state/searching" ]]; then
+      provide-all-contents "$dir"
+    else
+      provide-contents $BROWSE_PROVIDE_OPTS "$dir"
+    fi | tee "$state/list.part" | {
+      render
+      # The list stays open until this finishes (as this holds it open), so `load` always sees the new `list`.
+      mv "$state/list.part" "$state/list"
+    }
+    ;;
+  relist)
+    if [[ -e "$state/list.part" ]]; then
+      exec browse-action list  # The listing was cut short (by marking while listing), so list everything again.
+    fi
+    render < "$state/list"
+    ;;
+  in)
+    # If the highlighted entry is not a directory, do nothing (makes no sense to navigate into a file).
+    if [[ -d "$path" ]] && ! is_placeholder; then
+      echo "$path" > "$state/dir"
+      touch "$state/top"
+      rm -f "$state/searching"
+      show
+    fi
+    ;;
+  out)
+    path=${FZF_CURRENT_ITEM%%$'\t'*}  # Not {1}, as for `search`
+    if [[ -n "$path" ]]; then
+      cur=$(entry_dir)
+    else
+      cur=$(<"$state/dir")  # Nothing highlighted (e.g. nothing matches the query), so come out of the one shown.
+    fi
+    dirname -- "$cur" > "$state/dir"
+    echo "$cur" > "$state/focus"
+    rm -f "$state/searching"
+    show
+    ;;
+  search)
+    # The highlighted entry comes from fzf's environment rather than {1}, as fzf skips an action with {1} when nothing
+    # is highlighted (e.g. when nothing in the directory matches the query, which is when searching below it, or
+    # coming out of it, helps most).
+    path=${FZF_CURRENT_ITEM%%$'\t'*}
+    if [[ -e "$state/searching" ]]; then  # Searching, so go back to browsing the directory searched below.
+      rm "$state/searching"
+      if [[ -n "$FZF_QUERY" ]]; then
+        # Keep the query, as when starting to search, with the cursor on the best match. (The entry below would rarely
+        # match it anyway.)
+        touch "$state/keep-query" "$state/top"
+      elif [[ -n "$path" ]]; then
+        # Put the cursor on the highlighted entry if it's in that directory, else on the directory it's below there.
+        dir=$(<"$state/dir")
+        rel=${path#"${dir%/}/"}
+        echo "${dir%/}/${rel%%/*}" > "$state/focus"
+      else
+        touch "$state/top"
+      fi
+      show
+    else  # Browsing, so search, keeping the query (e.g. to look deeper for what wasn't in this directory).
+      touch "$state/searching"
+      touch "$state/top-soon"
+      echo "reload(browse-action list)$labels"
+    fi
+    ;;
+  mark)
+    if [[ -z "$path" ]] || is_placeholder; then
+      exit  # Nothing to mark
+    fi
+    if grep -qxF -- "$path" "$state/marks"; then
+      grep -vxF -- "$path" "$state/marks" > "$state/marks.new"
+      mv "$state/marks.new" "$state/marks"
+    else
+      echo "$path" >> "$state/marks"
+    fi
+    if [[ -e "$state/list.part" ]]; then
+      # Still listing (e.g. everything below ~, which takes 50s), so list everything again without waiting for it to
+      # finish, and leave the cursor where it is, rather than moving it once the listing finishes.
+      echo 'reload(browse-action relist)+transform-header(browse-action header)'
+    else
+      # Relisting keeps the query, and so the order of the matches, so the entry below is at the next position.
+      echo $((FZF_POS + 1)) > "$state/pos"
+      echo 'reload-sync(browse-action relist)+transform-header(browse-action header)'
+    fi
+    ;;
+  load)
+    if [[ -e "$state/pos" ]]; then
+      echo "pos($(<"$state/pos"))"
+      rm "$state/pos"
+    elif [[ -e "$state/placing" && ! -e "$state/keep-query" ]]; then  # See `result` for `keep-query`.
+      if [[ -n "$FZF_QUERY" ]]; then
+        echo clear-query  # Then `result` places the cursor, once fzf has matched the list against the cleared query.
+      else
+        place
+      fi
+    fi
+    ;;
+  result)
+    if [[ -e "$state/top-soon" ]]; then
+      echo 'first+execute-silent(rm "$BROWSE_STATE/top-soon")+refresh-preview'  # As for `placing` (see place)
+    elif [[ -e "$state/placing" && -e "$state/keep-query" ]]; then
+      # Only once fzf has matched the whole new list against the query (as `load` can come before that).
+      if (( FZF_TOTAL_COUNT == $(wc -l < "$state/list") )); then
+        rm "$state/keep-query"
+        place
+      fi
+    elif [[ -e "$state/placing" && -z "$FZF_QUERY" && "$FZF_MATCH_COUNT" == "$FZF_TOTAL_COUNT" ]]; then
+      # Only once everything matches, as fzf can first report the match against the query it had before clearing.
+      place
+    fi
+    ;;
+  header)
+    dir=$(<"$state/dir")
+    marks=$(($(wc -l < "$state/marks")))  # Arithmetic drops the spaces wc pads the count with.
+    printf '%s' "${dir/#$HOME/~}"
+    if (( marks )); then
+      printf '  (%d selected)' "$marks"
+    fi
+    echo
+    ;;
+  help)
+    if [[ -e "$state/searching" ]]; then
+      exec zsh -fc "$BROWSE_SEARCH_HELP"
+    fi
+    exec zsh -fc "$BROWSE_HELP"
+    ;;
+  label)
+    if [[ -e "$state/searching" ]]; then
+      dir=$(<"$state/dir")
+      echo " everything below ${dir/#$HOME/~} "
+    fi
+    ;;
+esac

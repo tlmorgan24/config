@@ -4,7 +4,7 @@
 # Options are passed directly to the eza command. Dependencies: eza. For each entry in the directory, provide field 1 as
 # the full path, and field 2 as the nicely formatted path. Use tabs to separate, assumption being that tabs will not
 # appear in any paths. If directory is empty, print `<directory>/<TAB><NEWLINE>`, so that navigating into the directory
-# is recoverable with browse-out.
+# is recoverable with browse-action out.
 
 options=()
 while [[ $# -gt 1 ]]; do

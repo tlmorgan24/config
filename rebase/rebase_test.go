@@ -596,6 +596,25 @@ func TestWrap(t *testing.T) {
 	}
 }
 
+func TestFold(t *testing.T) {
+	tests := []struct {
+		in    string
+		width int
+		want  []string
+	}{
+		{"", 4, []string{""}},
+		{"\x1b[1m\x1b[32m+abcdef\x1b[m tail", 4, // Colours carry onto the next row, until reset.
+			[]string{"\x1b[1m\x1b[32m+abc", "\x1b[1m\x1b[32mdef\x1b[m ", "\x1b[mtail"}},
+		{"日本語", 3, []string{"日", "本", "語"}}, // A wide character that doesn't fit goes onto the next row.
+		{"日本", 1, []string{""}},             // One too wide for any row cuts off the rest, rather than looping forever.
+	}
+	for _, tt := range tests {
+		if got := fold(tt.in, tt.width); strings.Join(got, "|") != strings.Join(tt.want, "|") {
+			t.Errorf("fold(%q, %d) = %q, want %q", tt.in, tt.width, got, tt.want)
+		}
+	}
+}
+
 // TestMarkOutside checks the error for marking a commit that isn't an entry, which points to the pick command for the
 // actions that would bring it in.
 func TestMarkOutside(t *testing.T) {
