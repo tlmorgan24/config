@@ -14,5 +14,5 @@ path="$1"
 if [[ -d "$path" ]]; then
   printf 'reload(provide-contents'
   printf ' %q' "${options[@]}"
-  printf ' {1})+first+change-border-label()\n'  # Clear the label, in case this ends a search (see browse-search).
+  printf ' {1})+first+change-preview-label()\n'  # Clear the label, in case this ends a search (see browse-search).
 fi

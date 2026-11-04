@@ -1,10 +1,10 @@
-# Usage: `zsh -f cmdlog-search-query.zsh`
+# Usage: `zsh -f fzf-search-mode.zsh`
 #
-# Print the search for fzf to run for the query typed into ctrl+r (see cmdlog-history-widget in .zshrc), in the search
-# mode its prompt shows. fzf runs this (via transform-search) each time the query or the mode changes, and gives the
-# query and prompt in $FZF_QUERY and $FZF_PROMPT. The query box keeps showing what was typed.
+# Print the search for fzf to run for the query typed into my ctrl+r or `browse`, in the search mode its prompt shows
+# (see _fzf_search_mode_opts in .zshrc). fzf runs this (via transform-search) each time the query or the mode changes,
+# and gives the query and prompt in $FZF_QUERY and $FZF_PROMPT. The query box keeps showing what was typed.
 #
-# fuzzy: the query as typed, so e.g. `git push` finds commands containing both words fuzzily, in any order.
+# fuzzy: the query as typed, so e.g. `git push` finds lines containing both words fuzzily, in any order.
 #
 # words: each word must appear exactly, in any order, like fzf's --exact (which can't be toggled while fzf runs). E.g.
 # `git push` becomes `'git 'push`. Words using fzf's own syntax are left as they are (`!word`, `^word`, `word$`, `|`,

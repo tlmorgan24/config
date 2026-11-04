@@ -1067,9 +1067,12 @@ cloneco() {
 }
 
 # Configure fzf.
+#
+# Without a --height, fzf uses the whole window, on the terminal's alternate screen (like vim and less), so resizing it
+# works in any terminal, and closing it leaves the screen as it was. With one, it draws below the prompt instead, where
+# a resize leaves the terminal to rewrap or crop its old frame, which fzf can't then find to clean up.
 export FZF_DEFAULT_OPTS="\
 --border=sharp
---height=80%
 --layout=reverse
 --tabstop=2
 --info=hidden
@@ -1087,14 +1090,39 @@ export FZF_DEFAULT_OPTS="\
 --color=info:#a6adc8
 --color=border:#585b70"
 
-# Make shortcuts that open fzf use the whole window, rather than the 80% above, by giving `--height=100%` in each one's
-# own options (fzf's, set up by `source <(fzf --zsh)` below, and mine). Otherwise, in a short window, fzf scrolls the
-# screen to make room for itself below the prompt, pushing the first lines of my 3-line prompt off the top, where zsh
-# can't redraw them, so they're left behind each time fzf closes. (Commands typed at the prompt, like `browse` below, are fine
-# at 80%, as their prompt doesn't get redrawn.)
-export FZF_CTRL_T_OPTS=--height=100%
-export FZF_ALT_C_OPTS=--height=100%
-export FZF_COMPLETION_OPTS=--height=100%
+# Make fzf's own shortcuts and completion (set up by `source <(fzf --zsh)` below) use the whole window too, as they
+# otherwise give fzf a 40% height (despite the name, this isn't only for tmux).
+export FZF_TMUX_HEIGHT=100%
+
+# Usage: `_fzf_help <key> <description> [<key> <description> ...]`
+#
+# Put in $reply the fzf options to show the help for an fzf tool's keys at the top of its border, so each tool lists its
+# keys in the same place. fzf runs ~/.zsh/fzf-help.zsh for the label when it starts and whenever the window is resized,
+# to fit it to the width. The binding is added to (`+`) any other `start` actions the tool has (e.g. `zi`'s).
+_fzf_help() {
+  reply=(
+    --border-label-pos=3
+    --bind="start,resize:+transform-border-label:zsh -f ${(q)HOME}/.zsh/fzf-help.zsh ${(j: :)${(q)@}}"
+  )
+}
+
+# Put in $reply the fzf options for ctrl+s to cycle the search mode between fuzzy, words (each word exact, in any order)
+# and phrase (the whole query exact, spaces included), for my ctrl+r and `browse`. The prompt shows the mode, and
+# doubles as the cycle's memory of it. Each time the query or mode changes, fzf searches for the query as rewritten for
+# the mode by ~/.zsh/fzf-search-mode.zsh, while the query box keeps showing what was typed.
+_fzf_search_mode_opts() {
+  local cycle=(
+    'mode=fuzzy'
+    '[[ $FZF_PROMPT == fuzzy* ]] && mode=words'
+    '[[ $FZF_PROMPT == words* ]] && mode=phrase'
+    'echo "change-prompt($mode> )+trigger(change)"'
+  )
+  reply=(
+    --prompt='fuzzy> '
+    --bind="ctrl-s:transform:${(j:; :)cycle}"
+    --bind="change:transform-search:zsh -f ${(q)HOME}/.zsh/fzf-search-mode.zsh"
+  )
+}
 
 # Additional fzf configuration for zoxide's `zi` command
 #
@@ -1115,38 +1143,29 @@ export FZF_COMPLETION_OPTS=--height=100%
 # column formatting produces inconsistent spacing. lsc is more compact (hence the 'c'). `{2..}` is fzf syntax for
 # passing the second field onward (i.e. pass the directory, not the score, to lsc).
 #
-# `--height=100%` for the same reason as FZF_CTRL_T_OPTS above, because when zoxide opens fzf from tab completion
-# (`z foo<space><tab>`), it redraws the prompt afterwards like a shortcut. `zi` overrides this (see below), as it's
-# typed at the prompt so doesn't the whole window.
+# The help's options come last, so its `start` binding adds to the one above rather than being replaced by it. They're
+# single-quoted, as zoxide splits these options like a shell would.
+_fzf_help ⇧↑/↓ 'scroll preview' enter choose esc quit
 export _ZO_FZF_OPTS="$FZF_DEFAULT_OPTS
---height=100%
 --exact
 --no-sort
 --cycle
 --keep-right
 --with-nth=2..
 --bind='start:change-nth(1),ctrl-z:ignore,btab:up,tab:down'
---preview='lsc "$FZF_PREVIEW_COLUMNS" {2..}'
+--preview='lsc \"\$FZF_PREVIEW_COLUMNS\" {2..}'
 --preview-window=down,30%,sharp
---exit-0"
+--exit-0
+${(pj:\n:)${(@qq)reply}}"
 
 # Set options for fzf's own ctrl+R shortcut to fuzzy search through shell history (only used if cmdlog isn't installed,
-# as otherwise my cmdlog-history-widget replaces it, see the cmdlog section below). `--height=100%` is explained above
-# FZF_CTRL_T_OPTS.
+# as otherwise my cmdlog-history-widget replaces it, see the cmdlog section below).
 export FZF_CTRL_R_OPTS="\
---height=100%
 --with-nth=2..
 --layout=default"
 
 export BAT_THEME="Catppuccin Mocha"
 eval "$(zoxide init zsh)"  # After `brew install zoxide`
-
-# Keep `zi` at 80% like other commands typed at the prompt (e.g. `browse`), overriding the `--height=100%` in
-# _ZO_FZF_OPTS (only needed for zoxide's tab completion). zoxide's own `zi` just calls `__zoxide_zi`, and fzf uses the
-# last `--height` it's given.
-zi() {
-  _ZO_FZF_OPTS="$_ZO_FZF_OPTS --height=80%" __zoxide_zi "$@"
-}
 
 # Enable fzf's shortcuts (fzf is still runnable without this), after `brew install fzf` and option configuration.
 source <(fzf --zsh)
@@ -1157,7 +1176,7 @@ source <(fzf --zsh)
 # confirm selection with enter, sent as separate lines of stdout). If initial directory not provided, assume current
 # working directory. From the initial directory, can interactively browse by pressing left to come out of the directory,
 # right to go into the highlighted directory. Press ctrl+f to instead search every file below the directory, and again
-# to browse the highlighted entry's directory.
+# to browse the highlighted entry's directory. Press ctrl+s to cycle the search mode (see _fzf_search_mode_opts).
 #
 # Options:
 #   - `--group-directories-first`: self explanatory
@@ -1213,9 +1232,16 @@ browse() {
     --ansi  # Preserve colours
   )
 
+  local help=(←/→ out/in ⌃f 'all files below' ⌃s 'search mode')
   if [[ "$multi" == true ]]; then
     FZF_OPTS+=(--multi)
+    help+=(tab select)
   fi
+  local reply
+  _fzf_help $help ⇧↑/↓ 'scroll preview' enter choose esc quit
+  FZF_OPTS+=($reply)
+  _fzf_search_mode_opts
+  FZF_OPTS+=($reply)
 
   provide-contents "${PROVIDE_OPTS[@]}" "$directory" | fzf "${FZF_OPTS[@]}"
 }
@@ -1231,7 +1257,6 @@ cd() {
 
 # Ctrl+f: choose file(s) with my file browser, and insert them into the command line at the cursor (like fzf's ctrl+t).
 browse-widget() {
-  local -x FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --height=100%"  # Use the whole window (see FZF_CTRL_T_OPTS).
   local selected=( ${(f)"$(browse)"} )  # One entry per line (empty if cancelled)
   if (( ${#selected} )); then
     LBUFFER+="${(j: :)${(@q-)selected}} "  # Quote each path only if needed, then join with spaces.
@@ -1266,18 +1291,22 @@ switch() {
   fi
 
   local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
-    --height=100%  # Take up entire terminal window
     --preview="display-logs {}"  # `{}` injects the branch name currently selected.
     --no-sort  # Keep the most recent first while filtering, rather than ranking by match quality.
     --exact  # Match substrings only, as unsorted subsequence matches are mostly noise (see `zi`).
     # fzf always keeps at least one list row, plus one more for each border line the preview window has, so hide the
     # preview's border and the separator line to leave only the prompt and one list row above the preview. Then colour
-    # everything in that row with fzf's background colour (`bg` in FZF_DEFAULT_OPTS), so it looks like a gap.
-    --preview-window=down,99%,border-none  # Make preview window take up as much space as possible
+    # everything in that row with fzf's background colour (`bg` in FZF_DEFAULT_OPTS), so it looks like a gap. noinfo
+    # hides the preview's scroll position, as it's meant to be left at the top, with just up/down choosing the branch.
+    --preview-window=down,99%,border-none,noinfo  # Make preview window take up as much space as possible
     --no-separator
     --color='fg+:#1e1e2e,bg+:#1e1e2e,hl+:#1e1e2e,pointer:#1e1e2e,gutter:#1e1e2e,scrollbar:#1e1e2e'
     --color='preview-scrollbar:#585b70'  # Restore the `border` colour, as setting `scrollbar` also changed this.
   )
+
+  local reply
+  _fzf_help enter switch esc quit
+  FZF_OPTS+=($reply)
 
   local branch
   branch=$(echo "$branches" | fzf "${FZF_OPTS[@]}") || return  # Don't switch if fzf was cancelled.
@@ -1306,17 +1335,21 @@ checkout() {
   fi
 
   local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
-    --height=100%  # Take up entire terminal window
     # `{}` injects the commit hash currently selected (can use the same program as for branches!).
     --preview="display-logs {}"
     --no-sort  # Keep the commits in date order while filtering, like the branches in `switch`.
     --exact  # Match substrings only, as subsequence matches of hex hashes are mostly noise.
-    --preview-window=down,99%,border-none  # Make preview window take up as much space as possible
+    # Make preview window take up as much space as possible, without its scroll position (see `switch`).
+    --preview-window=down,99%,border-none,noinfo
     # Leave only the prompt and a row that looks like a gap above the preview (see `switch`).
     --no-separator
     --color='fg+:#1e1e2e,bg+:#1e1e2e,hl+:#1e1e2e,pointer:#1e1e2e,gutter:#1e1e2e,scrollbar:#1e1e2e'
     --color='preview-scrollbar:#585b70'
   )
+
+  local reply
+  _fzf_help enter checkout esc quit
+  FZF_OPTS+=($reply)
 
   local commit
   commit=$(echo "$commits" | fzf "${FZF_OPTS[@]}") || return  # Don't check out if fzf was cancelled.
@@ -1402,55 +1435,40 @@ if (( $+commands[cmdlog] )); then
     # worth), and this would be paid every time the list is (re)loaded. ctrl+t toggles it.
     local colour_rows=0
     # Pressing ctrl+r again toggles between all commands and only those run in the current directory (like atuin), and
-    # ctrl+t toggles colouring the list's commands. Both reload the list. The border label shows which directory is
-    # shown and whether the list's highlighting is on, and doubles as the toggles' memory of these. (fzf runs this in a
-    # new shell, in this directory. The label is set with the `:` form, as the last action, so a directory name
-    # containing brackets can't break it. Setting CMDLOG_HIGHLIGHT to nothing stops cmdlog colouring.)
+    # ctrl+t toggles colouring the list's commands. Both reload the list. The preview's label shows which directory is
+    # shown and whether the list's highlighting is on, and doubles as the toggles' memory of these (the border's label
+    # has the help, see _fzf_help). (fzf runs this in a new shell, in this directory. The label is set with the `:`
+    # form, as the last action, so a directory name containing brackets can't break it. Setting CMDLOG_HIGHLIGHT to
+    # nothing stops cmdlog colouring.)
     local toggle=(
       'here=0 plain=0'
-      '[[ $FZF_BORDER_LABEL == " all directories"* ]] || here=1'
-      '[[ $FZF_BORDER_LABEL == *" · highlighting off " ]] && plain=1'
+      '[[ $FZF_PREVIEW_LABEL == " all directories"* ]] || here=1'
+      '[[ $FZF_PREVIEW_LABEL == *" · highlighting off " ]] && plain=1'
       '[[ $FZF_KEY == ctrl-r ]] && here=$(( !here )) || plain=$(( !plain ))'
       'if (( here )); then label="${PWD/#$HOME/~}" args=--here; else label="all directories" args=; fi'
       'if (( plain )); then label+=" · highlighting off" env="CMDLOG_HIGHLIGHT= "; else label+=" · highlighting on" env=; fi'
-      'echo "reload(${env}cmdlog search $args)+change-border-label: $label "'
-    )
-    # Ctrl+s cycles the search mode between fuzzy, words (each word exact, in any order) and phrase (the whole query
-    # exact, spaces included). The prompt shows the mode, and doubles as the cycle's memory of it. Each time the query
-    # or mode changes, fzf searches for the query as rewritten for the mode by ~/.zsh/cmdlog-search-query.zsh, while the
-    # query box keeps showing what was typed.
-    local cycle=(
-      'mode=fuzzy'
-      '[[ $FZF_PROMPT == fuzzy* ]] && mode=words'
-      '[[ $FZF_PROMPT == words* ]] && mode=phrase'
-      'echo "change-prompt($mode> )+trigger(change)"'
+      'echo "reload(${env}cmdlog search $args)+change-preview-label: $label "'
     )
     local highlighting=off
     (( colour_rows )) && highlighting=on
-    # Help for the keys, coloured like rebase's help (see rebase/ui.go). It's shown at the top, in the preview's border,
-    # as fzf's --header can only go next to the list.
-    local key=$'\e[38;2;205;214;244m' desc=$'\e[38;2;166;173;200m'
-    local help="${key}⌃r ${desc}directory  ${key}⌃s ${desc}search mode  ${key}⌃t ${desc}highlighting  "
-    help+="${key}enter ${desc}insert  ${key}esc ${desc}quit"
     local FZF_OPTS=(  # fzf options specific to this widget, in addition to FZF_DEFAULT_OPTS
       --delimiter=$'\t'  # cmdlog search gives `id<TAB>time<TAB>status<TAB>command`.
       --with-nth=2..  # Hide the id.
       --nth=3..  # Only search the command (fields counted after --with-nth, so the 3rd shown field).
       --accept-nth=1  # Only output the id.
-      --height=100%  # Use the whole window (see FZF_CTRL_T_OPTS).
       --ansi  # Preserve colours
       --scheme=history
       --layout=default  # Newest commands nearest the command line
       --preview='cmdlog show {1}'
       --preview-window=up,50%,sharp,wrap
-      --border-label=" all directories · highlighting $highlighting "
-      --preview-label=" $help "
-      --preview-label-pos=3
+      --preview-label=" all directories · highlighting $highlighting "
       --bind="ctrl-r,ctrl-t:transform:${(j:; :)toggle}"
-      --prompt='fuzzy> '
-      --bind="ctrl-s:transform:${(j:; :)cycle}"
-      --bind="change:transform-search:zsh -f ${(q)HOME}/.zsh/cmdlog-search-query.zsh"
     )
+    local reply
+    _fzf_help ⌃r directory ⌃s 'search mode' ⌃t highlighting ⇧↑/↓ 'scroll output' enter insert esc quit
+    FZF_OPTS+=($reply)
+    _fzf_search_mode_opts
+    FZF_OPTS+=($reply)
     # cmdlog colours the commands (in the list and the preview) as they're coloured on the command line, using
     # ~/.zsh/highlight-commands.zsh, which needs this shell's context.
     local REPLY context

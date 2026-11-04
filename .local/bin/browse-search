@@ -2,8 +2,8 @@
 # Usage: `browse-search <highlighted entry's full path>`
 #
 # Intended as a private helper for my custom `browse` function. Toggle between browsing the directory in which the
-# highlighted entry sits, and searching every file below it. The border label is only shown while searching, and doubles
-# as the memory of which mode is on.
+# highlighted entry sits, and searching every file below it. The preview label is only shown while searching, and
+# doubles as the memory of which mode is on.
 
 options=()
 while [[ $# -gt 1 ]]; do
@@ -24,11 +24,11 @@ else
 fi
 [[ -z "$cur" ]] && cur=/
 
-if [[ "$FZF_BORDER_LABEL" == " all files below "* ]]; then  # Searching, so go back to browsing.
+if [[ "$FZF_PREVIEW_LABEL" == " all files below "* ]]; then  # Searching, so go back to browsing.
   printf 'reload(provide-contents'
   printf ' %q' "${options[@]}"
-  printf ' %q)+first+change-border-label()\n' "$cur"
+  printf ' %q)+first+change-preview-label()\n' "$cur"
 else  # Browsing, so search.
   # Set the label with the `:` form, as the last action, so a directory name containing brackets can't break it.
-  printf 'reload(provide-all-contents %q)+first+change-border-label: all files below %s \n' "$cur" "${cur/#$HOME/~}"
+  printf 'reload(provide-all-contents %q)+first+change-preview-label: all files below %s \n' "$cur" "${cur/#$HOME/~}"
 fi

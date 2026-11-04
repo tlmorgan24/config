@@ -56,13 +56,13 @@ const (
 // help is the key and description of each item in the help shown at the top.
 var help = []struct{ key, desc string }{
 	{"p", "pick"}, {"r", "reword"}, {"e", "edit"}, {"s", "squash"}, {"f", "fixup"}, {"d", "drop"}, {"u", "unmark"},
-	{"b", "base"}, {"c", "cutoff"}, {"⌥↑/↓", "swap"}, {"enter", "rebase"}, {"esc", "quit"},
+	{"b", "base"}, {"c", "cutoff"}, {"⌥↑/↓", "swap"}, {"g/G", "top/bottom"}, {"enter", "rebase"}, {"esc", "quit"},
 }
 
 // cherryHelp is the help shown when cherry-picking, which leaves out d, as it only does what u does (see mark).
 var cherryHelp = []struct{ key, desc string }{
 	{"p", "pick"}, {"⇧p", "pick range"}, {"r", "reword"}, {"e", "edit"}, {"s", "squash"}, {"f", "fixup"},
-	{"u", "unmark"}, {"⌥↑/↓", "swap"}, {"enter", "rebase"}, {"esc", "quit"},
+	{"u", "unmark"}, {"⌥↑/↓", "swap"}, {"g/G", "top/bottom"}, {"enter", "rebase"}, {"esc", "quit"},
 }
 
 // previewHelp is the help for the preview, shown in the row above it (hiddenPreviewHelp instead while it's hidden).
