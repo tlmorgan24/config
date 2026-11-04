@@ -28,7 +28,8 @@
 #   - `relist`: list the entries last listed again, with their marks brought up to date.
 #   - `in <path>`: browse the highlighted directory.
 #   - `out`: browse the directory above the one the highlighted entry sits in (or `dir`, if nothing is highlighted),
-#     with the cursor on the latter.
+#     with the cursor on the latter. While searching, browse the directory the highlighted entry sits in instead, with
+#     the cursor on the entry.
 #   - `search`: toggle between browsing `dir` and searching everything below it, keeping the query. Going back to
 #     browsing without a query puts the cursor on the highlighted entry, or the directory it's below in `dir`.
 #   - `mark <path>`: toggle the highlighted entry's mark, then move down.
@@ -131,7 +132,15 @@ case "$action" in
     ;;
   out)
     path=${FZF_CURRENT_ITEM%%$'\t'*}  # Not {1}, as for `search`
-    if [[ -n "$path" ]]; then
+    if [[ -n "$path" && -e "$state/searching" ]] && ! is_placeholder; then
+      # Searching, so browse the directory the highlighted entry sits in (which can be any depth below), rather than
+      # the one above it, with the cursor on the entry.
+      entry_dir > "$state/dir"
+      echo "$path" > "$state/focus"
+      rm "$state/searching"
+      show
+      exit
+    elif [[ -n "$path" ]]; then
       cur=$(entry_dir)
     else
       cur=$(<"$state/dir")  # Nothing highlighted (e.g. nothing matches the query), so come out of the one shown.
