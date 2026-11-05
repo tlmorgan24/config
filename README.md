@@ -165,10 +165,8 @@ Limitations of `ff`/`fr`/`fl`/`bf`/`br`/`bl`:
 * `gcd` - alias for `git add . && git commit -m`
 * `gcp` - alias for `git add -p . && git commit -m`
 * `gcf` - alias for `git commit --amend --no-edit` - gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit
-* `gci` - alias for `git add . && git restore --staged .gitignore && git commit -m` - so you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore itself
 * `gcaf` - alias for `git commit -a --amend --no-edit`
 * `gcdf` - alias for `git add . && git commit --amend --no-edit`
-* `gcif` - alias for `git add . && git restore --staged .gitignore && git commit --amend --no-edit`
 * `gl` - alias for `git log --oneline`
 * `glt` - alias for `git log --graph --oneline --all` - tree view of all commits
 * `gs` - alias for `git status`

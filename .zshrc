@@ -654,12 +654,8 @@ alias gcd='gad && gc'
 alias gcp='gap && gc'
 # gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit.
 alias gcf='git commit --amend --no-edit'
-# So you can locally change the .gitignore to ignore personal files without worrying about committing the gitignore
-# itself.
-alias gci='gadr .gitignore && gc'
 alias gcaf='gcf -a'
 alias gcdf='gad && gcf'
-alias gcif='gadr .gitignore && gcf'
 
 alias gl='git log --oneline'
 alias glt='gl --graph --all'  # Tree view of all commits
