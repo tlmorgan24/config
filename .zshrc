@@ -1106,8 +1106,26 @@ export FZF_TMUX_HEIGHT=100%
 # keys in the same place. fzf runs ~/.zsh/fzf-help.zsh for the label when it starts and whenever the window is resized,
 # to fit it to the width. The binding is added to (`+`) any other `start` actions the tool has (e.g. `zi`'s). The
 # command to print the label is also put in $REPLY, for a tool whose help changes (e.g. `browse`'s).
+#
+# A description that depends on the tool's state (e.g. a toggle's, saying what pressing it switches to) can instead be
+# a variable, written `$name`, which <code> sets from the state (e.g. from files the tool keeps it in), as fzf runs the
+# code in a new shell before printing each label. The tool then also binds the toggle's key to print the label again,
+# with `--bind=<key>:+transform-border-label:$REPLY`.
 _fzf_help() {
-  REPLY="zsh -f ${(q)HOME}/.zsh/fzf-help.zsh ${(j: :)${(q)@}}"
+  local code=
+  if [[ $1 == -c ]]; then
+    code="$2; "
+    shift 2
+  fi
+  local args=() arg
+  for arg; do
+    if [[ $arg =~ '^\$[a-z_]+$' ]]; then
+      args+=(\"$arg\")  # Expanded by the shell fzf runs the code in
+    else
+      args+=(${(q)arg})
+    fi
+  done
+  REPLY="${code}zsh -f ${(q)HOME}/.zsh/fzf-help.zsh $args"
   reply=(
     --border-label-pos=3
     --bind="start,resize:+transform-border-label:$REPLY"
@@ -1358,7 +1376,9 @@ switch() {
 # session's date and directory and who sent it. Newer sessions are ranked first among equally good matches. The preview
 # shows the message in its session's transcript. Press enter to continue that session with `claude --resume`, in the
 # directory it was started in (which this shell then stays in). Starts in the words search mode, as a short fuzzy query
-# matches almost any long message somewhere. Press ctrl+s to cycle the search mode (see _fzf_search_mode_opts).
+# matches almost any long message somewhere. Press ctrl+s to cycle the search mode (see _fzf_search_mode_opts), and
+# ctrl+r to toggle between sessions in all directories and only those started in the current directory (as in my
+# ctrl+r).
 claude-search() {
   local cache
   cache=$(claude-transcripts) || return
@@ -1368,6 +1388,18 @@ claude-search() {
     return 1
   fi
 
+  # Ctrl+r reloads between the list of every session's messages (`all.tsv` in $CLAUDE_SEARCH_STATE) and the list of
+  # those in sessions started in this directory (`here.tsv`), with the header showing which directory is shown. `here`
+  # exists while it's this one. (fzf runs this in a new shell, in this directory. The header is set with the `:` form,
+  # as the last action, so a directory name containing brackets can't break it.)
+  local -x CLAUDE_SEARCH_STATE
+  CLAUDE_SEARCH_STATE=$(mktemp -d) || return
+  local toggle=(
+    'list=here header="${PWD/#$HOME/~}"'
+    '[[ -e $CLAUDE_SEARCH_STATE/here ]] && list=all header="all directories"'
+    '[[ $list == here ]] && touch $CLAUDE_SEARCH_STATE/here || rm $CLAUDE_SEARCH_STATE/here'
+    'echo "reload(cat $CLAUDE_SEARCH_STATE/$list.tsv)+change-header:$header"'
+  )
   local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
     --delimiter=$'\t'  # fzf is provided `transcript<TAB>line number<TAB>label and message` fields.
     --with-nth=3..  # Only use the label and message for display/search.
@@ -1375,23 +1407,33 @@ claude-search() {
     --scheme=history  # Rank equally good matches by their order, i.e. newest session first.
     --ansi  # Preserve the label's colour
     --preview='bat --color=always --style=plain --language=markdown --highlight-line={2} {1}'
-    --preview-window='+{2}'  # Scroll the preview to put the message's heading at the top.
+    # Stack the preview below the list, as both have long lines. Scroll it to put the message's heading at the top.
+    --preview-window='down,50%,sharp,wrap,+{2}'
+    --header='all directories'
+    --bind="ctrl-r:transform:${(j:; :)toggle}"
   )
 
-  local reply
-  _fzf_help ⌃s 'search mode' ⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter resume esc quit
-  FZF_OPTS+=($reply)
+  # Ctrl+r's help says which directory it switches to.
+  local reply REPLY
+  _fzf_help -c 'dir="this directory"; [[ -e $CLAUDE_SEARCH_STATE/here ]] && dir="all directories"' \
+    ⌃r '$dir' ⌃s 'search mode' ⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter resume esc quit
+  FZF_OPTS+=($reply --bind="ctrl-r:+transform-border-label:$REPLY")
   _fzf_search_mode_opts
   FZF_OPTS+=($reply --prompt='words> ')
 
   # Print each message as one line, its lines joined by two spaces, after its heading's line number (where the preview
-  # starts). Take each session's date and directory for the label from line 3 of the header `_claude-transcript` gives
-  # it (`<date> <time> · <directory> · <session id>`). A message ends at the next heading or the end of its
-  # transcript, i.e. when the next transcript starts or the input ends.
+  # starts), and also to `here.tsv` if its session was started in this directory. Take each session's date and
+  # directory for the label from line 3 of the header `_claude-transcript` gives it (`<date> <time> · <directory> ·
+  # <session id>`). A message ends at the next heading or the end of its transcript, i.e. when the next transcript
+  # starts or the input ends.
   local messages='
     function flush() {
       if (text != "") {
-        print file, start, label sprintf("%-6s", role) "\033[0m  " text
+        line = file OFS start OFS label sprintf("%-6s", role) "\033[0m  " text
+        print line
+        if (here) {
+          print line > (ENVIRON["CLAUDE_SEARCH_STATE"] "/here.tsv")
+        }
       }
       text = ""
       start = 0
@@ -1399,6 +1441,7 @@ claude-search() {
     FNR == 1 { flush() }
     FNR == 3 {
       split($0, header, " · ")
+      here = header[2] == ENVIRON["PWD"]
       n = split(header[2], directory, "/")
       label = "\033[38;2;127;132;156m" substr(header[1], 1, 10) " " directory[n] "  "
     }
@@ -1415,8 +1458,15 @@ claude-search() {
     }
     END { flush() }
   '
+  # Give fzf the list as it's made, while saving it as `all.tsv`.
   local transcript
-  transcript=$(awk -v OFS='\t' $messages $transcripts | fzf "${FZF_OPTS[@]}") || return  # Don't resume if cancelled.
+  {
+    touch $CLAUDE_SEARCH_STATE/here.tsv
+    transcript=$(awk -v OFS='\t' $messages $transcripts | tee $CLAUDE_SEARCH_STATE/all.tsv | fzf "${FZF_OPTS[@]}")
+  } always {
+    command rm -r -- $CLAUDE_SEARCH_STATE
+  }
+  [[ -n $transcript ]] || return  # Don't resume if cancelled.
 
   local header=(${(s: · :)"$(sed -n 3p $transcript)"})
   builtin cd $header[2] && claude --resume $header[3]
@@ -1501,22 +1551,19 @@ if (( $+commands[cmdlog] )); then
     # worth), and this would be paid every time the list is (re)loaded. ctrl+t toggles it.
     local colour_rows=0
     # Pressing ctrl+r again toggles between all commands and only those run in the current directory (like atuin), and
-    # ctrl+t toggles colouring the list's commands. Both reload the list. The preview's label shows which directory is
-    # shown and whether the list's highlighting is on, and doubles as the toggles' memory of these (the border's label
-    # has the help, see _fzf_help). (fzf runs this in a new shell, in this directory. The label is set with the `:`
-    # form, as the last action, so a directory name containing brackets can't break it. Setting CMDLOG_HIGHLIGHT to
-    # nothing stops cmdlog colouring.)
+    # ctrl+t toggles colouring the list's commands. Both reload the list. The header shows which directory is shown,
+    # and the help what each toggle switches to (see _fzf_help). In $CMDLOG_HISTORY_STATE, `here` exists while it's
+    # this directory, and `colour` while colouring. (fzf runs this in a new shell, in this directory. The header is set
+    # with the `:` form, as the last action, so a directory name containing brackets can't break it. Setting
+    # CMDLOG_HIGHLIGHT to nothing stops cmdlog colouring.)
     local toggle=(
-      'here=0 plain=0'
-      '[[ $FZF_PREVIEW_LABEL == " all directories"* ]] || here=1'
-      '[[ $FZF_PREVIEW_LABEL == *" · highlighting off " ]] && plain=1'
-      '[[ $FZF_KEY == ctrl-r ]] && here=$(( !here )) || plain=$(( !plain ))'
-      'if (( here )); then label="${PWD/#$HOME/~}" args=--here; else label="all directories" args=; fi'
-      'if (( plain )); then label+=" · highlighting off" env="CMDLOG_HIGHLIGHT= "; else label+=" · highlighting on" env=; fi'
-      'echo "reload(${env}cmdlog search $args)+change-preview-label: $label "'
+      '[[ $FZF_KEY == ctrl-r ]] && flag=here || flag=colour'
+      '[[ -e $CMDLOG_HISTORY_STATE/$flag ]] && rm $CMDLOG_HISTORY_STATE/$flag || touch $CMDLOG_HISTORY_STATE/$flag'
+      'args= header="all directories" env='
+      '[[ -e $CMDLOG_HISTORY_STATE/here ]] && args=--here header="${PWD/#$HOME/~}"'
+      '[[ -e $CMDLOG_HISTORY_STATE/colour ]] || env="CMDLOG_HIGHLIGHT= "'
+      'echo "reload(${env}cmdlog search $args)+change-header:$header"'
     )
-    local highlighting=off
-    (( colour_rows )) && highlighting=on
     local FZF_OPTS=(  # fzf options specific to this widget, in addition to FZF_DEFAULT_OPTS
       --delimiter=$'\t'  # cmdlog search gives `id<TAB>time<TAB>status<TAB>command`.
       --with-nth=2..  # Hide the id.
@@ -1527,21 +1574,29 @@ if (( $+commands[cmdlog] )); then
       --layout=default  # Newest commands nearest the command line
       --preview='cmdlog show {1}'
       --preview-window=up,50%,sharp,wrap
-      --preview-label=" all directories · highlighting $highlighting "
+      --header='all directories'
       --bind="ctrl-r,ctrl-t:transform:${(j:; :)toggle}"
     )
-    local reply
-    _fzf_help ⌃r directory ⌃s 'search mode' ⌃t highlighting ⇧↑/↓ 'scroll output' ⌥z 'wrap output' \
-      enter insert esc quit
-    FZF_OPTS+=($reply)
+    local hints=(
+      'dir="this directory" highlight="highlight on"'
+      '[[ -e $CMDLOG_HISTORY_STATE/here ]] && dir="all directories"'
+      '[[ -e $CMDLOG_HISTORY_STATE/colour ]] && highlight="highlight off"'
+    )
+    local reply REPLY
+    _fzf_help -c "${(j:; :)hints}" ⌃r '$dir' ⌃s 'search mode' ⌃t '$highlight' ⇧↑/↓ 'scroll output' \
+      ⌥z 'wrap output' enter insert esc quit
+    FZF_OPTS+=($reply --bind="ctrl-r,ctrl-t:+transform-border-label:$REPLY")
     _fzf_search_mode_opts
     FZF_OPTS+=($reply)
     # cmdlog colours the commands (in the list and the preview) as they're coloured on the command line, using
     # ~/.zsh/highlight-commands.zsh, which needs this shell's context.
-    local REPLY context
+    local context
     _save_highlight_context || return
     context=$REPLY
+    local -x CMDLOG_HISTORY_STATE
     {
+      CMDLOG_HISTORY_STATE=$(mktemp -d) || return
+      (( colour_rows )) && touch $CMDLOG_HISTORY_STATE/colour
       # Export for cmdlog, including when run by fzf.
       local -x CMDLOG_HIGHLIGHT="zsh -f ${(q)HOME}/.zsh/highlight-commands.zsh ${(q)context}"
       local id
@@ -1551,6 +1606,7 @@ if (( $+commands[cmdlog] )); then
       fi
     } always {
       command rm -f -- $context
+      [[ -n $CMDLOG_HISTORY_STATE ]] && command rm -r -- $CMDLOG_HISTORY_STATE
     }
     zle reset-prompt
   }
