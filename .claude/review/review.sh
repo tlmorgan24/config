@@ -18,10 +18,11 @@
 # go straight to my summary. Problems found by the last review go to my summary too, as do disputed findings, which
 # never go back to the reviewer (it would tend to be talked round by the writer's argument).
 #
-# The writer is only told when the review has finished, not what's in the summary. I see the summary by running
-# `review.sh summary` myself (as `! ~/.claude/review/review.sh summary` in Claude Code), so it reaches me without going
-# through the writer. The spec is copied when the review starts, so that changes to the original during review (by 
-# Claude or me) don't affect anything.
+# The writer is only told when the review has finished, not what's in the summary. My `review-summary` mod shows the
+# summary in the transcript as soon as it's written, as a notice the model never reads, so it reaches me without going
+# through the writer. `review.sh summary` prints it too (e.g. as `! ~/.claude/review/review.sh summary` in Claude Code).
+# The spec is copied when the review starts, so that changes to the original during review (by Claude or me) don't
+# affect anything.
 set -euo pipefail
 
 prompt_file=~/.claude/review/reviewer-prompt.md
@@ -292,7 +293,8 @@ respond() {
   fi
 }
 
-# Save the summary for me, and tell the writer the review has finished, without showing it the summary.
+# Save the summary for me (the `review-summary` mod shows it to me), and tell the writer the review has finished,
+# without showing it the summary.
 finish() {
   jq -r "$show_finding"'
     def section(title; condition; extra):
@@ -307,7 +309,7 @@ finish() {
     section("Fixed by the writer, but not covered by the last review"; .status == "fixed"; ""),
     section("Fixed, and confirmed by the reviewer"; .status == "confirmed"; "")
   ' "$state" > "$dir/summary.md"
-  echo 'The review has finished. Tell the user to run `! ~/.claude/review/review.sh summary` to see its summary.'
+  echo 'The review has finished, and its summary has been shown to the user directly.'
 }
 
 # Print the summary of this session's last finished review, or of the newest one if not run from inside a Claude Code

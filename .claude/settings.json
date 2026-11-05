@@ -16,7 +16,7 @@
   },
   "theme": "auto",
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/hold-queued:~/.claude/mods/prompt-select:~/.claude/mods/prompt-jump:~/.claude/mods/copy-session"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/hold-queued:~/.claude/mods/prompt-select:~/.claude/mods/prompt-jump:~/.claude/mods/copy-session:~/.claude/mods/review-summary"
   },
   "hooks": {
     "SessionStart": [

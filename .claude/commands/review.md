@@ -22,6 +22,6 @@ Get an independent review of the changes made in this session, against the spec 
    ```
 
    It sends the fixed findings back to the reviewer to check. If it prints more findings for you (new ones, or ones the reviewer says aren't fixed yet), go back to step 2.
-4. When it says the review has finished (straight after step 1, if `--rounds 0` was given), tell the user to run `! ~/.claude/review/review.sh summary` to see the summary, and stop. Don't describe the findings or your answers to them yourself: the summary is for the user to read straight from the script.
+4. When it says the review has finished (straight after step 1, if `--rounds 0` was given), stop. The summary has been shown to the user directly, so don't describe the findings or your answers to them yourself.
 
 If the script prints an error (e.g. that there's no snapshot from the start of the session), tell the user and stop, rather than working around it.

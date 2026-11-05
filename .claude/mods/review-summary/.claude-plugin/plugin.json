@@ -1,0 +1,5 @@
+{
+  "name": "review-summary",
+  "version": "0.1.0",
+  "description": "Show a /review summary in the transcript as soon as it's written, without the model seeing it"
+}
