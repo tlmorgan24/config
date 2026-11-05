@@ -20,18 +20,28 @@ const RESCROLL_DELAY_MS = 100
 type Prompt = { line: number; id: string }
 type Order = { lineOf: Map<string, number>; prompts: Prompt[] }
 
-let transcriptPath: string | undefined
+// Keep the transcript path in the session's state, not a module variable, so that it survives a reload of the mod (which
+// clears module variables and doesn't fire `classic.SessionStart` again).
+const transcriptPath = { plugin: 'prompt-jump', key: 'transcriptPath' } as const
 // Rows on screen by id, each with how many of its rows are scrolled off the top
 const shown = new Map<string, number>()
 let reports = 0  // Count of on-screen reports, to tell whether any arrived since the last jump
 let lastJump: { id: string; reports: number } | undefined
 
+// Show a failure rather than throw it, so that it doesn't block the session's start or the prompt.
+async function saveTranscriptPath($: EngineInterface, path: string): Promise<void> {
+  await $.state
+    .set(transcriptPath, path)
+    .catch((error: unknown) => $.ui.toast(`Couldn't save transcript path: ${String(error)}`))
+}
+
 // Read the transcript file's prompts in order, and the line of the transcript holding each row id.
 async function readOrder($: EngineInterface): Promise<Order | undefined> {
-  if (transcriptPath === undefined) {
+  const { value: path } = await $.state.get(transcriptPath)
+  if (path === undefined) {
     return undefined
   }
-  const found = await $.process.run(['rg', '--no-config', '-no', '-e', PATTERN, transcriptPath]).catch(() => undefined)
+  const found = await $.process.run(['rg', '--no-config', '-no', '-e', PATTERN, path]).catch(() => undefined)
   if (found === undefined || found.exitCode > 1) {
     return undefined
   }
@@ -122,14 +132,14 @@ function track(e: RenderInput) {
 }
 
 export const register: Register = on => {
-  on('classic.SessionStart', (_$, e, next) => {
-    transcriptPath = e.transcript_path
+  on('classic.SessionStart', async ($, e, next) => {
+    await saveTranscriptPath($, e.transcript_path)
 
     return next(e)
   })
 
-  on('classic.UserPromptSubmit', (_$, e, next) => {
-    transcriptPath = e.transcript_path
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    await saveTranscriptPath($, e.transcript_path)
 
     return next(e)
   })
