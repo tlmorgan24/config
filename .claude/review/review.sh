@@ -1,5 +1,6 @@
 #!/bin/bash
-# Usage: `review.sh start <spec-file> [--rounds <n>] [--model <model>] [--base <commit>]`, then `review.sh respond`
+# Usage: `review.sh start <spec-file> [--rounds <n>] [--model <model>] [--base <commit>]`, then `review.sh respond`,
+# then `review.sh summary`
 #
 # Have an independent reviewer (a separate headless Claude Code with read-only tools) check the changes made in the
 # current Claude Code session against a spec I wrote. The writer (the session's Claude) runs this through `/review` (see
@@ -16,6 +17,11 @@
 # --rounds is the most fix rounds the writer gets (default 1). With 0, the writer never sees the findings, and they all
 # go straight to my summary. Problems found by the last review go to my summary too, as do disputed findings, which
 # never go back to the reviewer (it would tend to be talked round by the writer's argument).
+#
+# The writer is only told when the review has finished, not what's in the summary. I see the summary by running
+# `review.sh summary` myself (as `! ~/.claude/review/review.sh summary` in Claude Code), so it reaches me without going
+# through the writer. The spec is copied when the review starts, so that changes to the original during review (by 
+# Claude or me) don't affect anything.
 set -euo pipefail
 
 prompt_file=~/.claude/review/reviewer-prompt.md
@@ -127,6 +133,9 @@ start() {
   fi
 
   mkdir -p "$dir"
+  # Copy the spec so the writer can't change it between reviews, and remove any earlier review's summary.
+  cp "$spec" "$dir/spec.md"
+  rm -f "$dir/summary.md"
   jq -n --arg spec "$spec" --arg model "$model" --argjson rounds "$rounds" --arg root "$root" --arg base "$base" \
     '{spec: $spec, model: $model, rounds: $rounds, reviews: 0, root: $root, base: $base, last: $base, findings: []}' \
     > "$state"
@@ -155,7 +164,7 @@ run_review() {
   # Write the reviewer's prompt. The heredocs expand variables and `$(...)` (but not inside the values they insert), so
   # backticks in the text are escaped.
   prompt=$dir/prompt-$review.md
-  spec=$(< "$(jq -r .spec "$state")")
+  spec=$(< "$dir/spec.md")
   cat > "$prompt" <<EOF
 Review the changes in this repository (the working directory) against the spec below.
 
@@ -229,7 +238,7 @@ EOF
   if jq -e "$writer_turn" "$state" >/dev/null; then
     print_open
   else
-    summary
+    finish
   fi
 }
 
@@ -246,7 +255,8 @@ print_open() {
 # Record the writer's answers (on stdin), then run the next review if there are fixes to check.
 respond() {
   [[ -f $state ]] || die "no review is in progress; run \`review.sh start <spec-file>\` first"
-  jq -e "$writer_turn" "$state" >/dev/null || die "the review has finished, and its summary is in $dir/summary.md"
+  jq -e "$writer_turn" "$state" >/dev/null ||
+    die 'the review has finished. The user can see its summary with `! ~/.claude/review/review.sh summary`.'
   local answers problems
   answers=$(jq -R -s '[
     split("\n")[]
@@ -278,12 +288,12 @@ respond() {
   if jq -e 'any(.findings[]; .status == "fixed")' "$state" >/dev/null; then
     run_review
   else
-    summary
+    finish
   fi
 }
 
-# Print the summary for me, and save it.
-summary() {
+# Save the summary for me, and tell the writer the review has finished, without showing it the summary.
+finish() {
   jq -r "$show_finding"'
     def section(title; condition; extra):
       [.findings[] | select(condition)] as $f
@@ -296,18 +306,34 @@ summary() {
     section("Not seen by the writer (found in the last review)"; .status == "open" and (.note | not); ""),
     section("Fixed by the writer, but not covered by the last review"; .status == "fixed"; ""),
     section("Fixed, and confirmed by the reviewer"; .status == "confirmed"; "")
-  ' "$state" | tee "$dir/summary.md"
-  echo "(Saved to $dir/summary.md)"
+  ' "$state" > "$dir/summary.md"
+  echo 'The review has finished. Tell the user to run `! ~/.claude/review/review.sh summary` to see its summary.'
+}
+
+# Print the summary of this session's last finished review, or of the newest one if not run from inside a Claude Code
+# session.
+summary() {
+  local file
+  if [[ -n ${CLAUDE_CODE_SESSION_ID:-} ]]; then
+    file=$state_root/$CLAUDE_CODE_SESSION_ID/summary.md
+  else
+    file=$(ls -t "$state_root"/*/summary.md 2>/dev/null | head -n 1) || true
+  fi
+  [[ -f $file ]] || die "there's no finished review to show"
+  cat "$file"
+  echo "(Saved in $file)"
 }
 
 case ${1:-} in
   baseline) baseline ;;
+  summary) summary ;;
   start | respond)
     dir=$state_root/${CLAUDE_CODE_SESSION_ID:?must be run from inside a Claude Code session}
     state=$dir/review.json
     "$1" "${@:2}"
     ;;
   *)
-    die 'usage: review.sh start <spec-file> [--rounds <n>] [--model <model>] [--base <commit>], or review.sh respond'
+    die 'usage: review.sh start <spec-file> [--rounds <n>] [--model <model>] [--base <commit>], review.sh respond, or' \
+      'review.sh summary'
     ;;
 esac
