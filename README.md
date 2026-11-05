@@ -94,11 +94,24 @@ In the table, I specify whether the keybinding is already used by the terminal (
 
 Note all selections refer to the PROGRAM's selection (e.g. as manipulated by above shortcuts), rather than TERMINAL's selection (e.g. from mouse drag in most situations). Ghostty, Kitty and VS Code all use Cmd+c to copy the terminal's selection, so I am forced to use Cmd+Shift+c if wanting to copy the program's selection. There is no way to merge the behaviours, because the program (e.g. Zsh) cannot know what/when the terminal (e.g. Ghostty) has highlighted text, and vice versa. Claude Code is the exception, as it draws its own mouse selection rather than leaving that to the terminal, so Cmd+Shift+c there can copy either. Also, in Claude Code the first character of a leftward selection sadly shows unhighlighted, as Claude Code never highlights the character under the cursor.
 
-# Other shortcuts
+# Terminals (Ghostty, Kitty & VS Code)
 
-## Terminal (Ghostty, Kitty & VS Code)
+## Comparison
+
+The differences I am aware of at the time of writing are:
+* Ghostty's keybindings can't depend on what's running in the terminal (VS Code has `when` clauses, and Kitty can run a Python kitten), so Ghostty's Ctrl+↑/↓ prompt jumping can't hand the keys over to Claude Code instead.
+* VS Code doesn't support the Kitty graphics protocol, and draws images badly with the two protocols it does have (Sixel and iTerm2's), so `browse` doesn't show images there.
+* VS Code has cursor delay when switching vim mode (e.g. if insert mode is bar cursor and normal mode is block cursor, it takes about a second for it to change to a block cursor when entering normal mode). AI keeps saying it would be fixed by ttimeoutlen, but it is wrong.
+* VS Code needs Option+click, while others just need a click, to move the cursor within the command at the zsh prompt. Kitty is has a massive delay when doing click-to-move, which I couldn't solve. None of the terminals allow clicking to move on a multi-line command (as the earlier lines have already been sent to e.g. Zsh).
+* In programs that use the mouse themselves (e.g. Vim), Shift+drag makes a terminal selection in Ghostty and Kitty, but VS Code can only do this with Option+drag after turning on `terminal.integrated.macOptionClickForcesSelection`, which stops Option+click moving the cursor in the command, so I leave it off.
+* VS Code requires opening the full app, which is more overhead.
+* Programs run in VS Code's terminal can integrate with the rest of VS Code (e.g. cmd+click on a `file:line` path in any output opens the file at that line, Claude Code sees the lines selected in the editor, etc).
+
+## Shortcuts
 
 * Ctrl+↑/↓ - scroll to the previous/next command's prompt, e.g. to get back past a long output. `./copy.sh` turns off macOS's own Ctrl+↑/↓ (Mission Control / App Exposé) to free them up, and sets 4-finger swipe up/down for those features instead.
+
+# Other shortcuts
 
 ## Zsh
 
@@ -203,7 +216,7 @@ Note (to make the tools work intuitively), `pick` can mark any commit HEAD doesn
 
 * Mouse click -	move cursor
 * Mouse drag - enter visual mode and select dragged-over region
-* Shift + mouse drag - terminal selection (rather than vim selection), copyable to clipboard with cmd+c
+* Shift + mouse drag (not in VS Code) - terminal selection (rather than vim selection), copyable to clipboard with cmd+c
 * Backspace - if in insert mode, deletes character before cursor. If in visual mode, acts like `c`
 * The insert mode text editing shortcuts in the table above also work on the command line (`:`, `/` and `?`): Alt + ←/→ (move by word, stopping where `b`/`w` do), Cmd + ←/→ and Cmd + ↑/↓ (start/end of command line), Alt + ⌫ and Cmd + ⌫ (delete back to start of word/line). The selection, undo and indent shortcuts have no command line equivalent
 * Pasting a command that starts with `:` (e.g. `:set number`) onto an empty `:` command line drops the pasted `:`, so it doesn't end up as `::set number`

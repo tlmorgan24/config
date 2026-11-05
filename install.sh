@@ -81,7 +81,7 @@ brew install python  # But executable is python3 (I alias it back to python in .
 
 # My preferred font (alternative: `brew install --cask font-fira-code-nerd-font`)
 brew install --cask font-jetbrains-mono-nerd-font
-# Terminal options (choose whichever; both configs in this repo)
+# Terminal options (plus VS Code, installed below). Choose whichever, all configs are in this repo, pros/cons in README.
 brew install --cask ghostty
 brew install --cask kitty
 # My preferred prompt customiser (i.e. to replace "user@MacBook"). powerlevel10k is an alternative, but not actively

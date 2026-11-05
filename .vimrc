@@ -44,7 +44,7 @@ augroup indentation
 augroup END
 
 " Normal mode: block cursor (there is an unfortunate ~1s delay before the cursor changes on many terminals, but Ghostty
-" is instant).
+" and Kitty are instant).
 let &t_EI = "\<Esc>[2 q"
 let &t_SI = "\<Esc>[5 q"  " Insert mode: blinking bar cursor
 let &t_SR = "\<Esc>[4 q"  " Replace mode: underline cursor
