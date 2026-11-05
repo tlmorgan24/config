@@ -1,5 +1,6 @@
 {
   "name": "copy-session",
   "version": "0.1.0",
-  "description": "Copy this session's transcript to the clipboard with /copy-session"
+  "description": "Copy this session's transcript to the clipboard with /copy-session",
+  "types": "./types/index.d.ts"
 }
