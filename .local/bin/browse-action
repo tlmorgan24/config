@@ -36,7 +36,8 @@
 #   - `load`: run by fzf once it has the new list, to put the cursor where `focus`, `pos` or `top` says.
 #   - `result`: run by fzf each time it has matched the list against the query, to finish what `load` and `search`
 #     start.
-#   - `header`: print the header, i.e. `dir` and how many entries are marked (shown as selected, as in the help).
+#   - `header`: print the header, i.e. `dir` (its last two directories) and how many entries are marked (shown as
+#     selected, as in the help).
 #   - `label`: print the preview label, which says what is being searched while searching.
 #   - `help`: print the help for the top of the border, with ctrl+f's description for the current mode, by running the
 #     command for it in $BROWSE_HELP, or $BROWSE_SEARCH_HELP while searching (see _fzf_help in .zshrc).
@@ -225,7 +226,9 @@ case "$action" in
   header)
     dir=$(<"$state/dir")
     marks=$(($(wc -l < "$state/marks")))  # Arithmetic drops the spaces wc pads the count with.
-    printf '%s' "${dir/#$HOME/~}"
+    # Show only the last two directories, as the preview does (see display-contents), as fzf cuts off the end of a
+    # header too wide for it, which matters most. E.g. ~/Downloads/foo/bar becomes …/foo/bar.
+    printf '%s' "${dir/#$HOME/~}" | sed -E 's|.*/(.*)/(.*)/(.*)|…/\2/\3|'
     if (( marks )); then
       printf '  (%d selected)' "$marks"
     fi
