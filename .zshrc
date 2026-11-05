@@ -2118,8 +2118,8 @@ bindkey $'\e[120;9u' cut-selection-to-clipboard
 # Saving and quitting puts the edited text back on the command line, without running it. 
 # With a selection active, only the selection is edited.
 # Vim then colours it exactly as the command line is coloured (see ~/.vim/plugin/zsh-command-line.vim), given this
-# shell's context in $ZSH_HIGHLIGHT_CONTEXT. Vim starts in insert mode at the cursor (see
-# ~/.vim/plugin/insert-at-cursor.vim).
+# shell's context in $ZSH_HIGHLIGHT_CONTEXT. Vim starts in normal mode at the cursor (zsh's edit-command-line puts it
+# there), or in insert mode if the command line is empty (see ~/.vim/plugin/insert-when-empty.vim).
 #
 # Vim leaves the terminal's default cursor shape (a block in Ghostty), so put back the line the prompt has (as in
 # _vscode_reset_cursor_precmd).
