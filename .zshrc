@@ -233,7 +233,7 @@ compdef _mv _mv_ask
 alias cp=_cp_ask
 alias mv=_mv_ask
 
-# Usage: `rm [-dfrRv] <file>...`
+# Usage: `rm [-dfrRv] [<file>...]`
 #
 # Like rm, but move things to the Bin rather than deleting them, so they can be restored with Finder's Put Back (the Bin
 # deletes items after 30 days, see copy.sh). Also ask for confirmation before removing my home directory, a directory
@@ -242,6 +242,10 @@ alias mv=_mv_ask
 # others. Use `\rm` or `command rm` to delete permanently (e.g. to free up space straight away, or for secrets), or for
 # other flags. An alias to a function, like cp and mv, so `\rm` still gives the real rm. Only defined where macOS has
 # /usr/bin/trash (macOS 15 onwards). My functions use `command rm` for their own temporary files.
+#
+# With no files, choose them with my file browser instead (like `cd`), implying -r, as choosing a directory is asking
+# to remove it. `rm -f` with no files still does nothing, as with rm, so e.g. `rm -f $maybe_empty` doesn't open the
+# browser.
 if [[ -x /usr/bin/trash ]]; then
   _rm_bin() {
     setopt local_options extended_glob  # For /## (one or more slashes) below
@@ -260,9 +264,11 @@ if [[ -x /usr/bin/trash ]]; then
       shift
     done
     if (( ! $# )); then
-      (( force )) && return 0
-      echo 'usage: rm [-dfrRv] file ...' >&2
-      return 64  # Same as rm
+      (( force )) && return 0  # Same as rm
+      local chosen
+      chosen=$(browse) && [[ -n "$chosen" ]] || return 1  # Else an empty name would become / below.
+      set -- "${(@f)chosen}"
+      recursive=1
     fi
 
     local home="${HOME:A}"
@@ -1269,7 +1275,7 @@ browse() {
   elif [[ -n $chosen ]]; then
     print -r -- $chosen
   fi
-  rm -r $BROWSE_STATE
+  command rm -r $BROWSE_STATE
   return $exit_status
 }
 
