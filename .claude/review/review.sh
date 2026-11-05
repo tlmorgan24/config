@@ -19,7 +19,7 @@
 # never go back to the reviewer (it would tend to be talked round by the writer's argument).
 #
 # The writer is only told when the review has finished, not what's in the summary. My `review-summary` mod shows the
-# summary in the transcript as soon as it's written, as a notice the model never reads, so it reaches me without going
+# summary in the transcript as soon as it's written, as a card the model never reads, so it reaches me without going
 # through the writer. `review.sh summary` prints it too (e.g. as `! ~/.claude/review/review.sh summary` in Claude Code).
 # The spec is copied when the review starts, so that changes to the original during review (by Claude or me) don't
 # affect anything.
