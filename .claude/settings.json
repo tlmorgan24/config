@@ -19,6 +19,16 @@
     "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/hold-queued:~/.claude/mods/prompt-select:~/.claude/mods/prompt-jump:~/.claude/mods/copy-session"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/review/review.sh baseline"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|Monitor|Write|Edit|MultiEdit|NotebookEdit",
