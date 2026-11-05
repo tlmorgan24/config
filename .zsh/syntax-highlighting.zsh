@@ -59,8 +59,9 @@ ZSH_HIGHLIGHT_STYLES[parameter]='fg=#f5e0dc'  # `$var` elsewhere (used by my par
 ZSH_HIGHLIGHT_STYLES[positional-parameter]='fg=#eba0ac,italic'
 
 # Escape sequences and patterns: pink
-ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=#f5c2e7'  # `\"` `\$` etc inside `"..."`
+ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=#f5c2e7'  # The `\` of `\"` `\$` etc inside `"..."`
 ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]='fg=#f5c2e7'  # `\n` `\t` etc inside `$'...'`
+ZSH_HIGHLIGHT_STYLES[back-unquoted-argument]='fg=#f5c2e7'  # The `\` of `\*` etc outside quotes (used by my edit below)
 ZSH_HIGHLIGHT_STYLES[rc-quote]='fg=#f5c2e7'  # `''` inside `'...'` (with the RC_QUOTES option)
 ZSH_HIGHLIGHT_STYLES[globbing]='fg=#f5c2e7'  # `*` `?` `[...]`
 
@@ -155,6 +156,37 @@ ZSH_HIGHLIGHT_STYLES[single-quoted-argument-unclosed]='fg=#f38ba8'
 ZSH_HIGHLIGHT_STYLES[double-quoted-argument-unclosed]='fg=#f38ba8'
 ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument-unclosed]='fg=#f38ba8'
 ZSH_HIGHLIGHT_STYLES[back-quoted-argument-unclosed]='fg=#f38ba8'
+
+# Colour the `\` of backslash escapes outside quotes (`\*` `\ ` `\$` etc, and a `\` at the end of a line, which escapes
+# the newline) with back-unquoted-argument, rather than leaving it uncoloured. The escaped character keeps the colour of
+# the text around it, as it is just a literal character (e.g. the `*` of `\*` is not a glob, and the `n` of `\n` is just
+# an n). This edits the plugin's internal (undocumented) function that colours an argument, to add a highlight where it
+# skips over a backslash and the character after it. Command words don't go through that function, so the `\` in `\ls`
+# (there to skip the alias) stays the colour of the command. If a plugin upgrade changes the line this looks for, the
+# edit just doesn't happen, and those backslashes are uncoloured again (see the pathunderline highlighter below for what
+# to do then).
+() {
+  local name=_zsh_highlight_main_highlighter_highlight_argument
+  local colour='highlights+=($(( start_pos + i - 1 )) $(( start_pos + i )) back-unquoted-argument)'
+  functions[$name]=${functions[$name]/'("\\") (( i += 1 ))'/'("\\") '$colour'; (( i += 1 ))'}
+}
+
+# Likewise colour only the `\` of `\"` `\$` etc inside `"..."`, rather than also the character after it as
+# zsh-syntax-highlighting does, as that character is just a literal character too. This wraps the plugin's internal
+# (undocumented) function that colours a double-quoted string, and shortens each back-double-quoted-argument highlight
+# it adds for a `\` and the character after it to just the `\`. A plugin upgrade could stop it working, in which case
+# both characters are coloured again (see the pathunderline highlighter below for what to do then).
+functions[_zsh_highlight_double_quote_plain]=$functions[_zsh_highlight_main_highlighter_highlight_double_quote]
+
+_zsh_highlight_main_highlighter_highlight_double_quote() {
+  _zsh_highlight_double_quote_plain "$@"
+  local -i n
+  for (( n = 3; n <= $#reply; n += 3 )); do  # $reply is "start end style" triples.
+    if [[ $reply[n] == back-double-quoted-argument ]] && (( reply[n-1] - reply[n-2] == 2 )); then
+      (( reply[n-1]-- ))
+    fi
+  done
+}
 
 # Colour the shell code given to my ff, fr, fl, bf, br and bl functions (in .zshrc), which they run with eval, as the
 # shell's own code, as zsh-syntax-highlighting colours the code in a `$( )`. This wraps the plugin's internal
@@ -300,6 +332,29 @@ _zsh_highlight_highlighter_pathunderline_paint() {
   done
   # Re-add the `/`s' own highlights last, as the redrawn strings above would otherwise cover them.
   region_highlight+=($separators)
+}
+
+# Colour a `\` at the end of a line that continues the command onto the next, in a command line of several lines (e.g.
+# one from history). zsh-syntax-highlighting drops the `\` and the newline when it splits the command line into words,
+# so my edit above never sees it. Like the pathunderline highlighter, this relies on the main highlighter's cache: a
+# `\` before a newline that none of its entries cover is outside quotes and comments, and not itself escaped.
+_zsh_highlight_highlighter_continuation_predicate() { _zsh_highlight_highlighter_main_predicate }
+
+_zsh_highlight_highlighter_continuation_paint() {
+  emulate -L zsh
+  [[ $BUFFER == *\\$'\n'* ]] || return
+  local entry
+  local -a fields
+  local -i i covered
+  for (( i = 1; i < $#BUFFER; i++ )); do
+    [[ $BUFFER[i,i+1] == \\$'\n' ]] || continue
+    covered=0
+    for entry in $_zsh_highlight__highlighter_main_cache; do  # Entries are "start end style ...".
+      fields=(${(s: :)entry})
+      (( fields[1] < i && fields[2] >= i )) && { covered=1; break }
+    done
+    (( covered )) || _zsh_highlight_add_highlight $(( i - 1 )) $i back-unquoted-argument
+  done
 }
 
 # Colour the insides of `(( ))` and `$(( ))` (numbers, operators, etc), which zsh-syntax-highlighting leaves uncoloured.
@@ -1636,4 +1691,6 @@ _zsh_highlight_highlighter_selection_paint() {
 
 # Run these after main, so they can override main's colours (and regex after rainbow, as it needs rainbow's brackets,
 # and selection last, as it needs everything else's colours).
-ZSH_HIGHLIGHT_HIGHLIGHTERS=(main pathunderline arithmetic parameter keywords separators rainbow regex selection)
+ZSH_HIGHLIGHT_HIGHLIGHTERS=(
+  main continuation pathunderline arithmetic parameter keywords separators rainbow regex selection
+)
