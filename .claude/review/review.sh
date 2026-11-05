@@ -11,6 +11,10 @@
 # hook), so changes I'd made before then are left out, but any I make by hand during the session are included. Pass
 # --base to diff against a commit instead (e.g. for a session started before the hook was installed).
 #
+# The spec file can be a relative path, which is resolved against the current directory. --model is passed straight to
+# `claude -p --model`, so it takes an alias for the latest model of a family (`sonnet`, the default, `opus`, `haiku` or
+# `fable`), or a full model ID (e.g. `claude-opus-5-5`).
+#
 # `start` runs the first review and prints the findings. The writer then fixes or disputes each one, and passes its
 # answers to `respond` on stdin, one per line (`F1 fixed`, or `F2 disputed <reason>`). That's one fix round, and it's
 # always followed by another review, which checks the fixes and looks for new problems in them, so every fix is checked.
@@ -71,7 +75,7 @@ schema='{
 writer_turn='.reviews <= .rounds and any(.findings[]; .status == "open")'
 
 # Format a finding (in jq) for printing.
-show_finding='def show: "\(.id) [\(.severity)] \(.file):\(.line)\n  Spec: \(.spec)\n  Problem: \(.claim)";'
+show_finding='def show: "\(.id) [\(.severity)] \(.file):\(.line)\n- **Spec:** \(.spec)\n- **Problem:** \(.claim)";'
 
 die() {
   echo "review: $*" >&2
@@ -138,7 +142,8 @@ start() {
   cp "$spec" "$dir/spec.md"
   rm -f "$dir/summary.md"
   jq -n --arg spec "$spec" --arg model "$model" --argjson rounds "$rounds" --arg root "$root" --arg base "$base" \
-    '{spec: $spec, model: $model, rounds: $rounds, reviews: 0, root: $root, base: $base, last: $base, findings: []}' \
+    '{spec: $spec, model: $model, rounds: $rounds, reviews: 0, fix_rounds: 0, root: $root, base: $base, last: $base,
+      findings: []}' \
     > "$state"
   run_review
 }
@@ -247,7 +252,8 @@ EOF
 print_open() {
   jq -r "$show_finding"'
     "Fix round \(.reviews) of \(.rounds). Fix or dispute each of these findings:\n",
-    (.findings[] | select(.status == "open") | show + (if .note then "\n  Not fixed yet: \(.note)" else "" end) + "\n"),
+    (.findings[] | select(.status == "open")
+      | show + (if .note then "\n- **Not fixed yet:** \(.note)" else "" end) + "\n"),
     "Then pass one line per finding to `~/.claude/review/review.sh respond` on stdin: `<id> fixed`, or `<id> disputed"
       + " <one-line reason>`. Fixed ones go back to the reviewer to check, and disputed ones go to the user."
   ' "$state"
@@ -280,6 +286,7 @@ respond() {
 
   jq --argjson answers "$answers" '
     ($answers | map({key: .id, value: .}) | from_entries) as $a
+    | .fix_rounds += 1
     | .findings |= map(
         if $a[.id] then
           .status = $a[.id].answer | if $a[.id].answer == "disputed" then .reason = $a[.id].reason end
@@ -300,11 +307,11 @@ finish() {
     def section(title; condition; extra):
       [.findings[] | select(condition)] as $f
       | if ($f | length) > 0 then "\n## \(title)", ($f[] | "\n" + show + extra) else empty end;
-    "# Review summary\n\nSpec: \(.spec)\nReviewer: \(.model)",
-    "Reviews done: \(.reviews). Fix rounds allowed: \(.rounds).",
+    "# Review summary\n\n- **Spec:** \(.spec)\n- **Reviewer:** \(.model)\n"
+      + "- **Total rounds of fixing:** \(.fix_rounds // 0)",
     if (.findings | length) == 0 then "\nThe reviewer found no problems." else empty end,
-    section("Disputed by the writer (needs your decision)"; .status == "disputed"; "\n  Writer: \(.reason)"),
-    section("Not fixed, according to the last review"; .status == "open" and .note; "\n  Reviewer: \(.note)"),
+    section("Disputed by the writer (needs your decision)"; .status == "disputed"; "\n- **Dispute:** \(.reason)"),
+    section("Not fixed, according to the last review"; .status == "open" and .note; "\n- **Reviewer:** \(.note)"),
     section("Not seen by the writer (found in the last review)"; .status == "open" and (.note | not); ""),
     section("Fixed by the writer, but not covered by the last review"; .status == "fixed"; ""),
     section("Fixed, and confirmed by the reviewer"; .status == "confirmed"; "")
