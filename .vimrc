@@ -74,7 +74,25 @@ set mouse=a
 " With the above, dragging in insert mode remembers you were in insert mode and returns you there afterwards. This is
 " not desirable (e.g. want d to always take you to normal mode), so explicitly go into the standard visual mode (also
 " making sure not to shift the cursor).
-inoremap <LeftDrag> <Cmd>let g:drag_pos = getcurpos()<CR><Esc><Cmd>call setpos('.', g:drag_pos)<CR><LeftDrag>
+inoremap <expr> <LeftDrag> <SID>StillOnClick() ? '' : "\<Cmd>let g:drag_pos = getcurpos()\<CR>\<Esc>\<Cmd>call setpos('.', g:drag_pos)\<CR>\<LeftDrag>"
+" VS Code's terminal reports a drag as soon as the mouse moves with the button held, even within the cell clicked (as
+" happens in most clicks on a trackpad), where Ghostty and kitty wait until it reaches another cell. So ignore drags
+" until the mouse leaves the clicked cell, otherwise such a click would leave insert mode (by the mapping above), or
+" select a character in normal mode.
+let g:click_pos = {}
+nnoremap <LeftMouse> <Cmd>let g:click_pos = getmousepos()<CR><LeftMouse>
+inoremap <LeftMouse> <Cmd>let g:click_pos = getmousepos()<CR><LeftMouse>
+xnoremap <LeftMouse> <Cmd>let g:click_pos = getmousepos()<CR><LeftMouse>
+nnoremap <expr> <LeftDrag> <SID>StillOnClick() ? '' : "\<LeftDrag>"
+
+function! s:StillOnClick()
+  let pos = getmousepos()
+  if !empty(g:click_pos) && pos.screenrow == g:click_pos.screenrow && pos.screencol == g:click_pos.screencol
+    return 1
+  endif
+  let g:click_pos = {}  " The mouse has left the clicked cell, so pass on all drags until the next click.
+  return 0
+endfunction
 
 " Backspace in visual mode: delete selection and enter insert mode (like c, rather than the default d).
 xnoremap <BS> c
