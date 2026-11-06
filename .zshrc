@@ -596,12 +596,6 @@ br() { _batch_records r "$@"; }
 # syntax-highlighting.zsh) colours <code> as shell code, so update it to match if the arguments change.
 bl() { _batch_records l $'\n' "$@"; }
 
-# Like echo, but arguments end up joined without a space separating them. E.g. `concat hello world` gives `helloworld`,
-# whereas `echo hello world` gives `hello world`.
-concat() {
-  printf '%s' "$@"
-}
-
 alias python='python3'
 
 # Usage: `govi [directory [module name]]`
