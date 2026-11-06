@@ -71,27 +71,204 @@ augroup END
 " Enable use of mouse to move cursor and drag to select (automatically enters visual mode). Can still select using
 " terminal itself with shift + drag.
 set mouse=a
-" With the above, dragging in insert mode remembers you were in insert mode and returns you there afterwards. This is
-" not desirable (e.g. want d to always take you to normal mode), so explicitly go into the standard visual mode (also
-" making sure not to shift the cursor).
-inoremap <expr> <LeftDrag> <SID>StillOnClick() ? '' : "\<Cmd>let g:drag_pos = getcurpos()\<CR>\<Esc>\<Cmd>call setpos('.', g:drag_pos)\<CR>\<LeftDrag>"
 " VS Code's terminal reports a drag as soon as the mouse moves with the button held, even within the cell clicked (as
 " happens in most clicks on a trackpad), where Ghostty and kitty wait until it reaches another cell. So ignore drags
-" until the mouse leaves the clicked cell, otherwise such a click would leave insert mode (by the mapping above), or
-" select a character in normal mode.
+" until the mouse leaves the clicked cell, otherwise such a click would leave insert mode (by the insert mode drag
+" below), or select a character in normal mode.
 let g:click_pos = {}
 nnoremap <LeftMouse> <Cmd>let g:click_pos = getmousepos()<CR><LeftMouse>
 inoremap <LeftMouse> <Cmd>let g:click_pos = getmousepos()<CR><LeftMouse>
-xnoremap <LeftMouse> <Cmd>let g:click_pos = getmousepos()<CR><LeftMouse>
-nnoremap <expr> <LeftDrag> <SID>StillOnClick() ? '' : "\<LeftDrag>"
+xnoremap <expr> <LeftMouse> <SID>VisualClick()
+nnoremap <expr> <LeftDrag> <SID>Drag("\<LeftDrag>")
+" With `mouse=a`, dragging in insert mode remembers you were in insert mode and returns you there afterwards. This is
+" not desirable (e.g. want d to always take you to normal mode), so explicitly go into the standard visual mode (also
+" making sure not to shift the cursor).
+inoremap <expr> <LeftDrag> <SID>Drag("\<Cmd>let g:drag_pos = getcurpos()\<CR>\<Esc>\<Cmd>call setpos('.', g:drag_pos)\<CR>\<LeftDrag>")
+xnoremap <expr> <LeftDrag> <SID>Drag("\<LeftDrag>")
+nnoremap <LeftRelease> <Cmd>call <SID>StopAutoScroll()<CR><LeftRelease>
+inoremap <LeftRelease> <Cmd>call <SID>StopAutoScroll()<CR><LeftRelease>
+xnoremap <LeftRelease> <Cmd>call <SID>StopAutoScroll()<CR><LeftRelease>
 
-function! s:StillOnClick()
+" Click in visual mode: extend the selection to the click (Vim's default ends visual mode and moves the cursor there,
+" and its shift + click, which extends, is taken by the terminal). Let Vim's click move the cursor, so that it lands
+" exactly where Vim would put it and a drag that follows extends further, then go back into the same kind of visual mode
+" with the same anchor. A click in another window, or on a status line, keeps Vim's default.
+function! s:VisualClick()
+  call s:StopAutoScroll()
+  let g:click_pos = getmousepos()
+  if g:click_pos.winid != win_getid() || g:click_pos.line == 0
+    return "\<LeftMouse>"
+  endif
+  let g:visual_anchor = getpos('v')
+  let g:visual_end = s:MouseEnd(g:click_pos)
+  " Set the selection with `'<`, `'>` and gv, rather than going to the anchor and pressing v, which would scroll to the
+  " anchor if it's off screen.
+  return "\<LeftMouse>\<Cmd>if empty(g:visual_end) | let g:visual_end = getcurpos() | endif\<CR>" .
+        \ "\<Cmd>call setpos(\"'<\", g:visual_anchor) | call setpos(\"'>\", g:visual_end)\<CR>gv"
+endfunction
+
+" Where the mouse at `pos` should put the selection's end, if not where Vim's click puts the cursor (returns [] then).
+" Past the end of a line, Vim's click lands on the last character, where a drag lands after it (selecting the line
+" break, as `$` does), so do as the drag does. Below the last line (on the `~` rows), Vim lands in the last line at the
+" mouse's column, where the end of the file is wanted.
+function! s:MouseEnd(pos)
+  let buf = winbufnr(a:pos.winid)
+  let last = line('$', a:pos.winid)
+  let lastlen = len(getbufline(buf, last)[0])
+  let lastrow = screenpos(a:pos.winid, last, max([1, lastlen])).row  " 0 if the last line is off screen
+  if a:pos.line == last && lastrow > 0 && a:pos.screenrow > lastrow
+    return [0, last, lastlen + 1, 0]
+  elseif a:pos.column > len(getbufline(buf, a:pos.line)[0])
+    return [0, a:pos.line, a:pos.column, 0]
+  endif
+  return []
+endfunction
+
+let s:sid = expand('<SID>')
+
+function! s:Drag(keys)
   let pos = getmousepos()
   if !empty(g:click_pos) && pos.screenrow == g:click_pos.screenrow && pos.screencol == g:click_pos.screencol
-    return 1
+    return ''
   endif
   let g:click_pos = {}  " The mouse has left the clicked cell, so pass on all drags until the next click.
-  return 0
+  call s:UpdateAutoScroll(pos)
+  " Dragging below the last line extends to the end of the file, as a click there does.
+  return a:keys . "\<Cmd>call " . s:sid . "DragEnd()\<CR>"
+endfunction
+
+function! s:DragEnd()
+  let pos = getmousepos()
+  if pos.winid == win_getid() && pos.line > 0 && mode() =~# "^[vV\x16]"
+    let end = s:MouseEnd(pos)
+    if !empty(end)
+      call setpos('.', end)
+    endif
+  endif
+endfunction
+
+" Drag to the top or bottom row of the window (or beyond it, e.g. onto the status line): keep scrolling up or down, a
+" line at a time, extending the selection, until the mouse moves off that row or is released. Vim on its own only
+" scrolls when the mouse is beyond the window and moves, and a terminal sends nothing while the mouse is still.
+let s:autoscroll_ms = 50
+let s:autoscroll_timer = -1
+let s:autoscroll_dir = 0
+
+function! s:UpdateAutoScroll(pos)
+  let top = win_screenpos(0)[0]
+  let s:autoscroll_dir = a:pos.screenrow <= top ? -1 : a:pos.screenrow >= top + winheight(0) - 1 ? 1 : 0
+  if s:autoscroll_dir == 0
+    call s:StopAutoScroll()
+  elseif s:autoscroll_timer == -1
+    let s:autoscroll_timer = timer_start(s:autoscroll_ms, function('s:AutoScrollStep'), {'repeat': -1})
+  endif
+endfunction
+
+function! s:AutoScrollStep(timer)
+  " The drag has ended without a release reaching Vim (e.g. Esc pressed mid-drag).
+  if mode() !~# "^[vV\x16]"
+    call s:StopAutoScroll()
+    return
+  endif
+  if s:autoscroll_dir < 0 ? line('.') > 1 : line('.') < line('$')
+    " Moving the cursor past the window's edge scrolls by a line ('scrolloff' is 0), and keeps the column of the mouse.
+    execute 'normal!' s:autoscroll_dir < 0 ? 'k' : 'j'
+    redraw
+  endif
+endfunction
+
+function! s:StopAutoScroll()
+  if s:autoscroll_timer != -1
+    call timer_stop(s:autoscroll_timer)
+    let s:autoscroll_timer = -1
+  endif
+endfunction
+
+" Scroll in visual mode: leave the selection as it is. Vim keeps the cursor (the selection's moving end) on screen, so
+" scrolling it off moves the cursor, and the selection with it. So while the end is off screen, show the remembered
+" selection with a match in place of Vim's Visual highlight, and hide the cursor. Put the cursor back on the end when
+" scrolling brings it back on screen, or before the next key acts on the selection (Vim then scrolls back to it). A
+" mouse key leaves the cursor where it is, as the mouse works on what is on screen.
+" Every wheel key counts as scrolling, including horizontal ones, which trackpads send among vertical ones even when
+" scrolling straight up or down.
+for s:wheel in ['Up', 'Down', 'Left', 'Right']
+  for s:mod in ['', 'S-', 'C-']
+    execute 'xnoremap <' . s:mod . 'ScrollWheel' . s:wheel . '> <Cmd>call <SID>BeforeVisualScroll()<CR><' . s:mod .
+          \ 'ScrollWheel' . s:wheel . '><Cmd>call <SID>AfterVisualScroll()<CR>'
+  endfor
+endfor
+let s:scrolled = {}  " While the selection's end is off screen: its window, the match showing it, the saved highlights
+let s:scrolled_end = []
+
+augroup scrolledvisual
+  autocmd!
+  autocmd KeyInputPre * call s:KeyWhileScrolled()
+  autocmd ModeChanged [vV\x16]*:* call s:EndScrolledVisual(0)
+augroup END
+
+function! s:BeforeVisualScroll()
+  if empty(s:scrolled)
+    let s:scrolled_end = getcurpos()
+  endif
+endfunction
+
+function! s:AfterVisualScroll()
+  if s:scrolled_end[1] >= line('w0') && s:scrolled_end[1] <= line('w$')
+    call s:EndScrolledVisual(1)
+  elseif empty(s:scrolled) && getcurpos() != s:scrolled_end
+    call s:StartScrolledVisual()
+  endif
+endfunction
+
+function! s:StartScrolledVisual()
+  let anchor = getpos('v')[1:2]
+  let end = s:scrolled_end[1:2]
+  let [start, end] = anchor[0] < end[0] || anchor[0] == end[0] && anchor[1] <= end[1] ? [anchor, end] : [end, anchor]
+  let [l1, c1, l2, c2] = start + end
+  if mode() ==# 'V'
+    let pattern = '\%>' . (l1 - 1) . 'l\%<' . (l2 + 1) . 'l\_.'
+  elseif mode() ==# 'v'
+    " `\_.` takes in the line break when the end is past the last character.
+    let pattern = l1 == l2 ? '\%' . l1 . 'l\%>' . (c1 - 1) . 'c\%<' . (c2 + 1) . 'c\_.' :
+          \ '\%' . l1 . 'l\%>' . (c1 - 1) . 'c\_.\|\%>' . l1 . 'l\%<' . l2 . 'l\_.\|' .
+          \ '\%' . l2 . 'l\%<' . (c2 + 1) . 'c\_.'
+  else
+    let [v1, v2] = sort([virtcol(start), virtcol(end)], 'n')
+    let pattern = '\%>' . (l1 - 1) . 'l\%<' . (l2 + 1) . 'l\%>' . (v1 - 1) . 'v' .
+          \ (s:scrolled_end[4] == v:maxcol ? '' : '\%<' . (v2 + 1) . 'v') . '.'
+  endif
+  let visual = hlget('Visual', v:true)[0]
+  call hlset([extend(filter(copy(visual), 'v:key !=# "id"'), {'name': 'ScrolledVisual'})])
+  let s:scrolled = {'win': win_getid(), 'match': matchadd('ScrolledVisual', pattern), 'visual': hlget('Visual'),
+        \ 't_ve': &t_ve}
+  call hlset([{'name': 'Visual', 'cleared': v:true}])
+  let &t_ve = ''  " Vim then leaves the cursor hidden after each redraw.
+  call echoraw(&t_vi)
+endfunction
+
+function! s:EndScrolledVisual(restore_cursor)
+  if empty(s:scrolled)
+    return
+  endif
+  if a:restore_cursor && win_getid() == s:scrolled.win
+    call setpos('.', s:scrolled_end)
+  endif
+  silent! call matchdelete(s:scrolled.match, s:scrolled.win)  " Silent in case the window has since been closed.
+  call hlset([{'name': 'Visual', 'cleared': v:true}] + s:scrolled.visual)
+  let &t_ve = s:scrolled.t_ve
+  call echoraw(&t_ve)
+  let s:scrolled = {}
+endfunction
+
+" A typed key (or the first key of the mapping it triggers), before it is acted on.
+function! s:KeyWhileScrolled()
+  if empty(s:scrolled) || v:event.typedchar ==# ''
+    return
+  endif
+  let key = keytrans(v:event.typedchar)
+  if key !~# '^<\%([SC]-\)\=ScrollWheel\%(Up\|Down\|Left\|Right\)>$'
+    call s:EndScrolledVisual(key !~# 'Mouse\|Drag\|Release')
+  endif
 endfunction
 
 " Backspace in visual mode: delete selection and enter insert mode (like c, rather than the default d).
