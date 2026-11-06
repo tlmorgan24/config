@@ -22,9 +22,8 @@
 # go straight to my summary. Problems found by the last review go to my summary too, as do disputed findings, which
 # never go back to the reviewer (it would tend to be talked round by the writer's argument).
 #
-# The writer is only told when the review has finished, not what's in the summary. My `review-summary` mod shows the
-# summary in the transcript as soon as it's written, as a card the model never reads, so it reaches me without going
-# through the writer. `review.sh summary` prints it too (e.g. as `! ~/.claude/review/review.sh summary` in Claude Code).
+# At the end, the summary is printed for the writer to show me as it is. It's also saved, so that `review.sh summary`
+# prints the original, as the script wrote it (e.g. as `! ~/.claude/review/review.sh summary` in Claude Code).
 # The spec is copied when the review starts, so that changes to the original during review (by Claude or me) don't
 # affect anything.
 set -euo pipefail
@@ -300,8 +299,7 @@ respond() {
   fi
 }
 
-# Save the summary for me (the `review-summary` mod shows it to me), and tell the writer the review has finished,
-# without showing it the summary.
+# Save the summary for me (`review.sh summary` prints it), and print it for the writer to show me.
 finish() {
   jq -r "$show_finding"'
     def section(title; condition; extra):
@@ -316,7 +314,19 @@ finish() {
     section("Fixed by the writer, but not covered by the last review"; .status == "fixed"; ""),
     section("Fixed, and confirmed by the reviewer"; .status == "confirmed"; "")
   ' "$state" > "$dir/summary.md"
-  echo 'The review has finished, and its summary has been shown to the user directly.'
+  # Print the text for step 4 of `/review` (`~/.claude/commands/review.md`), which says what the writer does with it, with
+  # this session's path filled in. The heredoc expands variables and `$(...)` (but not inside the values they insert),
+  # so backticks in the text are escaped.
+  cat <<EOF
+The review has finished.
+<message>
+> The review has finished. I have pasted its summary below:
+
+$(< "$dir/summary.md")
+
+> You can also see the summary in ${dir/#$HOME/~}/summary.md (or run \`~/.claude/review/review.sh summary\` in shell to print the latest summary from any session).
+</message>
+EOF
 }
 
 # Print the summary of this session's last finished review, or of the newest one if not run from inside a Claude Code

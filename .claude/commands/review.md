@@ -22,6 +22,8 @@ Get an independent review of the changes made in this session, against the spec 
    ```
 
    It sends the fixed findings back to the reviewer to check. If it prints more findings for you (new ones, or ones the reviewer says aren't fixed yet), go back to step 2.
-4. When it says the review has finished (straight after step 1, if `--rounds 0` was given), stop. The summary has been shown to the user directly, so don't describe the findings or your answers to them yourself.
+4. When it says the review has finished (straight after step 1, if `--rounds 0` was given), paste the message it prints, copied exactly (everything between `<message>` and `</message>`, without those tags), and stop.
+
+Don't change, shorten or comment on the summary, and don't describe the findings or your answers to them anywhere else (you may only do so in later responses, if the user requests you to).
 
 If the script prints an error (e.g. that there's no snapshot from the start of the session), tell the user and stop, rather than working around it.
