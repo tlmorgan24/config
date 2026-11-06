@@ -416,6 +416,11 @@ nnoremap <Esc>[91;9u <<
 inoremap <Esc>[91;9u <C-d>
 xnoremap <Esc>[91;9u <gv
 
+" Cmd + s: save (only if changed) and quit, from NORMAL, INSERT or VISUAL mode.
+nnoremap <Esc>[115;9u <Cmd>x<CR>
+inoremap <Esc>[115;9u <Cmd>x<CR>
+xnoremap <Esc>[115;9u <Cmd>x<CR>
+
 " Tab / Shift + Tab in VISUAL mode: indent selected lines right/left by one level, keeping the selection. Tab is not
 " remapped in NORMAL mode, because it is the same byte as Ctrl+I (jump forward), and in INSERT mode it already inserts
 " an indent.

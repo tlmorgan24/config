@@ -67,6 +67,13 @@
     "args": { "text": "\u001b[101;9u" },
     "when": "terminalFocus"
   },
+  {
+    // Save and quit, in Vim (see .vimrc). Outside the terminal, cmd+s still saves the editor's file.
+    "key": "cmd+s",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u001b[115;9u" },
+    "when": "terminalFocus"
+  },
 
   {
     // Intention: copy command-line program's current selection to clipboard (would use cmd+c, but VS Code already uses

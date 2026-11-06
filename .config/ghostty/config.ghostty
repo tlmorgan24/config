@@ -29,6 +29,8 @@ keybind = cmd+shift+down=text:\x1b[1;10B
 keybind = cmd+enter=text:\x1b[13;9u
 # Open the prompt in $EDITOR, in Claude Code (see .claude/keybindings.json) and zsh (see .zshrc).
 keybind = cmd+e=text:\x1b[101;9u
+# Save and quit, in Vim (see .vimrc).
+keybind = cmd+s=text:\x1b[115;9u
 
 # Intention: copy command-line program's current selection to clipboard (would use cmd+c, but Ghostty already uses this
 # to copy its OWN selection, e.g. following mouse drag). cmd+shift+c would technically be 10u (9u is for cmd+c), but I
