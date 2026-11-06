@@ -16,8 +16,10 @@
 # `fable`), or a full model ID (e.g. `claude-opus-5-5`).
 #
 # `start` runs the first review and prints the findings. The writer then fixes or disputes each one, and passes its
-# answers to `respond` on stdin, one per line (`F1 fixed`, or `F2 disputed <reason>`). That's one fix round, and it's
-# always followed by another review, which checks the fixes and looks for new problems in them, so every fix is checked.
+# answers to `respond` on stdin, one per line (`F1 fixed <what it changed>`, or `F2 disputed <reason>`). That's one fix
+# round, and it's always followed by another review, which checks the fixes and looks for new problems in them, so every
+# fix is checked. The writer's description of each fix only goes to my summary, never to the reviewer, so that the
+# reviewer checks whether the problem is gone rather than whether the described change was made.
 # --rounds is the most fix rounds the writer gets (default 1). With 0, the writer never sees the findings, and they all
 # go straight to my summary. Problems found by the last review go to my summary too, as do disputed findings, which
 # never go back to the reviewer (it would tend to be talked round by the writer's argument).
@@ -253,8 +255,9 @@ print_open() {
     "Fix round \(.reviews) of \(.rounds). Fix or dispute each of these findings:\n",
     (.findings[] | select(.status == "open")
       | show + (if .note then "\n- **Not fixed yet:** \(.note)" else "" end) + "\n"),
-    "Then pass one line per finding to `~/.claude/review/review.sh respond` on stdin: `<id> fixed`, or `<id> disputed"
-      + " <one-line reason>`. Fixed ones go back to the reviewer to check, and disputed ones go to the user."
+    "Then pass one line per finding to `~/.claude/review/review.sh respond` on stdin: `<id> fixed <one-line description"
+      + " of the fix>`, or `<id> disputed <one-line reason>`. Fixed ones go back to the reviewer to check (without your"
+      + " description), and disputed ones go to the user."
   ' "$state"
 }
 
@@ -268,7 +271,7 @@ respond() {
     split("\n")[]
     | select(test("\\S"))
     | (capture("^\\s*(?<id>F[0-9]+)\\s+(?<answer>fixed|disputed)\\b\\s*(?<reason>.*)$"; "i")
-       // error("cannot read this line (expected `<id> fixed` or `<id> disputed <reason>`): \(.)"))
+       // error("cannot read this line (expected `<id> fixed <fix>` or `<id> disputed <reason>`): \(.)"))
     | .id |= ascii_upcase
     | .answer |= ascii_downcase
   ]' 2>&1) || die "${answers#*): }"
@@ -279,16 +282,21 @@ respond() {
       ($given - $open | if length > 0 then "not waiting for an answer: \(join(", "))" else empty end),
       ($given | group_by(.) | map(select(length > 1)[0]) | if length > 0 then "answered twice: \(join(", "))"
         else empty end),
-      ($answers[] | select(.answer == "disputed" and .reason == "") | "no reason given for disputing \(.id)")
+      ($answers[] | select(.reason == "")
+        | if .answer == "fixed" then "no description given of the fix for \(.id)"
+          else "no reason given for disputing \(.id)" end)
   ' "$state")
   [[ -z $problems ]] || die "$problems"
 
+  # A fix replaces any earlier attempt at fixing the finding, and the reviewer's note saying that attempt didn't work, so
+  # the summary never pairs a fix with the check of a different one. A dispute keeps them, as the history behind it.
   jq --argjson answers "$answers" '
     ($answers | map({key: .id, value: .}) | from_entries) as $a
     | .fix_rounds += 1
     | .findings |= map(
         if $a[.id] then
-          .status = $a[.id].answer | if $a[.id].answer == "disputed" then .reason = $a[.id].reason end
+          .status = $a[.id].answer
+          | if $a[.id].answer == "fixed" then .fix = $a[.id].reason | del(.note) else .reason = $a[.id].reason end
         end)
   ' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
 
@@ -302,17 +310,23 @@ respond() {
 # Save the summary for me (`review.sh summary` prints it), and print it for the writer to show me.
 finish() {
   jq -r "$show_finding"'
-    def section(title; condition; extra):
+    # The fix by the writer, the check of it by the reviewer, and the dispute by the writer, in the order they happened,
+    # where present.
+    def details:
+      (if .fix then "\n- **Fix:** \(.fix)" else "" end)
+      + (if .note then "\n- **Check:** \(.note)" else "" end)
+      + (if .reason then "\n- **Dispute:** \(.reason)" else "" end);
+    def section(title; condition):
       [.findings[] | select(condition)] as $f
-      | if ($f | length) > 0 then "\n## \(title)", ($f[] | "\n" + show + extra) else empty end;
+      | if ($f | length) > 0 then "\n## \(title)", ($f[] | "\n" + show + details) else empty end;
     "# Review summary\n\n- **Spec:** \(.spec)\n- **Reviewer:** \(.model)\n"
       + "- **Total rounds of fixing:** \(.fix_rounds // 0)",
     if (.findings | length) == 0 then "\nThe reviewer found no problems." else empty end,
-    section("Disputed by the writer (needs your decision)"; .status == "disputed"; "\n- **Dispute:** \(.reason)"),
-    section("Not fixed, according to the last review"; .status == "open" and .note; "\n- **Reviewer:** \(.note)"),
-    section("Not seen by the writer (found in the last review)"; .status == "open" and (.note | not); ""),
-    section("Fixed by the writer, but not covered by the last review"; .status == "fixed"; ""),
-    section("Fixed, and confirmed by the reviewer"; .status == "confirmed"; "")
+    section("Disputed by the writer (needs your decision)"; .status == "disputed"),
+    section("Not fixed, according to the last review"; .status == "open" and .note),
+    section("Not seen by the writer (found in the last review)"; .status == "open" and (.note | not)),
+    section("Fixed by the writer, but not covered by the last review"; .status == "fixed"),
+    section("Fixed, and confirmed by the reviewer"; .status == "confirmed")
   ' "$state" > "$dir/summary.md"
   # Print the text for step 4 of `/review` (`~/.claude/commands/review.md`), which says what the writer does with it, with
   # this session's path filled in. The heredoc expands variables and `$(...)` (but not inside the values they insert),
@@ -320,8 +334,6 @@ finish() {
   cat <<EOF
 The review has finished.
 <message>
-> The review has finished. I have pasted its summary below:
-
 $(< "$dir/summary.md")
 
 > You can also see the summary in ${dir/#$HOME/~}/summary.md (or run \`~/.claude/review/review.sh summary\` in shell to print the latest summary from any session).
