@@ -85,26 +85,31 @@ nnoremap <expr> <LeftDrag> <SID>Drag("\<LeftDrag>")
 " making sure not to shift the cursor).
 inoremap <expr> <LeftDrag> <SID>Drag("\<Cmd>let g:drag_pos = getcurpos()\<CR>\<Esc>\<Cmd>call setpos('.', g:drag_pos)\<CR>\<LeftDrag>")
 xnoremap <expr> <LeftDrag> <SID>Drag("\<LeftDrag>")
-nnoremap <LeftRelease> <Cmd>call <SID>StopAutoScroll()<CR><LeftRelease>
-inoremap <LeftRelease> <Cmd>call <SID>StopAutoScroll()<CR><LeftRelease>
-xnoremap <LeftRelease> <Cmd>call <SID>StopAutoScroll()<CR><LeftRelease>
+nnoremap <LeftRelease> <Cmd>call <SID>Release()<CR><LeftRelease>
+inoremap <LeftRelease> <Cmd>call <SID>Release()<CR><LeftRelease>
+xnoremap <LeftRelease> <Cmd>call <SID>Release()<CR><LeftRelease>
 
 " Click in visual mode: extend the selection to the click (Vim's default ends visual mode and moves the cursor there,
-" and its shift + click, which extends, is taken by the terminal). Let Vim's click move the cursor, so that it lands
-" exactly where Vim would put it and a drag that follows extends further, then go back into the same kind of visual mode
-" with the same anchor. A click in another window, or on a status line, keeps Vim's default.
+" and its shift + click, which extends, is taken by the terminal; Vim also misreads it as shift + scroll down). Move the
+" cursor to the clicked position without leaving visual mode (going out and back in with gv made the highlight flicker).
+" Vim then ignores the drag that follows, as it never saw the click, so `s:Drag()` moves the cursor itself. A click in
+" another window, or on a status line, keeps Vim's default.
+let g:visual_clicked = 0  " Whether the button went down in `s:VisualClick()`, and is still down
 function! s:VisualClick()
   call s:StopAutoScroll()
   let g:click_pos = getmousepos()
-  if g:click_pos.winid != win_getid() || g:click_pos.line == 0
+  let g:visual_clicked = g:click_pos.winid == win_getid() && g:click_pos.line > 0
+  if !g:visual_clicked
     return "\<LeftMouse>"
   endif
-  let g:visual_anchor = getpos('v')
-  let g:visual_end = s:MouseEnd(g:click_pos)
-  " Set the selection with `'<`, `'>` and gv, rather than going to the anchor and pressing v, which would scroll to the
-  " anchor if it's off screen.
-  return "\<LeftMouse>\<Cmd>if empty(g:visual_end) | let g:visual_end = getcurpos() | endif\<CR>" .
-        \ "\<Cmd>call setpos(\"'<\", g:visual_anchor) | call setpos(\"'>\", g:visual_end)\<CR>gv"
+  return s:MoveToMouse(g:click_pos)
+endfunction
+
+" Keys that move the cursor to the mouse at `pos`.
+function! s:MoveToMouse(pos)
+  let end = s:MouseEnd(a:pos)
+  let g:visual_end = empty(end) ? [0, a:pos.line, max([1, a:pos.column]), 0] : end
+  return "\<Cmd>call setpos('.', g:visual_end)\<CR>"
 endfunction
 
 " Where the mouse at `pos` should put the selection's end, if not where Vim's click puts the cursor (returns [] then).
@@ -133,6 +138,10 @@ function! s:Drag(keys)
   endif
   let g:click_pos = {}  " The mouse has left the clicked cell, so pass on all drags until the next click.
   call s:UpdateAutoScroll(pos)
+  if g:visual_clicked && mode() =~# "^[vV\x16]"
+    " Off the window (e.g. on the status line), leave the cursor to autoscroll.
+    return pos.winid == win_getid() && pos.line > 0 ? s:MoveToMouse(pos) : ''
+  endif
   " Dragging below the last line extends to the end of the file, as a click there does.
   return a:keys . "\<Cmd>call " . s:sid . "DragEnd()\<CR>"
 endfunction
@@ -175,6 +184,11 @@ function! s:AutoScrollStep(timer)
     execute 'normal!' s:autoscroll_dir < 0 ? 'k' : 'j'
     redraw
   endif
+endfunction
+
+function! s:Release()
+  let g:visual_clicked = 0
+  call s:StopAutoScroll()
 endfunction
 
 function! s:StopAutoScroll()
