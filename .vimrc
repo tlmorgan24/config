@@ -184,45 +184,61 @@ function! s:StopAutoScroll()
   endif
 endfunction
 
-" Scroll in visual mode: leave the selection as it is. Vim keeps the cursor (the selection's moving end) on screen, so
-" scrolling it off moves the cursor, and the selection with it. So while the end is off screen, show the remembered
-" selection with a match in place of Vim's Visual highlight, and hide the cursor. Put the cursor back on the end when
-" scrolling brings it back on screen, or before the next key acts on the selection (Vim then scrolls back to it). A
-" mouse key leaves the cursor where it is, as the mouse works on what is on screen.
+" Scroll in visual or insert mode: leave the cursor where it is. Vim keeps the cursor on screen, so scrolling it off
+" moves it, which in visual mode moves the selection's moving end, and in insert mode where typing goes. So while the
+" cursor's place is off screen, remember it and hide the cursor (and in visual mode, show the remembered selection with
+" a match in place of Vim's Visual highlight). Put the cursor back when scrolling brings its place back on screen, or
+" before the next key acts on it (Vim then scrolls back to it). A mouse key leaves the cursor where it is, as the mouse
+" works on what is on screen. Not done in normal mode, where keys like H, zz and Ctrl-D work on the screen or cursor as
+" they are after the scroll.
+"
 " Every wheel key counts as scrolling, including horizontal ones, which trackpads send among vertical ones even when
 " scrolling straight up or down.
 for s:wheel in ['Up', 'Down', 'Left', 'Right']
   for s:mod in ['', 'S-', 'C-']
-    execute 'xnoremap <' . s:mod . 'ScrollWheel' . s:wheel . '> <Cmd>call <SID>BeforeVisualScroll()<CR><' . s:mod .
-          \ 'ScrollWheel' . s:wheel . '><Cmd>call <SID>AfterVisualScroll()<CR>'
+    for s:mapmode in ['x', 'i']
+      execute s:mapmode . 'noremap <' . s:mod . 'ScrollWheel' . s:wheel . '> <Cmd>call <SID>BeforeScroll()<CR><' .
+            \ s:mod . 'ScrollWheel' . s:wheel . '><Cmd>call <SID>AfterScroll()<CR>'
+    endfor
   endfor
 endfor
-let s:scrolled = {}  " While the selection's end is off screen: its window, the match showing it, the saved highlights
-let s:scrolled_end = []
+" While the cursor's place is off screen: its window and saved `t_ve`, and in visual mode the match showing the
+" selection and the saved Visual highlight
+let s:scrolled = {}
+let s:scrolled_pos = []
 
-augroup scrolledvisual
+augroup scrolledaway
   autocmd!
   autocmd KeyInputPre * call s:KeyWhileScrolled()
-  autocmd ModeChanged [vV\x16]*:* call s:EndScrolledVisual(0)
+  autocmd ModeChanged [vV\x16iR]*:* call s:EndScrolled(0)
 augroup END
 
-function! s:BeforeVisualScroll()
+function! s:BeforeScroll()
   if empty(s:scrolled)
-    let s:scrolled_end = getcurpos()
+    let s:scrolled_pos = getcurpos()
   endif
 endfunction
 
-function! s:AfterVisualScroll()
-  if s:scrolled_end[1] >= line('w0') && s:scrolled_end[1] <= line('w$')
-    call s:EndScrolledVisual(1)
-  elseif empty(s:scrolled) && getcurpos() != s:scrolled_end
-    call s:StartScrolledVisual()
+function! s:AfterScroll()
+  if s:scrolled_pos[1] >= line('w0') && s:scrolled_pos[1] <= line('w$')
+    call s:EndScrolled(1)
+  elseif empty(s:scrolled) && getcurpos() != s:scrolled_pos
+    call s:StartScrolled()
   endif
 endfunction
 
-function! s:StartScrolledVisual()
+function! s:StartScrolled()
+  let s:scrolled = {'win': win_getid(), 't_ve': &t_ve}
+  if mode() =~# "^[vV\x16]"
+    call s:ShowScrolledSelection()
+  endif
+  let &t_ve = ''  " Vim then leaves the cursor hidden after each redraw.
+  call echoraw(&t_vi)
+endfunction
+
+function! s:ShowScrolledSelection()
   let anchor = getpos('v')[1:2]
-  let end = s:scrolled_end[1:2]
+  let end = s:scrolled_pos[1:2]
   let [start, end] = anchor[0] < end[0] || anchor[0] == end[0] && anchor[1] <= end[1] ? [anchor, end] : [end, anchor]
   let [l1, c1, l2, c2] = start + end
   if mode() ==# 'V'
@@ -235,26 +251,26 @@ function! s:StartScrolledVisual()
   else
     let [v1, v2] = sort([virtcol(start), virtcol(end)], 'n')
     let pattern = '\%>' . (l1 - 1) . 'l\%<' . (l2 + 1) . 'l\%>' . (v1 - 1) . 'v' .
-          \ (s:scrolled_end[4] == v:maxcol ? '' : '\%<' . (v2 + 1) . 'v') . '.'
+          \ (s:scrolled_pos[4] == v:maxcol ? '' : '\%<' . (v2 + 1) . 'v') . '.'
   endif
   let visual = hlget('Visual', v:true)[0]
   call hlset([extend(filter(copy(visual), 'v:key !=# "id"'), {'name': 'ScrolledVisual'})])
-  let s:scrolled = {'win': win_getid(), 'match': matchadd('ScrolledVisual', pattern), 'visual': hlget('Visual'),
-        \ 't_ve': &t_ve}
+  let s:scrolled.match = matchadd('ScrolledVisual', pattern)
+  let s:scrolled.visual = hlget('Visual')
   call hlset([{'name': 'Visual', 'cleared': v:true}])
-  let &t_ve = ''  " Vim then leaves the cursor hidden after each redraw.
-  call echoraw(&t_vi)
 endfunction
 
-function! s:EndScrolledVisual(restore_cursor)
+function! s:EndScrolled(restore_cursor)
   if empty(s:scrolled)
     return
   endif
   if a:restore_cursor && win_getid() == s:scrolled.win
-    call setpos('.', s:scrolled_end)
+    call setpos('.', s:scrolled_pos)
   endif
-  silent! call matchdelete(s:scrolled.match, s:scrolled.win)  " Silent in case the window has since been closed.
-  call hlset([{'name': 'Visual', 'cleared': v:true}] + s:scrolled.visual)
+  if has_key(s:scrolled, 'match')
+    silent! call matchdelete(s:scrolled.match, s:scrolled.win)  " Silent in case the window has since been closed.
+    call hlset([{'name': 'Visual', 'cleared': v:true}] + s:scrolled.visual)
+  endif
   let &t_ve = s:scrolled.t_ve
   call echoraw(&t_ve)
   let s:scrolled = {}
@@ -267,7 +283,7 @@ function! s:KeyWhileScrolled()
   endif
   let key = keytrans(v:event.typedchar)
   if key !~# '^<\%([SC]-\)\=ScrollWheel\%(Up\|Down\|Left\|Right\)>$'
-    call s:EndScrolledVisual(key !~# 'Mouse\|Drag\|Release')
+    call s:EndScrolled(key !~# 'Mouse\|Drag\|Release')
   endif
 endfunction
 
