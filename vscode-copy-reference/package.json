@@ -1,0 +1,19 @@
+{
+  "name": "copy-reference",
+  "displayName": "Copy Reference",
+  "description": "Copy the selected lines as a reference to them, e.g. src/main.go:12-18",
+  "publisher": "thomasmorgan",
+  "version": "1.1.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "copyReference.copy",
+        "title": "Copy Reference to Selected Lines"
+      }
+    ]
+  }
+}

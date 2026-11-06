@@ -105,7 +105,7 @@ The differences I am aware of at the time of writing are:
 * VS Code needs Option+click, while others just need a click, to move the cursor within the command at the zsh prompt. Kitty is has a massive delay when doing click-to-move, which I couldn't solve. None of the terminals allow clicking to move on a multi-line command (as the earlier lines have already been sent to e.g. Zsh).
 * In programs that use the mouse themselves (e.g. Vim), Shift+drag makes a terminal selection in Ghostty and Kitty, but VS Code can only do this with Option+drag after turning on `terminal.integrated.macOptionClickForcesSelection`, which stops Option+click moving the cursor in the command, so I leave it off.
 * VS Code requires opening the full app, which is more overhead.
-* Programs run in VS Code's terminal can integrate with the rest of VS Code (e.g. cmd+click on a `file:line` path in any output opens the file at that line, Claude Code sees the lines selected in the editor, etc).
+* VS Code's terminal can integrate with the rest of VS Code (e.g. cmd+click on a `file:line` reference in any output opens the file at that line, Claude Code sees the lines selected in the editor, etc).
 
 ## Shortcuts
 
@@ -261,6 +261,7 @@ Usage: `/review <spec-file> [--rounds <n>] [--model <model>] [--base <commit>]`
 * Alt+z: Toggle between views that wrap long lines vs let them run off the screen
 * cmd+shift+o: Search for "symbols" (e.g. classes/methods/functions) within current file and jump to one. The symbols are indexed by the language server (e.g. Pylance), which is present if you have installed the appropriate extension.
 * cmd+t: Like cmd+shift+o, but across entire repository. May be more picky (e.g. only show classes) unless specifically configure the language server.
+* cmd+click on a `file:line` path in any VS Code terminal output opens the file at that line.
 
 ### Thanks to extensions
 
@@ -270,6 +271,11 @@ Usage: `/review <spec-file> [--rounds <n>] [--model <model>] [--base <commit>]`
 * ... and more markdown conveniences.
 
 Extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`.
+
+### Custom (or partially custom)
+
+* cmd+alt+c - copy relative path to current file, with reference to current line/selection if the editor is currently focused (e.g. `src/main.go`, `src/main.go:12` or `src/main.go:12-18`). With multiple cursors, copies one reference per line (separated by \n). If editor is focused, but still only want to copy only the file with no reference, do cmd+k then the same shortcut.
+* shift+cmd+alt+c - as above, but absolute instead of relative path.
 
 ## Maccy (clipboard history)
 

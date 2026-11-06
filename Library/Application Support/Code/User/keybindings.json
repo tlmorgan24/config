@@ -132,5 +132,70 @@
     "key": "ctrl+down",
     "command": "workbench.action.terminal.scrollToNextCommand",
     "when": "terminalFocus && !terminalAltBufferActive"
+  },
+
+  // Copy a reference to the file, with cmd+alt+c giving its path relative to the workspace folder and shift+cmd+alt+c
+  // its absolute path. In the editor text, the selected lines are added, e.g. `src/main.go:12-18`, using my
+  // copy-reference extension (see vscode-copy-reference/ in the config repo). Elsewhere (e.g. the explorer or search
+  // results), just the path of the selected file(s), or of the active editor's file. In the editor, cmd+k then
+  // cmd+alt+c/shift+cmd+alt+c copies just the path.
+  //
+  // VS Code's defaults are the other way round (cmd+alt+c absolute, shift+cmd+alt+c relative), so remove them. Relative
+  // is on the simpler key, as it's shorter, readable in docs, and works in Claude Code sessions and terminals in the
+  // repo.
+  //
+  // In the editor text, this replaces VS Code's cmd+alt+c for toggling the find widget's case sensitivity, but that
+  // still works while typing in the find widget. The debug watch view and the built-in browser keep their own
+  // cmd+alt+c.
+  {
+    "key": "cmd+alt+c",
+    "command": "-copyFilePath",
+    "when": "!editorFocus"
+  },
+  {
+    "key": "shift+cmd+alt+c",
+    "command": "-copyRelativeFilePath",
+    "when": "!editorFocus"
+  },
+  {
+    "key": "cmd+k cmd+alt+c",
+    "command": "-copyFilePath",
+    "when": "editorFocus"
+  },
+  {
+    "key": "cmd+k shift+cmd+alt+c",
+    "command": "-copyRelativeFilePath",
+    "when": "editorFocus"
+  },
+  {
+    "key": "cmd+alt+c",
+    "command": "copyReference.copy",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "shift+cmd+alt+c",
+    "command": "copyReference.copy",
+    "args": { "absolute": true },
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "cmd+alt+c",
+    "command": "copyRelativeFilePath",
+    "when": "!editorFocus && focusedView != 'workbench.debug.watchExpressionsView' && activeEditor != 'workbench.editor.browser'"
+  },
+  {
+    "key": "shift+cmd+alt+c",
+    "command": "copyFilePath",
+    "when": "!editorFocus"
+  },
+  {
+    "key": "cmd+k cmd+alt+c",
+    "command": "copyRelativeFilePath",
+    "when": "editorFocus"
+  },
+  {
+    "key": "cmd+k shift+cmd+alt+c",
+    "command": "copyFilePath",
+    "when": "editorFocus"
   }
 ]
