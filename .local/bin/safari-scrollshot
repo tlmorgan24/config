@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""
+Capture the full content of a scrollable area in your current Safari tab.
+
+Usage:
+    safari-scrollshot [--click | --selector <CSS>] [options] OUTPUT
+
+By default, uses the element on the page with the most hidden scrollable content.
+Otherwise, provide one of following options:
+    --click:        waits for you to click, then uses nearest scrollable ancestor of element clicked
+    --selector:     uses nearest scrollable ancestor of elements given by CSS selector
+
+Output is PDF if the file name ends in .pdf, else PNG. If PDF:
+    --page a4 (default) | max (sizes each page to fit as much content as possible) | <width>x<height> (mm)
+
+Other options:    
+    --margin 0.2 controls the overlap trimming between scroll slices.
+
+Requirements:
+    pip install pillow
+    pip install img2pdf
+    Safari > Develop > "Allow JavaScript from Apple Events"
+    Give the terminal Screen Recording permission when prompted
+"""
+import argparse, io, json, os, subprocess, sys, tempfile, time
+from PIL import Image
+
+ap = argparse.ArgumentParser(description="Capture a scrollable area of the current Safari tab.")
+grp = ap.add_mutually_exclusive_group()
+grp.add_argument("--click", action="store_true",
+                 help="click inside the scrollable area to choose it")
+grp.add_argument("--selector", metavar="CSS", help="CSS selector of the scrollable area")
+ap.add_argument("--margin", type=float, default=0.2,
+                help="fraction of the visible height discarded at the top and "
+                     "bottom of every slice (default 0.2; must be < 0.5)")
+ap.add_argument("--page", default="a4",
+                help="PDF page size: a4 (default), max (one page as big "
+                     "as possible), or WxH in mm, e.g. 200x300")
+ap.add_argument("out", metavar="OUTPUT", help="output file (.png or .pdf)")
+a = ap.parse_args()
+out = a.out
+if not 0 <= a.margin < 0.5:
+    sys.exit("--margin must be between 0 and 0.5")
+
+IS_SCROLLER = ("function(e){return e.scrollHeight>e.clientHeight+1&&"
+               "['auto','scroll'].indexOf(getComputedStyle(e).overflowY)>=0;}")
+
+def run_js(js_code):
+    """Run JavaScript in Safari's front tab, return the result string."""
+    r = subprocess.run(
+        ["osascript", "-e", "on run argv",
+         "-e", 'tell application "Safari" to do JavaScript (item 1 of argv) '
+               "in current tab of front window",
+         "-e", "end run", js_code], capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"AppleScript error: {r.stderr.strip()}\n"
+                 "Did you enable Develop > Allow JavaScript from Apple Events?")
+    return r.stdout.strip()
+
+
+def js(code):
+    return json.loads(run_js(f"JSON.stringify((function(){{{code}}})())"))
+
+
+subprocess.run(["osascript", "-e", 'tell application "Safari" to activate'])
+time.sleep(0.5)
+
+# ---- find the scrollable element and store it in window.__t ----
+if a.click:
+    js(f"""
+      window.__t = null; window.__done = false;
+      var isS = {IS_SCROLLER};
+      window.__h = function (ev) {{
+        ev.preventDefault(); ev.stopPropagation();
+        var e = ev.target;
+        while (e && !isS(e)) e = e.parentElement;
+        window.__t = e; window.__done = true;
+        document.removeEventListener('click', window.__h, true);
+      }};
+      document.addEventListener('click', window.__h, true);
+      return 1;
+    """)
+    print("In Safari, click anywhere inside the scrollable area (60 s)...")
+    for _ in range(120):
+        time.sleep(0.5)
+        if js("return window.__done;"):
+            break
+    else:
+        js("document.removeEventListener('click', window.__h, true); return 1;")
+        sys.exit("No click received.")
+    if not js("return !!window.__t;"):
+        sys.exit("Nothing scrollable under that click. Click inside the area "
+                 "and try again, or run without --click to auto-detect.")
+elif a.selector:
+    ok = js(f"""
+      var isS = {IS_SCROLLER};
+      var e = document.querySelector({json.dumps(a.selector)});
+      if (!e) return 'notfound';
+      while (e && !isS(e)) e = e.parentElement;
+      window.__t = e;
+      return e ? 'ok' : 'noscroll';
+    """)
+    if ok == "notfound":
+        sys.exit("Selector not found. Try --click, or run without options to auto-detect.")
+    if ok == "noscroll":
+        sys.exit("That element and its ancestors don't scroll.")
+else:
+    ok = js(f"""
+      var isS = {IS_SCROLLER}, best = null, bs = 0;
+      document.querySelectorAll('*').forEach(function (e) {{
+        if (isS(e) && e.scrollHeight - e.clientHeight > bs) {{
+          bs = e.scrollHeight - e.clientHeight; best = e; }}
+      }});
+      window.__t = best; return !!best;
+    """)
+    if not ok:
+        sys.exit("No scrollable element found. Try --click.")
+
+info = js("""
+  var el = window.__t;
+  el.scrollIntoView({block: 'start'});
+  return {sh: el.scrollHeight, ch: el.clientHeight};
+""")
+print(f"Found scroll area: content {info['sh']} px, visible {info['ch']} px")
+time.sleep(0.6)
+
+g = js("""
+  var el = window.__t, r = el.getBoundingClientRect();
+  var left = r.left + el.clientLeft, top = r.top + el.clientTop;
+  return {
+    x: window.screenX + (window.outerWidth - window.innerWidth) / 2 + left,
+    y: window.screenY + (window.outerHeight - window.innerHeight) + top,
+    w: el.clientWidth, h: Math.min(el.clientHeight, window.innerHeight - top),
+    top: top};
+""")
+if g["top"] < -1 or g["h"] <= 0:
+    sys.exit("Area isn't visible in the viewport. Enlarge the Safari window.")
+x, y, w, h = g["x"], g["y"], g["w"], g["h"]
+print(f"Region: x={x:.0f} y={y:.0f} w={w:.0f} h={h:.0f}")
+
+tmp = tempfile.mkdtemp()
+m = h * a.margin            # CSS px trimmed from top/bottom of each slice
+strips, covered, n = [], 0.0, 0   # covered = content position of next row needed
+while True:
+    # scroll so the content we still need sits just below the top margin
+    st = js(f"var el=window.__t; el.scrollTop={max(covered - m, 0)}; return el.scrollTop;")
+    time.sleep(0.5)
+    path = os.path.join(tmp, f"s{n}.png")
+    subprocess.run(["screencapture", "-x", "-R",
+                    f"{x:.0f},{y:.0f},{w:.0f},{h:.0f}", path], check=True)
+    img = Image.open(path).convert("RGB")
+    scale = img.height / h
+    sh = js("return window.__t.scrollHeight;")
+    at_end = st + h >= sh - 0.5
+    top_px = round((covered - st) * scale)
+    bot_px = img.height if at_end else round((h - m) * scale)
+    strips.append(img.crop((0, top_px, img.width, bot_px)))
+    print(f"kept content {covered:.0f} -> {(sh if at_end else st + h - m):.0f} of {sh} px")
+    n += 1
+    if at_end:
+        break
+    new_cov = st + h - m
+    if new_cov <= covered:
+        sys.exit("No scroll progress; try a smaller --margin.")
+    covered = new_cov
+
+res = Image.new("RGB", (strips[0].width, sum(s.height for s in strips)))
+yy = 0
+for s in strips:
+    res.paste(s, (0, yy)); yy += s.height
+
+if out.lower().endswith(".pdf"):
+    try:
+        import img2pdf
+    except ImportError:
+        sys.exit("PDF output needs img2pdf:  pip install img2pdf")
+
+    def png_bytes(im):
+        b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()
+
+    pg = a.page.lower()
+    sizes = {"a4": (210, 297)}
+    if pg == "max":
+        # one page sized like the capture (1 px = 1/scale pt), split only when
+        # exceeding the ~14400 pt page limit of PDF viewers
+        max_rows = int(14000 * scale)
+        pages = [png_bytes(res.crop((0, t, res.width, min(t + max_rows, res.height))))
+                 for t in range(0, res.height, max_rows)]
+        dpi = 72 * scale
+        layout = img2pdf.get_fixed_dpi_layout_fun((dpi, dpi))
+    else:
+        try:
+            pw_mm, ph_mm = sizes[pg] if pg in sizes else map(float, pg.split("x"))
+        except ValueError:
+            sys.exit("--page must be a4, max, or WxH in mm (e.g. 200x300)")
+        pw, ph = img2pdf.mm_to_pt(pw_mm), img2pdf.mm_to_pt(ph_mm)
+        rows = int(res.width * ph / pw)              # image rows per page
+        bg = res.getpixel((0, res.height - 1))       # pad last page with edge colour
+        pages = []
+        for t in range(0, res.height, rows):
+            chunk = res.crop((0, t, res.width, min(t + rows, res.height)))
+            if chunk.height < rows:
+                padded = Image.new("RGB", (res.width, rows), bg)
+                padded.paste(chunk, (0, 0)); chunk = padded
+            pages.append(png_bytes(chunk))
+        layout = img2pdf.get_layout_fun(pagesize=(pw, ph), fit=img2pdf.FitMode.into)
+    with open(out, "wb") as f:
+        f.write(img2pdf.convert(pages, layout_fun=layout))
+    print(f"saved {out} ({len(pages)} page(s), page={pg}, lossless)")
+else:
+    res.save(out)
+    print(f"saved {out} ({res.width}x{res.height})")

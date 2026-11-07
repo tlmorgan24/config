@@ -79,6 +79,10 @@ brew install --cask maccy  # Clipboard history
 brew install go
 brew install python  # But executable is python3 (I alias it back to python in .zshrc).
 
+# Python packages used for the tools in this repo
+pip3 install pillow
+pip3 install img2pdf
+
 # My preferred font (alternative: `brew install --cask font-fira-code-nerd-font`)
 brew install --cask font-jetbrains-mono-nerd-font
 # Terminal options (plus VS Code, installed below). Choose whichever, all configs are in this repo, pros/cons in README.

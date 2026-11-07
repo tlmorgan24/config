@@ -597,6 +597,7 @@ br() { _batch_records r "$@"; }
 bl() { _batch_records l $'\n' "$@"; }
 
 alias python='python3'
+alias pip='pip3'
 
 # Usage: `govi [directory [module name]]`
 #
