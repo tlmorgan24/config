@@ -251,31 +251,37 @@ Usage: `/review <spec-file> [--rounds <n>] [--model <model>] [--base <commit>]`
 
 ## VS Code
 
-### Useful default behaviours
+Most of these are default, some are custom (or the keybinding was customised) and some are from extensions. Extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`.
+
+### Miscellaneous
 
 * Run `code <file>` or `code <directory>` to open files/folder in VS Code. If did not install VS Code through Homebrew, may have to manually add this to ~/.zprofile: `export PATH="/Applications/Visual Studio Code.app/Contents/Resources/app/bin:$PATH"`.
-* Cmd+f - open find and replace. Can press buttons to make pattern case sensitive (insensitive by default) and match entire word. More powerfully, can press button to make pattern a regex pattern. Refer to captured groups in the "replace" box with e.g. `$1`, rather than `\1`.
+* cmd+alt+c - copy relative path to current file, with reference to current line/selection if the editor is currently focused (e.g. `src/main.go`, `src/main.go:12` or `src/main.go:12-18`). With multiple cursors, copies one reference per line (separated by \n). If editor is focused, but still only want to copy only the file with no reference, do cmd+k then the same shortcut.
+* shift+cmd+alt+c - as above, but absolute instead of relative path.
+* Alt+z: Toggle between views that wrap long lines vs let them run off the screen
+
+### Navigation and editing
+
 * Alt+click - place additional cursor. Anything you type (inserts/deletes) will apply to all cursors simultaneously.
 * Insert a 'wrapping' type of punctuation while have text selected - wraps the selected text. E.g. pressing `[` while `hello` is selected changes it to `[hello]`.
 * Alt+up/down - swap current line with line before/after
-* Alt+z: Toggle between views that wrap long lines vs let them run off the screen
+* cmd+click on a `file:line` path in any VS Code terminal output opens the file at that line.
+* Secondary click on a variable -> 'Rename symbol' - renames all occurrences of a symbol in a syntax-aware way (using the language server), rather than a dumb find-and-replace. Use this to change function/variable names.
+* ctrl+tab - switch between most-recently focused files.
+* cmd+alt+left/right - switch between most recent cursor locations (including across files)
+
+### Search
+
+* Cmd+f - open find and replace. Can press buttons to make pattern case sensitive (insensitive by default) and match entire word. More powerfully, can press button to make pattern a regex pattern. Refer to captured groups in the "replace" box with e.g. `$1`, rather than `\1`.
 * cmd+shift+o: Search for "symbols" (e.g. classes/methods/functions) within current file and jump to one. The symbols are indexed by the language server (e.g. Pylance), which is present if you have installed the appropriate extension.
 * cmd+t: Like cmd+shift+o, but across entire repository. May be more picky (e.g. only show classes) unless specifically configure the language server.
-* cmd+click on a `file:line` path in any VS Code terminal output opens the file at that line.
 
-### Thanks to extensions
+### Language-specific
 
 * cmd+b - bold in .md files.
 * cmd+i - italicise in .md files.
 * alt+shift+f - format table in .md files.
 * ... and more markdown conveniences.
-
-Extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`.
-
-### Custom (or partially custom)
-
-* cmd+alt+c - copy relative path to current file, with reference to current line/selection if the editor is currently focused (e.g. `src/main.go`, `src/main.go:12` or `src/main.go:12-18`). With multiple cursors, copies one reference per line (separated by \n). If editor is focused, but still only want to copy only the file with no reference, do cmd+k then the same shortcut.
-* shift+cmd+alt+c - as above, but absolute instead of relative path.
 
 ## Maccy (clipboard history)
 
@@ -285,14 +291,26 @@ Maccy's settings are applied by `./copy.sh` with `defaults write` (see the Maccy
 
 # macOS
 
-`./copy.sh` changes these from macOS's defaults (with `defaults write`, at the end of `copy.sh`). Most take effect at the next login.
-
 ## Shortcuts and tools
+
+Some of these are default, others are custom and applied by `./copy.sh` with `defaults write` (might not take effect until next login).
 
 * Trackpad tap to click, three-finger drag
 * Four-finger swipe up for Mission Control (show all desktop windows)
 * Four-finger swipe down for App Exposé (show all windows of current app)
 * Four-finger swipe left/right to switch between full-screen spaces.
+* cmd+tab - switch between most-recently focused apps
+* cmd+- - zoom out
+* cmd+= - zoom in
+* cmd+0 - reset zoom
+* cmd+n - new window 
+* cmd+w - close tab (if window has multiple tabs) or close window (otherwise)
+* cmd+shift+w - close window (even if has multiple tabs)
+* cmd+q - quit app
+* cmd+shift+3 - screenshot entire screen.
+* cmd+shift+4 - drag to select area to screenshot, or press space then click window to screenshot
+* Add ctrl to either of above to save to clipboard instead of default save location.
+* cmd+shift+5: show all capture options (including screen recording) and set default save location.
 
 ### Scrollshot
 
@@ -306,7 +324,7 @@ Three modes:
 Other options:
   * `--page <width>x<height>` (for PDF only) - set PDF page size in mm. Default is A4. Can also use `--page max` to aim for a single page which perfectly fits all the content (if too long, falls back to maximum-possible page height for each page).
 
-## Other config
+## Other custom config
 
 * Ctrl+↑/↓ no longer open Mission Control / App Exposé, freeing them for other apps.
 * Finder: show all file extensions, path bar, status bar, list view, delete items from the Bin after 30 days.

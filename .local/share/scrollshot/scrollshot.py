@@ -11,7 +11,7 @@ hidden scrollable content. Otherwise, provide one of:
     --selector <CSS>:   uses nearest scrollable ancestor of the element matching the
                         CSS selector (or the page, if none)
 
-Output is PDF if the path ends in .pdf, else PNG. If PDF:
+Output is PDF if the path ends in .pdf, or PNG if ends in .png. If PDF:
     --page a4 (default) | max (sizes each page to fit as much content as possible)
                         | <width>x<height> (mm)
 
@@ -54,9 +54,15 @@ ap.add_argument("--keep-scrollbars", action="store_true",
                 help="don't hide scrollbars during the capture")
 ap.add_argument("--max-slices", type=int, default=200,
                 help="abort after this many slices (default 200)")
-ap.add_argument("out", metavar="OUTPUT", help="output file (.png or .pdf)")
+ap.add_argument("out", metavar="OUTPUT", help="output file (.pdf or .png)")
 a = ap.parse_args()
-out = a.out
+
+ALLOWED_EXTENSIONS = ['.pdf', '.png']
+for ext in ALLOWED_EXTENSIONS:
+    if a.out.lower().endswith(ext):
+        break
+else:
+    sys.exit(f"output path must end with one of the following: {ALLOWED_EXTENSIONS}")
 if not 0 <= a.margin < 0.5:
     sys.exit("--margin must be between 0 and 0.5")
 
@@ -423,7 +429,7 @@ yy = 0
 for s in strips:
     res.paste(s, (0, yy)); yy += s.height
 
-if out.lower().endswith(".pdf"):
+if a.out.lower().endswith(".pdf"):
     try:
         import img2pdf
     except ImportError:
@@ -458,9 +464,9 @@ if out.lower().endswith(".pdf"):
                 padded.paste(chunk, (0, 0)); chunk = padded
             pages.append(png_bytes(chunk))
         layout = img2pdf.get_layout_fun(pagesize=(pw, ph), fit=img2pdf.FitMode.into)
-    with open(out, "wb") as f:
+    with open(a.out, "wb") as f:
         f.write(img2pdf.convert(pages, layout_fun=layout))
-    print(f"saved {out} ({len(pages)} page(s), page={pg}, lossless)")
+    print(f"saved {a.out} ({len(pages)} page(s), page={pg}, lossless)")
 else:
-    res.save(out)
-    print(f"saved {out} ({res.width}x{res.height})")
+    res.save(a.out, format="PNG")
+    print(f"saved {a.out} ({res.width}x{res.height})")

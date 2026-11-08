@@ -204,5 +204,29 @@
     "key": "cmd+k shift+cmd+alt+c",
     "command": "copyFilePath",
     "when": "editorFocus"
+  },
+
+  // Use cmd+0 to reset zoom, matching what macOS generally uses
+  {
+  "key": "cmd+0",
+  "command": "workbench.action.zoomReset"
+  },
+
+  // Change the keybindings for moving between recent cursor locations.
+  {
+    "key": "ctrl+-",
+    "command": "-workbench.action.navigateBack"
+  },
+  {
+    "key": "ctrl+shift+-",
+    "command": "-workbench.action.navigateForward"
+  },
+  {
+    "key": "cmd+alt+left",
+    "command": "workbench.action.navigateBack"
+  },
+  {
+    "key": "cmd+alt+right",
+    "command": "workbench.action.navigateForward"
   }
 ]
