@@ -271,7 +271,7 @@ if [[ -x /usr/bin/trash ]]; then
       recursive=1
     fi
 
-    local home="${HOME:A}"
+    local home="${HOME:A}" target
     local -a targets protected contents
     for arg in "$@"; do
       name="${arg%%/##}"  # trash ignores trailing slashes, so removes a symlink itself rather than its target.
@@ -315,10 +315,17 @@ if [[ -x /usr/bin/trash ]]; then
     fi
 
     (( ${#targets} )) || return $ret
-    if ! /usr/bin/trash ${${verbose:#0}:+-v} "${targets[@]}"; then
+    # If user passes multiple remove targets, they are passed to /usr/bin/trash one-by-one instead of batched, because 
+    # it seems that only the first target given to /usr/bin/trash ends up having the "Put Back" option.
+    for target in "${targets[@]}"; do
+      if ! /usr/bin/trash ${${verbose:#0}:+-v} "$target"; then
+        ret=1
+      fi
+    done
+    (( ret == 0 )) || {
       echo 'rm: not everything could be moved to the Bin (see above), so use `command rm` to delete permanently' >&2
       return 1
-    fi
+    }
     return $ret
   }
   compdef _rm _rm_bin
