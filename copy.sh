@@ -30,19 +30,35 @@ if ! grep -Fqx "$LOCAL_PATH_EXPORT" "$ZPROFILE" 2>/dev/null; then
   echo "$LOCAL_PATH_EXPORT" >> "$ZPROFILE"
 fi
 
-# Build my cmdlog program (for my custom ctrl+r, see .zshrc) from its source in this repo.
+# Build my cmdlog program (see README.md) from its source in this repo.
 (cd "$script_dir/cmdlog" && go build -o "$LOCAL_BIN/cmdlog" .)
-# Build my rebase program (an interactive `git rebase -i`, see README.md) from its source in this repo.
+# Build my rebase program (see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/rebase" .)
-# Build my pick program (an interactive `git cherry-pick`, see README.md), which is the same program as rebase, acting as
-# pick when run under that name.
+# Build my pick program (see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/pick" .)
-# Build my drop program (an interactive way to remove commits from history, see README.md), which is the same program
-# again, acting as drop when run under that name.
+# Build my drop program (see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/drop" .)
-# Build my checkout program (an interactive `git checkout`, see README.md), which is the same program again, acting as
-# checkout when run under that name.
+# Build my checkout program (see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/checkout" .)
+
+# Create venv for the scrollshot program (see README.md) in this repo.
+python3 -m venv --clear "$HOME/.local/share/scrollshot-venv"
+"$HOME/.local/share/scrollshot-venv/bin/pip" install pillow img2pdf
+
+# Enable Safari's Develop menu and "Allow JavaScript from Apple Events" (used by my scrollshot tool).
+# Safari is sandboxed, so macOS only lets the terminal write its preferences if the terminal has Full Disk Access.
+# Safari must be closed, or it will overwrite the values when it quits.
+osascript -e 'tell application "Safari" to quit' 2>/dev/null || true
+if ! {
+  defaults write com.apple.Safari IncludeDevelopMenu -bool true &&
+  defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true &&
+  defaults write com.apple.Safari "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" -bool true &&
+  defaults write com.apple.Safari AllowJavaScriptFromAppleEvents -bool true
+} 2>/dev/null; then
+  echo "warning: couldn't write Safari's preferences (the terminal probably lacks Full Disk Access)." >&2
+  echo "Enable them manually: Safari > Settings > Advanced > 'Show features for web developers', then" >&2
+  echo "Settings > Developer > 'Allow JavaScript from Apple Events'." >&2
+fi
 
 # Install my copy-reference VS Code extension (cmd+alt+c copies the selected lines as e.g. `src/main.go:12-18`, see
 # README.md) from its source in this repo. VS Code only loads extensions it installed itself, so package the source as a

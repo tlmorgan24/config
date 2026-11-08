@@ -23,8 +23,9 @@
 *.bak
 *.backup
 
-# OS / tool caches
+# Caches
 .cache/
 .cache
 .npm/
 .yarn/
+__pycache__

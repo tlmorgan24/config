@@ -287,13 +287,33 @@ Maccy's settings are applied by `./copy.sh` with `defaults write` (see the Maccy
 
 `./copy.sh` changes these from macOS's defaults (with `defaults write`, at the end of `copy.sh`). Most take effect at the next login.
 
+## Shortcuts and tools
+
+* Trackpad tap to click, three-finger drag
+* Four-finger swipe up for Mission Control (show all desktop windows)
+* Four-finger swipe down for App Exposé (show all windows of current app)
+* Four-finger swipe left/right to switch between full-screen spaces.
+
+### Scrollshot
+
+`scrollshot [options] output_path` - take scrolling screenshot of current Safari tab and save as PDF (if output path ends in .pdf) or PNG (otherwise).
+
+Three modes:
+  * `--click` - waits for you to click, then uses nearest scrollable ancestor of the clicked element (or the page, if none).
+  * `--selector <CSS>`: uses nearest scrollable ancestor of the element matching the CSS selector (or the page, if none).
+  * Default - uses the scroller (an element, or the page itself) with the most hidden scrollable content
+
+Other options:
+  * `--page <width>x<height>` (for PDF only) - set PDF page size in mm. Default is A4. Can also use `--page max` to aim for a single page which perfectly fits all the content (if too long, falls back to maximum-possible page height for each page).
+
+## Other config
+
 * Ctrl+↑/↓ no longer open Mission Control / App Exposé, freeing them for other apps.
-* Trackpad: tap to click, three-finger drag, four-finger swipes (up: Mission Control, down: App Exposé, left/right: spaces).
 * Finder: show all file extensions, path bar, status bar, list view, delete items from the Bin after 30 days.
 * Typing: no auto-capitalisation, no double-space full stop.
 * Tab moves between all controls in dialogs.
 * Screenshots save to Downloads.
-* Clicking the wallpaper only shows the desktop in Stage Manager.
+* Clicking the wallpaper only shows the desktop if in Stage Manager, rather than always.
 * No gaps between tiled windows.
 
 # cmdlog

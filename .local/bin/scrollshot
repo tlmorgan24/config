@@ -1,0 +1,2 @@
+#!/bin/bash
+exec "$HOME/.local/share/scrollshot-venv/bin/python" "$HOME/.local/share/scrollshot/scrollshot.py" "$@"

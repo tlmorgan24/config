@@ -1,16 +1,15 @@
-#!/usr/bin/env python3
 """
 Capture the full content of a scrollable area in your current Safari tab.
 
 Usage:
-    safari-scrollshot [--click | --selector <CSS>] [options] output_path
+    scrollshot [options] output_path
 
 By default, uses the scroller (an element, or the page itself) with the most
 hidden scrollable content. Otherwise, provide one of:
-    --click:        waits for you to click, then uses nearest scrollable ancestor
-                    of the clicked element (or the page, if none)
-    --selector:     uses nearest scrollable ancestor of the element matching the
-                    CSS selector (or the page, if none)
+    --click:            waits for you to click, then uses nearest scrollable ancestor
+                        of the clicked element (or the page, if none)
+    --selector <CSS>:   uses nearest scrollable ancestor of the element matching the
+                        CSS selector (or the page, if none)
 
 Output is PDF if the path ends in .pdf, else PNG. If PDF:
     --page a4 (default) | max (sizes each page to fit as much content as possible)
@@ -22,13 +21,16 @@ Other options:
     --keep-fixed        don't neutralise fixed/sticky elements after the first
                         slice (by default fixed ones are hidden and sticky ones
                         are made static, so they don't repeat in every slice)
+    --keep-scrollbars   don't hide scrollbars during the capture (by default a
+                        temporary style hides them, so overlay scrollbars don't
+                        appear at different positions in every slice)
     --max-slices 200    safety cap for infinite-scroll pages
 
 Requirements:
     pip install pillow img2pdf
     Safari > Develop > "Allow JavaScript from Apple Events"
-    Give the terminal Screen Recording permission.
-    Give the terminal Accessibility permission (optional). It is used to read
+    Give the terminal Screen Recording permission when prompted.
+    Give the terminal Accessibility permission when prompted (optional). It is used to read
     the exact web-view frame, which makes sidebars, docked inspectors, page zoom
     and multiple monitors work. Without it, a less accurate heuristic is used.
 """
@@ -48,6 +50,8 @@ ap.add_argument("--page", default="a4",
                      "as possible), or WxH in mm, e.g. 200x300")
 ap.add_argument("--keep-fixed", action="store_true",
                 help="don't hide fixed / unstick sticky elements after the first slice")
+ap.add_argument("--keep-scrollbars", action="store_true",
+                help="don't hide scrollbars during the capture")
 ap.add_argument("--max-slices", type=int, default=200,
                 help="abort after this many slices (default 200)")
 ap.add_argument("out", metavar="OUTPUT", help="output file (.png or .pdf)")
@@ -71,6 +75,19 @@ function up(e) {
   while (e && !isS(e)) e = e.parentElement;
   return (e === document.documentElement || e === document.body) ? DOC : e;
 }
+"""
+
+# Temporary style that hides every scrollbar (standard property + WebKit
+# pseudo-element). Removed again in cleanup().
+HIDE_SB_JS = """
+  if (!document.getElementById('__nosb')) {
+    var s = document.createElement('style');
+    s.id = '__nosb';
+    s.textContent = '*{scrollbar-width:none !important}' +
+                    '*::-webkit-scrollbar{display:none !important}';
+    (document.head || document.documentElement).appendChild(s);
+  }
+  return 1;
 """
 
 
@@ -153,6 +170,8 @@ def webview_frame():
 def cleanup():
     """Restore everything we touched in the page (best effort, never fatal)."""
     js("""
+      var ns = document.getElementById('__nosb');
+      if (ns) ns.remove();
       var o = window.__orig, el = window.__t;
       (window.__fix || []).forEach(function (p) {
         if (p[1] === null) p[0].removeAttribute('style'); else p[0].setAttribute('style', p[1]);
@@ -247,6 +266,13 @@ def settle(target):
 
 
 try:
+    # Hide scrollbars BEFORE measuring anything: with classic scrollbars this
+    # changes the content width (and possibly the wrapping / scrollHeight), so
+    # all geometry below must be measured in the hidden state.
+    if not a.keep_scrollbars:
+        js(HIDE_SB_JS)
+        time.sleep(0.3)
+
     # Remember the original state, force instant scrolling, scroll the area into view.
     info = js("""
       var el = window.__t, de = document.documentElement;
