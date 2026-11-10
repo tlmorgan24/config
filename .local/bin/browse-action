@@ -205,13 +205,13 @@ case "$action" in
     fi
     ;;
   sort)
-    # Cycle name-asc -> name-desc -> mtime-desc -> mtime-asc, keeping the cursor on the highlighted entry and query.
+    # Cycle name-asc -> mtime-desc -> mtime-asc -> name-desc, keeping the cursor on the highlighted entry and query.
     path=${FZF_CURRENT_ITEM%%$'\t'*}
     case "$(cat "$state/sort" 2>/dev/null)" in
-      name-desc)  echo mtime-desc > "$state/sort" ;;
+      name-desc)  rm -f "$state/sort" ;;
       mtime-desc) echo mtime-asc > "$state/sort" ;;
-      mtime-asc)  rm -f "$state/sort" ;;
-      *)          echo name-desc > "$state/sort" ;;
+      mtime-asc)  echo name-desc > "$state/sort" ;;
+      *)          echo mtime-desc > "$state/sort" ;;
     esac
     [[ -n "$FZF_QUERY" ]] && touch "$state/keep-query"
     if [[ -n "$path" ]]; then
@@ -293,15 +293,15 @@ case "$action" in
     fi
     printf '%s' "$shown"
     case "$(cat "$state/type" 2>/dev/null)" in
-      files)       printf ' ' ;;
-      directories) printf ' ' ;;
-      *)            printf '  ' ;;
+      files)       printf ' \e[37m\e[0m' ;;
+      directories) printf ' \e[37m\e[0m' ;;
+      *)            printf ' \e[37m \e[0m' ;;
     esac
     case "$(cat "$state/sort" 2>/dev/null)" in
-      name-desc)  printf ' Z-A' ;;
-      mtime-desc) printf ' ◷ ↓' ;;
-      mtime-asc)  printf ' ◷ ↑' ;;
-      *)           printf ' A-Z' ;;
+      name-desc)  printf ' \e[38;2;203;166;247mZ-A\e[0m' ;;
+      mtime-desc) printf ' \e[38;2;203;166;247m◷ ↓\e[0m' ;;
+      mtime-asc)  printf ' \e[38;2;203;166;247m◷ ↑\e[0m' ;;
+      *)          printf ' \e[38;2;203;166;247mA-Z\e[0m' ;;
     esac
     if (( marks )); then
       printf '  (%d selected)' "$marks"
