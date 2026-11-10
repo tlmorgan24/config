@@ -136,7 +136,8 @@ Note fzf provides ctrl+r (search command history) ctrl+t (search for file/direct
 * `calc` - open REPL calculator in terminal. Works as though everything you type is in `echo $((...))`, i.e., can use/define shell variables, do command substitution, etc. Unlike usual `((...))`, I chose to make it use float arithmetic, so e.g. `3/4` is 0.75 instead of 0. However, this does mean integers will be saved with trailing `.000...`, so avoid using saved variables string comparisons.
 * `c` - copies its stdin to clipboard
 * `v` - pastes clipboard to its stdout
-* `lst [directory]` - list directory contents, including subdirectories etc, with a tree view. Uses CWD if no directory specified.
+* `ls [directory]` - like standard `ls`, but with colours/icons. To remove them, pass `--plain`.
+* `lst [directory]` - list directory contents, including subdirectories etc, with a tree view (and colours/icons, removable by passing `--plain`). `--level n` traverses only `n` levels deep.
 * `p` - alias for `perl -ane`, while still allowing extra flags to be passed without -e swallowing them. Also takes `-R<sep>`, where `<sep>` is a custom record separator, acting like the record counterpart of `-F` (separator is a regex pattern, just like `-F`).
 * `pp` - like `p`, but slurps the whole input as one record (-0777), so don't use `-R`.
 * `ff [fd args] <code>` - "for each file": runs arbitrary shell code for each file/directory `fd` finds, with the path in `$f`. E.g. `ff -e md 'echo $f; head -1 $f'` prints each Markdown file's name and first line.

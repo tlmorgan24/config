@@ -340,8 +340,20 @@ alias grep='ggrep -P'
 alias find='gfind'  # But still prefer fd most of the time.
 alias tac='gtac'
 
-alias ls='eza -1 --icons=auto'
-alias lst='eza -1 --tree --icons=auto'
+# Like `eza -1 --icons=auto`, but allows passing `--plain` as shorthand for `--icons=never --color=never`.
+ls() {
+  local args=()
+  for arg in "$@"; do
+    if [[ $arg == --plain ]]; then
+      args+=(--icons=never --color=never)
+    else
+      args+=("$arg")
+    fi
+  done
+  command eza -1 --icons=auto "${args[@]}" # if --plain passed, --icons=auto gets overwritten by --icons=never
+}
+
+alias lst='ls --tree'
 
 # -P to always use PCRE (maximal regex features). Note fd does not support this, but still has most features except
 # backreferences & lookarounds.
