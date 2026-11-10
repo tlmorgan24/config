@@ -8,16 +8,26 @@
 
 options=()
 while [[ $# -gt 1 ]]; do
-  options+=("$1")
-  shift
+  case "$1" in
+    --type)
+      options+=("$1" "$2")
+      shift 2
+      ;;
+    *)
+      options+=("$1")
+      shift
+      ;;
+  esac
 done
 
 sort_order=name
 reverse=false
-for option in "${options[@]}"; do
-  case "$option" in
+fd_options=()
+for (( i = 0; i < ${#options[@]}; i++ )); do
+  case "${options[i]}" in
     --sort=modified) sort_order=modified ;;
     --reverse) reverse=true ;;
+    --type) fd_options+=("${options[i]}" "${options[i + 1]}"); ((i++)) ;;
   esac
 done
 
@@ -30,7 +40,7 @@ directory=$(realpath -- "$directory")
 
 # fd's output is streamed (rather than collected first, as in provide-contents), as there can be many entries. The full
 # path is the relative path with fd's colours (and the trailing / it gives directories) removed, after the directory.
-fd --color=always --base-directory "$directory" |
+fd --color=always --base-directory "$directory" "${fd_options[@]}" |
   while IFS= read -r line; do
     if [[ "$sort_order" == modified ]]; then
       path=$(printf '%s' "$line" | sed $'s/\033\\[[0-9;]*m//g')
