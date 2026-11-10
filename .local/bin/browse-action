@@ -40,8 +40,8 @@
 #     start.
 #   - `header`: print the header, i.e. `dir` (its last two directories), as `dir/**` while searching, and how many
 #     entries are marked (shown as selected, as in the help).
-#   - `help`: print the help for the top of the border, with ctrl+f's description for the current mode, by running the
-#     command for it in $BROWSE_HELP, or $BROWSE_SEARCH_HELP while searching (see _fzf_help in .zshrc).
+#   - `help`: print the help for the top of the border by running the command in $BROWSE_HELP (see _fzf_help in
+#     .zshrc).
 #
 # $BROWSE_PROVIDE_OPTS holds the options for provide-contents (e.g. --group-directories-first), separated by spaces.
 
@@ -267,9 +267,6 @@ case "$action" in
     echo
     ;;
   help)
-    if [[ -e "$state/searching" ]]; then
-      exec zsh -fc "$BROWSE_SEARCH_HELP"
-    fi
     exec zsh -fc "$BROWSE_HELP"
     ;;
 esac

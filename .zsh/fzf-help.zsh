@@ -5,7 +5,7 @@
 # one too wide is drawn as just its last character. Coloured like rebase's help (see rebase/ui.go), with each key in
 # the text colour, then what it does in a dimmer one.
 
-local key=$'\e[38;2;205;214;244m' desc=$'\e[38;2;166;173;200m'
+local key=$'\e[38;2;205;214;244m' desc=$'\e[38;2;166;173;200m' active_desc=$'\e[38;2;166;227;161m'
 # The widest label fzf draws with at least one `─` after it, padding included
 local room=$(( ${FZF_COLUMNS:-$COLUMNS} - 1 ))
 local label= item
@@ -14,7 +14,9 @@ while (( $# >= 2 )); do
   item="$1 $2"
   (( width + (${#label} ? 2 : 0) + ${(m)#item} > room )) && break
   (( width += (${#label} ? 2 : 0) + ${(m)#item} ))
-  label+="${label:+  }$key$1 $desc$2"
+  local desc_colour=$desc
+  [[ $FZF_HELP_ACTIVE_KEYS == *"|$1|"* ]] && desc_colour=$active_desc
+  label+="${label:+  }$key$1 $desc_colour$2"
   shift 2
 done
 [[ -n $label ]] && print -r -- " $label "

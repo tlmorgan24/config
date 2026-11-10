@@ -1125,6 +1125,7 @@ export FZF_TMUX_HEIGHT=100%
 # a variable, written `$name`, which <code> sets from the state (e.g. from files the tool keeps it in), as fzf runs the
 # code in a new shell before printing each label. The tool then also binds the toggle's key to print the label again,
 # with `--bind=<key>:+transform-border-label:$REPLY`.
+# Set FZF_HELP_ACTIVE_KEYS in the code passed with `-c` to colour matching keys as active.
 _fzf_help() {
   local code=
   if [[ $1 == -c ]]; then
@@ -1217,7 +1218,7 @@ source <(fzf --zsh)
 # directories, and the header shows how many there are, along with the directory being browsed. If initial directory
 # not provided, assume current working directory. From the initial directory, can interactively browse by pressing left
 # to come out of the directory (with the cursor on the directory just left), right to go into the highlighted
-# directory. Press ctrl+f to instead search everything below the directory, and again to go back to browsing it (both
+# directory. Press ctrl+r to instead search everything below the directory, and again to go back to browsing it (both
 # keeping the query). Press ctrl+s to cycle the search mode (see _fzf_search_mode_opts).
 #
 # fzf's own multi-select can't do this, as it forgets any selected entry its new list lacks. So each key runs
@@ -1272,7 +1273,7 @@ browse() {
     --accept-nth=1  # Only output the full path.
     --bind="right:transform(browse-action in {1}),left:transform(browse-action out)"
     --bind="ctrl-o:transform(browse-action sort)"
-    --bind="ctrl-f:transform(browse-action search)"
+    --bind="ctrl-r:transform(browse-action search)"
     --bind="start:transform-header(browse-action header),load:transform(browse-action load)"
     --bind="result:transform(browse-action result)"
     --preview="display-contents {1}"  # Pass the full path for displaying contents.
@@ -1281,17 +1282,15 @@ browse() {
     --ansi  # Preserve colours
   )
 
-  local help=(⌃o 'sort order' ⌃s 'search mode')  # The help after ctrl+f's, whose description depends on the mode (see below)
+  local help=(←/→ out/in ⌃r recursive ⌃o 'sort order' ⌃s 'search mode')
   if [[ "$multi" == true ]]; then
     FZF_OPTS+=(--bind="tab:transform(browse-action mark {1})")
     help+=(tab select)
   fi
   help+=(⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter choose esc quit)
   local reply REPLY
-  _fzf_help ←/→ out/in ⌃f 'everything below' $help
+  _fzf_help -c '[[ -e $BROWSE_STATE/searching ]] && export FZF_HELP_ACTIVE_KEYS="|⌃r|"' $help
   local -x BROWSE_HELP=$REPLY
-  _fzf_help ←/→ out/in ⌃f 'this level only' $help
-  local -x BROWSE_SEARCH_HELP=$REPLY
   FZF_OPTS+=(--border-label-pos=3 --bind='start,resize:+transform-border-label:browse-action help')
   _fzf_search_mode_opts
   FZF_OPTS+=($reply)
