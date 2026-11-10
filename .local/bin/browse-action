@@ -8,6 +8,7 @@
 #   - `dir`: the directory being browsed, or searched below.
 #   - `searching`: exists while searching everything below `dir` (files and directories, at any depth), rather than
 #     browsing it.
+#   - `sort`: the sort order, either `name`, `mtime-asc` or `mtime-desc`; absent means `name`.
 #   - `list`: the entries last listed (`full_path<TAB>pretty_path`), so marking can show them again without listing
 #     them again (which takes 50s for everything below ~).
 #   - `list.part`: exists while listing, before `list` is replaced with it.
@@ -32,6 +33,7 @@
 #     the cursor on the entry.
 #   - `search`: toggle between browsing `dir` and searching everything below it, keeping the query. Going back to
 #     browsing without a query puts the cursor on the highlighted entry, or the directory it's below in `dir`.
+#   - `sort`: cycle the sort order, keeping the cursor on the highlighted entry and the query.
 #   - `mark <path>`: toggle the highlighted entry's mark, then move down.
 #   - `load`: run by fzf once it has the new list, to put the cursor where `focus`, `pos` or `top` says.
 #   - `result`: run by fzf each time it has matched the list against the query, to finish what `load` and `search`
@@ -75,6 +77,14 @@ render() {
   ' "$state/marks" -
 }
 
+# Print the eza options for the current sort order (nothing for name, eza's default).
+sort_opts() {
+  case "$(cat "$state/sort" 2>/dev/null)" in
+    mtime-asc)  echo '--sort=modified' ;;
+    mtime-desc) echo '--sort=modified --reverse' ;;
+  esac
+}
+
 # The fzf actions to bring the header and help up to date
 labels='+transform-header(browse-action header)+transform-border-label(browse-action help)'
 
@@ -105,9 +115,9 @@ case "$action" in
   list)
     dir=$(<"$state/dir")
     if [[ -e "$state/searching" ]]; then
-      provide-all-contents "$dir"
+      provide-all-contents $(sort_opts) "$dir"
     else
-      provide-contents $BROWSE_PROVIDE_OPTS "$dir"
+      provide-contents $BROWSE_PROVIDE_OPTS $(sort_opts) "$dir"
     fi | tee "$state/list.part" | {
       render
       # The list stays open until this finishes (as this holds it open), so `load` always sees the new `list`.
@@ -175,6 +185,22 @@ case "$action" in
       echo "reload(browse-action list)$labels"
     fi
     ;;
+  sort)
+    # Cycle name -> mtime-asc -> mtime-desc -> name, keeping the cursor on the highlighted entry (and the query).
+    path=${FZF_CURRENT_ITEM%%$'\t'*}
+    case "$(cat "$state/sort" 2>/dev/null)" in
+      mtime-asc)  echo mtime-desc > "$state/sort" ;;
+      mtime-desc) echo name > "$state/sort" ;;
+      *)          echo mtime-asc > "$state/sort" ;;
+    esac
+    [[ -n "$FZF_QUERY" ]] && touch "$state/keep-query"
+    if [[ -n "$path" ]]; then
+      echo "$path" > "$state/focus"
+    else
+      touch "$state/top"
+    fi
+    show
+    ;;
   mark)
     if [[ -z "$path" ]] || is_placeholder; then
       exit  # Nothing to mark
@@ -231,6 +257,10 @@ case "$action" in
       shown="${shown%/}/**"  # The glob for everything below it, as in .gitignore
     fi
     printf '%s' "$shown"
+    case "$(cat "$state/sort" 2>/dev/null)" in
+      mtime-asc)  printf '  [oldest first]' ;;
+      mtime-desc) printf '  [newest first]' ;;
+    esac
     if (( marks )); then
       printf '  (%d selected)' "$marks"
     fi

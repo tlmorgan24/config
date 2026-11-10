@@ -1,10 +1,25 @@
 #!/bin/bash
-# Usage: `provide-all-contents directory`
+# Usage: `provide-all-contents [options] directory`
 #
 # Dependencies: fd. Like provide-contents, but for every file and directory below the directory (at any depth), not just
 # its own entries. Field 1 is the full path, field 2 the path relative to the directory (coloured by fd), tab-separated.
 # Hidden and git-ignored entries are left out (fd's defaults). If nothing is found, print `<directory>/<TAB><NEWLINE>`,
 # as provide-contents does, so browse-action still knows where we are.
+
+options=()
+while [[ $# -gt 1 ]]; do
+  options+=("$1")
+  shift
+done
+
+sort_order=name
+reverse=false
+for option in "${options[@]}"; do
+  case "$option" in
+    --sort=modified) sort_order=modified ;;
+    --reverse) reverse=true ;;
+  esac
+done
 
 directory="$1"
 if [[ ! -d "$directory" ]]; then
@@ -16,6 +31,24 @@ directory=$(realpath -- "$directory")
 # fd's output is streamed (rather than collected first, as in provide-contents), as there can be many entries. The full
 # path is the relative path with fd's colours (and the trailing / it gives directories) removed, after the directory.
 fd --color=always --base-directory "$directory" |
+  while IFS= read -r line; do
+    if [[ "$sort_order" == modified ]]; then
+      path=$(printf '%s' "$line" | sed $'s/\033\\[[0-9;]*m//g')
+      timestamp=$(stat -f %m "$directory/$path" 2>/dev/null || stat -c %Y "$directory/$path")
+      printf '%s\t%s\n' "$timestamp" "$line"
+    else
+      printf '%s\n' "$line"
+    fi
+  done |
+  if [[ "$sort_order" == modified ]]; then
+    if [[ "$reverse" == true ]]; then
+      LC_ALL=C sort -rn -k1,1 -k2,2 | cut -f2-
+    else
+      LC_ALL=C sort -n -k1,1 -k2,2 | cut -f2-
+    fi
+  else
+    cat
+  fi |
   DIRECTORY="$directory" awk '
     BEGIN { prefix = ENVIRON["DIRECTORY"]; if (prefix != "/") prefix = prefix "/" }
     {

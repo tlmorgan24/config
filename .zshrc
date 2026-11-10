@@ -1268,8 +1268,10 @@ browse() {
     --delimiter=$'\t'  # fzf is provided `full_path<TAB>mark<TAB>pretty_path` fields.
     --with-nth=2..  # Only display the mark and pretty path.
     --nth=2  # Only search the pretty path (the 2nd field displayed).
+    --tiebreak=index  # Keep equal match scores in their original order.
     --accept-nth=1  # Only output the full path.
     --bind="right:transform(browse-action in {1}),left:transform(browse-action out)"
+    --bind="ctrl-o:transform(browse-action sort)"
     --bind="ctrl-f:transform(browse-action search)"
     --bind="start:transform-header(browse-action header),load:transform(browse-action load)"
     --bind="result:transform(browse-action result)"
@@ -1279,7 +1281,7 @@ browse() {
     --ansi  # Preserve colours
   )
 
-  local help=(⌃s 'search mode')  # The help after ctrl+f's, whose description depends on the mode (see below)
+  local help=(⌃o 'sort order' ⌃s 'search mode')  # The help after ctrl+f's, whose description depends on the mode (see below)
   if [[ "$multi" == true ]]; then
     FZF_OPTS+=(--bind="tab:transform(browse-action mark {1})")
     help+=(tab select)
