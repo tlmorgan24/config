@@ -1274,6 +1274,7 @@ browse() {
     --bind="right:transform(browse-action in {1}),left:transform(browse-action out)"
     --bind="ctrl-o:transform(browse-action sort)"
     --bind="ctrl-t:transform(browse-action type)"
+    --bind="ctrl-h:transform(browse-action hidden)"
     --bind="ctrl-r:transform(browse-action search)"
     --bind="start:transform-header(browse-action header),load:transform(browse-action load)"
     --bind="result:transform(browse-action result)"
@@ -1283,14 +1284,14 @@ browse() {
     --ansi  # Preserve colours
   )
 
-  local help=(←/→ out/in ⌃r recursive ⌃o 'sort order' ⌃t types ⌃s 'search mode')
+  local help=(←/→ out/in ⌃r recursive ⌃o 'sort order' ⌃s 'search mode' ⌃t types ⌃h 'show hidden')
   if [[ "$multi" == true ]]; then
     FZF_OPTS+=(--bind="tab:transform(browse-action mark {1})")
     help+=(tab select)
   fi
   help+=(⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter choose esc quit)
   local reply REPLY
-  _fzf_help -c '[[ -e $BROWSE_STATE/searching ]] && export FZF_HELP_ACTIVE_KEYS="|⌃r|"' $help
+  _fzf_help -c '[[ -e $BROWSE_STATE/searching ]] && export FZF_HELP_ACTIVE_KEYS="|⌃r|"; [[ -e $BROWSE_STATE/hidden ]] && export FZF_HELP_ACTIVE_KEYS="${FZF_HELP_ACTIVE_KEYS:-}|⌃h|"' $help
   local -x BROWSE_HELP=$REPLY
   FZF_OPTS+=(--border-label-pos=3 --bind='start,resize:+transform-border-label:browse-action help')
   _fzf_search_mode_opts

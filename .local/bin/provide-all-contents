@@ -27,6 +27,7 @@ for (( i = 0; i < ${#options[@]}; i++ )); do
   case "${options[i]}" in
     --sort=modified) sort_order=modified ;;
     --reverse) reverse=true ;;
+    --hidden) fd_options+=("${options[i]}") ;;
     --type) fd_options+=("${options[i]}" "${options[i + 1]}"); ((i++)) ;;
   esac
 done

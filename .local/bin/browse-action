@@ -10,6 +10,7 @@
 #     browsing it.
 #   - `sort`: the sort order, either `name-desc`, `mtime-desc` or `mtime-asc`; absent means `name-asc`.
 #   - `type`: the entry types to show, either `files` or `directories`; absent means all types.
+#   - `hidden`: exists while hidden entries are shown.
 #   - `list`: the entries last listed (`full_path<TAB>pretty_path`), so marking can show them again without listing
 #     them again (which takes 50s for everything below ~).
 #   - `list.part`: exists while listing, before `list` is replaced with it.
@@ -36,6 +37,7 @@
 #     browsing without a query puts the cursor on the highlighted entry, or the directory it's below in `dir`.
 #   - `sort`: cycle the sort order, keeping the cursor on the highlighted entry and the query.
 #   - `type`: cycle the entry types, keeping the cursor on the highlighted entry and the query.
+#   - `hidden`: toggle showing hidden entries, keeping the cursor on the highlighted entry and the query.
 #   - `mark <path>`: toggle the highlighted entry's mark, then move down.
 #   - `load`: run by fzf once it has the new list, to put the cursor where `focus`, `pos` or `top` says.
 #   - `result`: run by fzf each time it has matched the list against the query, to finish what `load` and `search`
@@ -96,12 +98,22 @@ type_opts() {
   esac
 }
 
+# Print the eza option for showing hidden entries.
+hidden_opts() {
+  [[ -e "$state/hidden" ]] && echo '--all'
+}
+
 # Print the fd option for the current entry types (nothing for all types).
 search_type_opts() {
   case "$(cat "$state/type" 2>/dev/null)" in
     files)       echo '--type file' ;;
     directories) echo '--type directory' ;;
   esac
+}
+
+# Print the fd option for showing hidden entries.
+search_hidden_opts() {
+  [[ -e "$state/hidden" ]] && echo '--hidden'
 }
 
 # The fzf actions to bring the header and help up to date
@@ -134,9 +146,9 @@ case "$action" in
   list)
     dir=$(<"$state/dir")
     if [[ -e "$state/searching" ]]; then
-      provide-all-contents $(sort_opts) $(search_type_opts) "$dir"
+      provide-all-contents $(sort_opts) $(search_type_opts) $(search_hidden_opts) "$dir"
     else
-      provide-contents $BROWSE_PROVIDE_OPTS $(sort_opts) $(type_opts) "$dir"
+      provide-contents $BROWSE_PROVIDE_OPTS $(sort_opts) $(type_opts) $(hidden_opts) "$dir"
     fi | tee "$state/list.part" | {
       render
       # The list stays open until this finishes (as this holds it open), so `load` always sees the new `list`.
@@ -228,6 +240,21 @@ case "$action" in
       directories) rm -f "$state/type" ;;
       *)           echo files > "$state/type" ;;
     esac
+    [[ -n "$FZF_QUERY" ]] && touch "$state/keep-query"
+    if [[ -n "$path" ]]; then
+      echo "$path" > "$state/focus"
+    else
+      touch "$state/top"
+    fi
+    show
+    ;;
+  hidden)
+    path=${FZF_CURRENT_ITEM%%$'\t'*}
+    if [[ -e "$state/hidden" ]]; then
+      rm "$state/hidden"
+    else
+      touch "$state/hidden"
+    fi
     [[ -n "$FZF_QUERY" ]] && touch "$state/keep-query"
     if [[ -n "$path" ]]; then
       echo "$path" > "$state/focus"
