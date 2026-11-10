@@ -42,12 +42,12 @@ fi
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/checkout" .)
 
 # Create venv for the scrollshot program (see README.md) in this repo.
-python3 -m venv --clear "$HOME/.local/share/scrollshot-venv"
-"$HOME/.local/share/scrollshot-venv/bin/pip" install pillow img2pdf
+python3 -m venv --clear "$HOME/.local/share/scrollshot-venv" >/dev/null
+"$HOME/.local/share/scrollshot-venv/bin/pip" install pillow img2pdf >/dev/null
 
 # Enable Safari's Develop menu and "Allow JavaScript from Apple Events" (used by my scrollshot tool).
 # Safari is sandboxed, so macOS only lets the terminal write its preferences if the terminal has Full Disk Access.
-# Safari must be closed, or it will overwrite the values when it quits.
+# Note this will quit Safari.
 osascript -e 'tell application "Safari" to quit' 2>/dev/null || true
 if ! {
   defaults write com.apple.Safari IncludeDevelopMenu -bool true &&
