@@ -57,7 +57,13 @@ fd --color=always --base-directory "$directory" "${fd_options[@]}" |
       LC_ALL=C sort -n -k1,1 -k2,2 | cut -f2-
     fi
   else
-    cat
+    if [[ "$reverse" == true ]]; then
+      awk '{ key = $0; gsub(/\033\[[0-9;]*m/, "", key); print key "\t" $0 }' |
+        LC_ALL=C sort -fr -k1,1 | cut -f2-
+    else
+      awk '{ key = $0; gsub(/\033\[[0-9;]*m/, "", key); print key "\t" $0 }' |
+        LC_ALL=C sort -f -k1,1 | cut -f2-
+    fi
   fi |
   DIRECTORY="$directory" awk '
     BEGIN { prefix = ENVIRON["DIRECTORY"]; if (prefix != "/") prefix = prefix "/" }

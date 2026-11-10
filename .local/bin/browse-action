@@ -8,7 +8,7 @@
 #   - `dir`: the directory being browsed, or searched below.
 #   - `searching`: exists while searching everything below `dir` (files and directories, at any depth), rather than
 #     browsing it.
-#   - `sort`: the sort order, either `name`, `mtime-asc` or `mtime-desc`; absent means `name`.
+#   - `sort`: the sort order, either `name-desc`, `mtime-desc` or `mtime-asc`; absent means `name-asc`.
 #   - `type`: the entry types to show, either `files` or `directories`; absent means all types.
 #   - `list`: the entries last listed (`full_path<TAB>pretty_path`), so marking can show them again without listing
 #     them again (which takes 50s for everything below ~).
@@ -79,9 +79,10 @@ render() {
   ' "$state/marks" -
 }
 
-# Print the eza options for the current sort order (nothing for name, eza's default).
+# Print the eza options for the current sort order.
 sort_opts() {
   case "$(cat "$state/sort" 2>/dev/null)" in
+    name-desc)  echo '--reverse' ;;
     mtime-asc)  echo '--sort=modified' ;;
     mtime-desc) echo '--sort=modified --reverse' ;;
   esac
@@ -204,12 +205,13 @@ case "$action" in
     fi
     ;;
   sort)
-    # Cycle name -> mtime-asc -> mtime-desc -> name, keeping the cursor on the highlighted entry (and the query).
+    # Cycle name-asc -> name-desc -> mtime-desc -> mtime-asc, keeping the cursor on the highlighted entry and query.
     path=${FZF_CURRENT_ITEM%%$'\t'*}
     case "$(cat "$state/sort" 2>/dev/null)" in
-      mtime-asc)  echo mtime-desc > "$state/sort" ;;
-      mtime-desc) echo name > "$state/sort" ;;
-      *)          echo mtime-asc > "$state/sort" ;;
+      name-desc)  echo mtime-desc > "$state/sort" ;;
+      mtime-desc) echo mtime-asc > "$state/sort" ;;
+      mtime-asc)  rm -f "$state/sort" ;;
+      *)          echo name-desc > "$state/sort" ;;
     esac
     [[ -n "$FZF_QUERY" ]] && touch "$state/keep-query"
     if [[ -n "$path" ]]; then
@@ -296,8 +298,10 @@ case "$action" in
       *)            printf '  ' ;;
     esac
     case "$(cat "$state/sort" 2>/dev/null)" in
-      mtime-asc)  printf ' ◷ ↑' ;;
+      name-desc)  printf ' Z-A' ;;
       mtime-desc) printf ' ◷ ↓' ;;
+      mtime-asc)  printf ' ◷ ↑' ;;
+      *)           printf ' A-Z' ;;
     esac
     if (( marks )); then
       printf '  (%d selected)' "$marks"
