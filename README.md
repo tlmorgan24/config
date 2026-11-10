@@ -12,7 +12,7 @@ rm -r config
 
 This runs the two separate scripts required to set everything up. You can run them separately if you prefer:
 * `./install.sh` - install the tools I use and add them to PATH.
-* `./copy.sh` - to copy the associated config files into their appropriate places in your home directory (assumes same structure as on my mac), and apply any app settings that are set with commands rather than config files.
+* `./copy.sh` - to copy the associated config files into their appropriate places in your home directory (assumes same structure as on my mac), and apply any app settings that are set with commands rather than config files. Note this causes Safari to quit. To prevent this and skip the Safari-specific settings, pass `--skip-safari` as an argument to `./copy.sh`.
 
 WARNING: the copying of files into the appropriate places in your home directory will overwrite any file that already exists at the same filepath. If you have parts of an existing config file you want to preserve, copy them into the repo files before running `./setup.sh` or `./copy.sh`.
 

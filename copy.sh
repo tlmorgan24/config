@@ -45,19 +45,21 @@ fi
 python3 -m venv --clear "$HOME/.local/share/scrollshot-venv" >/dev/null
 "$HOME/.local/share/scrollshot-venv/bin/pip" install pillow img2pdf >/dev/null
 
-# Enable Safari's Develop menu and "Allow JavaScript from Apple Events" (used by my scrollshot tool).
-# Safari is sandboxed, so macOS only lets the terminal write its preferences if the terminal has Full Disk Access.
-# Note this will quit Safari.
-osascript -e 'tell application "Safari" to quit' 2>/dev/null || true
-if ! {
-  defaults write com.apple.Safari IncludeDevelopMenu -bool true &&
-  defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true &&
-  defaults write com.apple.Safari "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" -bool true &&
-  defaults write com.apple.Safari AllowJavaScriptFromAppleEvents -bool true
-} 2>/dev/null; then
-  echo "warning: couldn't write Safari's preferences (the terminal probably lacks Full Disk Access)." >&2
-  echo "Enable them manually: Safari > Settings > Advanced > 'Show features for web developers', then" >&2
-  echo "Settings > Developer > 'Allow JavaScript from Apple Events'." >&2
+if [[ ! " $* " =~ " --skip-safari " ]]; then
+  # Enable Safari's Develop menu and "Allow JavaScript from Apple Events" (used by my scrollshot tool).
+  # Safari is sandboxed, so macOS only lets the terminal write its preferences if the terminal has Full Disk Access.
+  # Note this will quit Safari.
+  osascript -e 'tell application "Safari" to quit' 2>/dev/null || true
+  if ! {
+    defaults write com.apple.Safari IncludeDevelopMenu -bool true &&
+    defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true &&
+    defaults write com.apple.Safari "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" -bool true &&
+    defaults write com.apple.Safari AllowJavaScriptFromAppleEvents -bool true
+  } 2>/dev/null; then
+    echo "warning: couldn't write Safari's preferences (the terminal probably lacks Full Disk Access)." >&2
+    echo "Enable them manually: Safari > Settings > Advanced > 'Show features for web developers', then" >&2
+    echo "Settings > Developer > 'Allow JavaScript from Apple Events'." >&2
+  fi
 fi
 
 # Install my copy-reference VS Code extension (cmd+alt+c copies the selected lines as e.g. `src/main.go:12-18`, see
