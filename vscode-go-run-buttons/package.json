@@ -1,0 +1,42 @@
+{
+  "name": "go-run-buttons",
+  "displayName": "Go Run Buttons",
+  "description": "Add run and debug buttons for the active Go package.",
+  "publisher": "thomasmorgan",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "activationEvents": [
+    "onLanguage:go"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "goRunButtons.run",
+        "title": "Run Go Package",
+        "icon": "$(play)"
+      },
+      {
+        "command": "goRunButtons.debug",
+        "title": "Debug Go Package",
+        "icon": "$(debug-alt)"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "goRunButtons.run",
+          "when": "resourceLangId == go",
+          "group": "navigation@1"
+        },
+        {
+          "command": "goRunButtons.debug",
+          "when": "resourceLangId == go",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  }
+}

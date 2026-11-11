@@ -79,6 +79,9 @@ brew install --cask maccy  # Clipboard history
 brew install go
 brew install python  # But executable is python3 (I alias it back to python in .zshrc).
 
+# Go packages
+go install -v github.com/go-delve/delve/cmd/dlv@latest # required for debugging Go programs in VS Code
+
 # Python packages used for the tools in this repo
 pip3 install pillow
 pip3 install img2pdf

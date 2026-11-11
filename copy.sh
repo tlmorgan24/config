@@ -15,6 +15,7 @@ rsync -av \
   --exclude='/rebase/' \
   --exclude='/vscode-extensions.txt' \
   --exclude='/vscode-copy-reference/' \
+  --exclude='/vscode-go-run-buttons/' \
   --exclude='/setup.sh' \
   --exclude='/install.sh' \
   --exclude='/copy.sh' \
@@ -62,21 +63,29 @@ if [[ ! " $* " =~ " --skip-safari " ]]; then
   fi
 fi
 
-# Install my copy-reference VS Code extension (cmd+alt+c copies the selected lines as e.g. `src/main.go:12-18`, see
-# README.md) from its source in this repo. VS Code only loads extensions it installed itself, so package the source as a
-# .vsix (a zip with the extension under `extension/`) and install that, replacing any earlier install. Skip this if VS
-# Code isn't installed.
+# Install custom VS Code extensions from their source in this repo. VS Code only loads extensions it installed itself, so
+# package each source directory as a .vsix (a zip with the extension under `extension/`) and install it, replacing any
+# earlier install.
 if command -v code >/dev/null; then
+  extensions=(
+    'vscode-copy-reference copy-reference'
+    'vscode-go-run-buttons go-run-buttons'
+  )
   vsix_dir="$(mktemp -d)"
-  mkdir "$vsix_dir/extension"
-  cp "$script_dir/vscode-copy-reference/"* "$vsix_dir/extension/"
-  (cd "$vsix_dir" && zip -qr copy-reference.vsix extension)
-  # This prints a `url.parse()` deprecation warning (DEP0169), which is VS Code's fault: after installing, its CLI
-  # always looks the extension up on the Marketplace, using a request helper that still calls `url.parse()`.
-  # I cannot remove the warning, it's down to the VS Code devs to change their code.
-  code --install-extension "$vsix_dir/copy-reference.vsix" --force
-  rm -rf "$vsix_dir"
+  trap 'rm -rf "$vsix_dir"' EXIT
+  for extension in "${extensions[@]}"; do
+    read -r source_dir package_name <<< "$extension"
+    mkdir "$vsix_dir/extension"
+    cp -R "$script_dir/$source_dir/." "$vsix_dir/extension/"
+    (cd "$vsix_dir" && zip -qr "$package_name.vsix" extension)
+    rm -rf "$vsix_dir/extension"
+    # This prints a `url.parse()` deprecation warning (DEP0169), which is VS Code's fault: after installing, its CLI
+    # always looks the extension up on the Marketplace, using a request helper that still calls `url.parse()`.
+    # I cannot remove the warning, it's down to the VS Code devs to change their code.
+    code --install-extension "$vsix_dir/$package_name.vsix" --force
+  done
 fi
+
 
 # Apply Maccy (clipboard history) settings with `defaults write` rather than by copying its preferences file (macOS
 # caches preferences, so a copied file can be ignored or overwritten, and the file also holds window positions etc).

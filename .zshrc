@@ -618,33 +618,64 @@ bl() { _batch_records l $'\n' "$@"; }
 alias python='python3'
 alias pip='pip3'
 
-# Usage: `govi [directory [module name]]`
+# Usage: `goinit [directory [module name]]`
 #
-# Quickly run a draft Go program: mkcd into the directory, init a module there, create boilerplate main.go to edit in
-# vim, then automatically format, tidy modules and run. The directory defaults to CWD (pass "" to give a module name
-# without changing directory) and the module name defaults to draft. Refuse to run if main.go already exists in the
-# directory, so an existing program isn't overwritten. Vim opens on the Println line. Quit with :cq to skip formatting
-# and running (loses unsaved changes).
-govi() {
-  _goinit govi "$@" && vim +6 main.go && go fmt && go mod tidy && go run .
-}
-
-# Like govi, but open the directory in VS Code for more in-depth work, and don't run anything.
-goco() {
-  _goinit goco "$@" && code . -g main.go:6
-}
-
-# Shared setup for govi and goco: mkcd, init the module and create main.go. First argument is the caller's name, for
-# errors.
-_goinit() {
-  local name=$1; shift
+# Quickly initialise a Go program: mkcd into the directory, init a module there, create boilerplate main.go to edit,
+# and open in VS Code for you to edit and run. Directory defaults to CWD (pass "" to give a module name
+# without changing directory) and the module name defaults to draft. Aborts if main.go already exists in the
+# directory (should use `code .` to open existing project).
+goinit() {
   local dir="${1:-.}"
-  if [[ -e "$dir/main.go" ]]; then
-    echo "$name: $dir/main.go already exists" >&2
+  local mod="${2:-draft}"
+
+  if [[ -e "$dir/main.go" || -e "$dir/go.mod" ]]; then
+    echo "goinit: $dir already has main.go or go.mod" >&2
     return 1
   fi
-  mkcd "$dir" && go mod init "${2:-draft}" &&
-    printf 'package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, world!")\n}\n' > main.go
+
+  mkcd "$dir" || return
+  go mod init "$mod" || return
+
+  cat > main.go <<'EOF'
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello, world!")
+}
+EOF
+
+  code . -g main.go:6:30 # opens at end of line 6 (the Println line)
+}
+
+# Usage: `pyinit [directory]`
+#
+# Quickly initialise a Python program: mkcd into the directory, create a .venv there, activate it in the current shell,
+# create a boilerplate main.py to edit, and open in VS Code for you to edit and run. Directory defaults to CWD. Aborts 
+# if main.py or .venv already exists in the directory (should use `code .` to open existing project).
+pyinit() {
+  local dir="${1:-.}"
+
+  if [[ -e "$dir/main.py" || -e "$dir/.venv" ]]; then
+    echo "pyinit: $dir already has main.py or .venv" >&2
+    return 1
+  fi
+
+  mkcd "$dir" || return
+  python3 -m venv .venv || return
+  source .venv/bin/activate || return
+
+  cat > main.py <<'EOF'
+def main():
+    print("Hello, world!")
+
+
+if __name__ == "__main__":
+    main()
+EOF
+
+  code . -g main.py:2:27 # opens at end of line 2 (the print line)
 }
 
 # Convenient git shortcuts
