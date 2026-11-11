@@ -167,6 +167,11 @@
     "notifications.background": "#1e1e2e",  // Default: "#181825"
     "notificationCenterHeader.background": "#1e1e2e",  // Default: "#181825"
 
+    "dropdown.border": "#6c7086",  // Default: "#cba6f7"
+    "inputOption.activeBackground":"#645481",  // Default: "#585b70"
+    "inputOption.activeBorder": "#6c7086", // Default: "#cba6f7"
+    "focusBorder": "#9399b2",  // Default: "#cba6f7"
+
     // Bracket pair colours, by depth, skipping over red (to match my zsh syntax highlighting, which skips
     // red to avoid it clashing with the colour for syntax errors).
     "editorBracketHighlight.foreground1": "#fab387",  // Default: "#f38ba8"
@@ -176,7 +181,6 @@
     "editorBracketHighlight.foreground5": "#cba6f7",  // Default: "#74c7ec"
     "editorBracketHighlight.foreground6": "#b4befe",  // Default: "#cba6f7"
 
-    "focusBorder": "#9399b2"  // Default: "#cba6f7"
   },
 
   // Install with `brew install --cask font-jetbrains-mono-nerd-font`.
