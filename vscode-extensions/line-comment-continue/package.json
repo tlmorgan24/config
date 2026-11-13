@@ -9,12 +9,7 @@
   },
   "contributes": {
     "languages": [
-      { "id": "go", "configuration": "./slash-comments.json" },
-      { "id": "javascript", "configuration": "./slash-comments.json" },
-      { "id": "javascriptreact", "configuration": "./slash-comments.json" },
-      { "id": "typescript", "configuration": "./slash-comments.json" },
-      { "id": "typescriptreact", "configuration": "./slash-comments.json" },
-      { "id": "python", "configuration": "./hash-comments.json" }
+      { "id": "go", "configuration": "./slash-comments.json" }
     ]
   }
 }
