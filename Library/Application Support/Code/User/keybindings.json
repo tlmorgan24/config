@@ -143,7 +143,7 @@
 
   // Copy a reference to the file, with cmd+alt+c giving its path relative to the workspace folder and shift+cmd+alt+c
   // its absolute path. In the editor text, the selected lines are added, e.g. `src/main.go:12-18`, using my
-  // copy-reference extension (see vscode-copy-reference/ in the config repo). Elsewhere (e.g. the explorer or search
+  // copy-reference extension (see vscode-extensions/copy-reference/ in the config repo). Elsewhere (e.g. the explorer or search
   // results), just the path of the selected file(s), or of the active editor's file. In the editor, cmd+k then
   // cmd+alt+c/shift+cmd+alt+c copies just the path.
   //
