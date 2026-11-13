@@ -125,15 +125,6 @@
     }
   },
 
-  // Go: semantic highlighting from the language server, rather than simple regex-based textmate, so that e.g.
-  // parameters stay maroon italic inside the function body, not just in the declaration (as Pylance does for Python).
-  "gopls": {
-    "ui.semanticTokens": true,
-    // Leave strings and numbers to textmate, which keeps escapes (`\n`) pink, and runes (`'x'`) green rather than
-    // peach.
-    "ui.semanticTokenTypes": { "string": false, "number": false }
-  },
-
   // Override colours other than editor syntax. Some borders and backgrounds are mauve ("#cba6f7") in theme default,
   // which I find can stick out too much.
   "workbench.colorCustomizations": {
@@ -197,17 +188,29 @@
   "editor.letterSpacing": 0,
   "editor.smoothScrolling": true,
 
-  // Insert spaces when tab is pressed.
-  "editor.insertSpaces": true,
-  // Exceptions for languages which prefer tabs over spaces.
-  "[go]": {
-    "editor.insertSpaces": false
-  },
-  "[makefile]": {
-    "editor.insertSpaces": false  // Already VS Code's default, but listed for completeness
-  },
+  "editor.insertSpaces": true, // By default, insert spaces when tab is pressed (language-specific overrides specified below)
+  "editor.tabSize": 4,  // Default number of spaces (language-specific overrides specified below)
 
-  "editor.tabSize": 4,  // Default (overrides to 2 specified below)
+  // Go
+  // Semantic highlighting from the language server, rather than simple regex-based textmate, so that e.g.
+  // parameters stay maroon italic inside the function body, not just in the declaration (as Pylance does for Python).
+  "gopls": {
+    "ui.semanticTokens": true,
+    // Leave strings and numbers to textmate, which keeps escapes (`\n`) pink, and runes (`'x'`) green rather than
+    // peach.
+    "ui.semanticTokenTypes": { "string": false, "number": false }
+  },
+  "[go]": {
+    "editor.insertSpaces": false // Go prefers tabs over spaces
+  },
+  // Formatting (happens on save by default with Go extension).
+  // Default is gofmt, I make it custom to additionally use golines to wrap long lines
+  "go.formatTool": "custom",
+  "go.alternateTools": {
+    "customFormatter": "golines"
+  },
+  "go.formatFlags": ["-m", "100", "--shorten-comments", "--base-formatter=gofmt"],
+
   "[shellscript]": {  // E.g. bash (see files.associations)
     "editor.tabSize": 2
   },

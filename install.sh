@@ -81,6 +81,7 @@ brew install python  # But executable is python3 (I alias it back to python in .
 
 # Go packages
 go install -v github.com/go-delve/delve/cmd/dlv@latest # required for debugging Go programs in VS Code
+go install github.com/segmentio/golines@latest # for line wrapping
 
 # Python packages used for the tools in this repo
 pip3 install pillow
