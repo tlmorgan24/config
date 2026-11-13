@@ -699,8 +699,9 @@ alias gcd='gad && gc'
 alias gcp='gap && gc'
 # gcf stands for 'git commit fixup', because its effect is equivalent to fixing up the previous commit.
 alias gcf='git commit --amend --no-edit'
-alias gcaf='gcf -a'
+alias gcaf='gaa && gcf'
 alias gcdf='gad && gcf'
+alias gcpf='gap && gcf'
 
 alias gl='git log --oneline'
 alias glt='gl --graph --all'  # Tree view of all commits
