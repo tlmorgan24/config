@@ -22,11 +22,13 @@ done
 
 sort_order=name
 reverse=false
+unsorted=false
 fd_options=()
 for (( i = 0; i < ${#options[@]}; i++ )); do
   case "${options[i]}" in
     --sort=modified) sort_order=modified ;;
     --reverse) reverse=true ;;
+    --unsorted) unsorted=true ;;
     --hidden) fd_options+=("${options[i]}") ;;
     --type) fd_options+=("${options[i]}" "${options[i + 1]}"); ((i++)) ;;
   esac
@@ -42,16 +44,22 @@ directory=$(realpath -- "$directory")
 # fd's output is streamed (rather than collected first, as in provide-contents), as there can be many entries. The full
 # path is the relative path with fd's colours (and the trailing / it gives directories) removed, after the directory.
 fd --color=always --base-directory "$directory" "${fd_options[@]}" |
-  while IFS= read -r line; do
-    if [[ "$sort_order" == modified ]]; then
-      path=$(printf '%s' "$line" | sed $'s/\033\\[[0-9;]*m//g')
-      timestamp=$(stat -f %m "$directory/$path" 2>/dev/null || stat -c %Y "$directory/$path")
-      printf '%s\t%s\n' "$timestamp" "$line"
-    else
-      printf '%s\n' "$line"
-    fi
-  done |
-  if [[ "$sort_order" == modified ]]; then
+  if [[ "$unsorted" == true ]]; then
+    cat
+  else
+    while IFS= read -r line; do
+      if [[ "$sort_order" == modified ]]; then
+        path=$(printf '%s' "$line" | sed $'s/\033\\[[0-9;]*m//g')
+        timestamp=$(stat -f %m "$directory/$path" 2>/dev/null || stat -c %Y "$directory/$path")
+        printf '%s\t%s\n' "$timestamp" "$line"
+      else
+        printf '%s\n' "$line"
+      fi
+    done
+  fi |
+  if [[ "$unsorted" == true ]]; then
+    cat
+  elif [[ "$sort_order" == modified ]]; then
     if [[ "$reverse" == true ]]; then
       LC_ALL=C sort -rn -k1,1 -k2,2 | cut -f2-
     else
