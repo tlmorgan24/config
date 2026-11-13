@@ -488,3 +488,9 @@ augroup pastedcolon
   autocmd CmdlineEnter : let s:cmdline_before = ''
   autocmd CmdlineChanged : call s:DropPastedColon()
 augroup END
+
+" Continue a comment's leader (e.g. `//`) on the next line when pressing Enter in insert mode (r) or o/O in normal mode (o).
+augroup commentcontinue
+  autocmd!
+  autocmd FileType * setlocal formatoptions+=ro
+augroup END

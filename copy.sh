@@ -16,6 +16,7 @@ rsync -av \
   --exclude='/vscode-extensions.txt' \
   --exclude='/vscode-copy-reference/' \
   --exclude='/vscode-go-run-buttons/' \
+  --exclude='/vscode-line-comment-continue/' \
   --exclude='/setup.sh' \
   --exclude='/install.sh' \
   --exclude='/copy.sh' \
@@ -70,6 +71,7 @@ if command -v code >/dev/null; then
   extensions=(
     'vscode-copy-reference copy-reference'
     'vscode-go-run-buttons go-run-buttons'
+    'vscode-line-comment-continue line-comment-continue'
   )
   vsix_dir="$(mktemp -d)"
   trap 'rm -rf "$vsix_dir"' EXIT
