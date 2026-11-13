@@ -69,7 +69,7 @@ In the table, I specify whether the keybinding is already used by the terminal (
 | ⌫ | `^?` | `^H` | Default | Default | Default | (1) If nothing selected, delete the character before cursor (2) Else, delete the selected text. Default (1), custom (2) | Delete character before cursor in INSERT mode, act like `c` (rather than Vim's default `d`) in VISUAL mode. Default INSERT, custom VISUAL | Same as Zsh |
 | fn + ⌫ | `\e[3~` | `^D` | Default | Default | Default | Delete character under cursor (i.e., after cursor, if cursor is a thin line rather than block). Default | | Same as Zsh |
 | Alt + ⌫ | `\e^?` | `^W` | Default | Default | Default | Delete back to start of word. Default | Do so in INSERT mode. Custom | Same as Zsh |
-| Cmd + ⌫ | `^U` |  | Default | Custom | Default | Delete back to start of line. Custom | Do so in INSERT mode. Custom | Same as Zsh |
+| Cmd + ⌫ | `^U` |  | Default | Custom | Default | Delete back to start of line. Custom | Do so in INSERT mode, and stop at indent level of code (press again to remove rest of line). Custom | Same as Zsh |
 | Shift + ← | `\e[1;2D` |  | Default | Default | Default | Expand selection left by one character. Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT). Custom | Same as Zsh |
 | Shift + → | `\e[1;2C` |  | Default | Default | Default | Expand selection right by one character. Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT). Custom | Same as Zsh |
 | Alt + Shift + ← | `\e[1;4D` |  | Default | Default | Default | Expand selection to start of word. Custom | Do so in VISUAL mode (automatically enter VISUAL mode if currently in NORMAL/INSERT). Custom | Same as Zsh |

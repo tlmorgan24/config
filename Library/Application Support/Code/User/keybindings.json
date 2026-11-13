@@ -205,6 +205,14 @@
     "command": "copyFilePath",
     "when": "editorFocus"
   },
+  // Delete back to the first non-whitespace character of the line, rather than to column 0 (VS Code's default on macOS),
+  // so that rewriting a line keeps its indentation.
+  {
+    "key": "cmd+backspace",
+    "command": "runCommands",
+    "args": { "commands": ["cursorHomeSelect", "deleteLeft"] },
+    "when": "editorTextFocus && !editorReadonly && !editorHasSelection"
+  },
 
   // Use cmd+0 to reset zoom, matching what macOS generally uses
   {

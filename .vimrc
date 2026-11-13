@@ -341,8 +341,15 @@ xnoremap <Esc>[1;9B G$
 " Alt + Backspace: delete previous word (if in insert mode). `<Esc><BS>` and `<Esc><Char-0x7f>` do not work.
 inoremap <M-BS> <C-w>
 
-" Cmd + Backspace: delete to start of line (requires this complex approach to prevent leftover character).
-inoremap <expr> <Char-0x15> "\<C-g>u" . repeat("\<BS>", strchars(strpart(getline('.'), 0, col('.') - 1)))
+" Cmd + Backspace: delete back to the first non-blank character of the line, keeping the indentation. If the cursor 
+" is already in the indentation (e.g. on a second press), delete back to the start of the line instead. Deletes
+" with <BS> rather than <C-u>, to prevent a leftover character, and starts a new undo step first.
+function! s:DeleteToIndent()
+  let before = strpart(getline('.'), 0, col('.') - 1)
+  let text = substitute(before, '^\s*', '', '')
+  return "\<C-g>u" . repeat("\<BS>", strchars(text == '' ? before : text))
+endfunction
+inoremap <expr> <Char-0x15> <SID>DeleteToIndent()
 
 " Shift + Left/Right: extend selection by one character (entering visual mode if not already there). Uses the arrow keys
 " rather than h/l so that they wrap to the previous/next line (see whichwrap above).
