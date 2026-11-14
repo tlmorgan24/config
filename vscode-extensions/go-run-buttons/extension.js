@@ -20,9 +20,15 @@ function activate(context) {
   let terminal;
   let terminalCwd;
 
-  const run = vscode.commands.registerCommand('goRunButtons.run', () => {
+  const run = vscode.commands.registerCommand('goRunButtons.run', async () => {
     const file = getActiveGoFile();
     if (!file) {
+      return;
+    }
+
+    const saved = await vscode.window.activeTextEditor.document.save();
+    if (!saved) {
+      vscode.window.showErrorMessage('Unable to save the Go file before running.');
       return;
     }
 
