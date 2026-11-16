@@ -201,15 +201,16 @@
     "ui.semanticTokenTypes": { "string": false, "number": false }
   },
   "[go]": {
-    "editor.insertSpaces": false // Go prefers tabs over spaces
+    "editor.insertSpaces": false, // Go prefers tabs over spaces
+    "editor.formatOnSave": true // should already be set to true by Go extension, but just in case
   },
-  // Formatting (happens on save by default with Go extension).
-  // Default is gofmt, I make it custom to additionally use golines to wrap long lines
-  "go.formatTool": "custom",
+  // Formatting to run on save. Use custom tool which wraps comments (including promoting long 
+  // trailing comments to their own line), then runs golines to wrap actual code.
+  "go.formatTool": "custom", 
   "go.alternateTools": {
-    "customFormatter": "golines"
+    "customFormatter": "${env:HOME}/.local/bin/go-wrap-comments"
   },
-  "go.formatFlags": ["-m", "100", "--shorten-comments", "--base-formatter=gofmt"],
+  "go.formatFlags": ["-m", "100", "--base-formatter=gofmt"],
 
   "[shellscript]": {  // E.g. bash (see files.associations)
     "editor.tabSize": 2

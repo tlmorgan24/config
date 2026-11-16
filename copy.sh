@@ -40,6 +40,8 @@ fi
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/drop" .)
 # Build my checkout program (see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/checkout" .)
+# Build the Go formatter wrapper that moves overlong trailing comments above their statements.
+(cd "$script_dir/go-wrap-comments" && go build -o "$LOCAL_BIN/go-wrap-comments" .)
 
 # Create venv for the scrollshot program (see README.md) in this repo.
 python3 -m venv --clear "$HOME/.local/share/scrollshot-venv" >/dev/null
