@@ -6,5 +6,33 @@
   "shellscript": {
     "enabled": true,
     "width": 100
+  },
+  "python": {
+    "enabled": true,
+    "width": 100
+  },
+  "javascript": {
+    "enabled": true,
+    "width": 100
+  },
+  "javascriptreact": {
+    "enabled": true,
+    "width": 100
+  },
+  "typescript": {
+    "enabled": true,
+    "width": 100
+  },
+  "typescriptreact": {
+    "enabled": true,
+    "width": 100
+  },
+  "json": {
+    "enabled": true,
+    "width": 100
+  },
+  "jsonc": {
+    "enabled": true,
+    "width": 100
   }
 }

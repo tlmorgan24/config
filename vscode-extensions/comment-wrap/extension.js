@@ -15,10 +15,16 @@ function loadLanguageConfig(languageId) {
 }
 
 function runFormatter(document, languageId) {
-  const formatterName = languageId === "go" ? "go-comment-wrap" : "shell-comment-wrap";
+  const formatterName = languageId === "go"
+    ? "go-comment-wrap"
+    : languageId === "shellscript"
+      ? "shell-comment-wrap"
+      : languageId === "python"
+        ? "python-comment-wrap"
+        : "js-comment-wrap";
   const formatter = path.join(os.homedir(), ".local", "bin", formatterName);
   return new Promise((resolve, reject) => {
-    execFile(formatter, [], { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+    execFile(formatter, [languageId], { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
         reject(new Error(stderr || error.message));
       } else {
@@ -40,7 +46,7 @@ function editsFor(document, formatted) {
 
 function formatOnSave(event) {
   const languageId = event.document.languageId;
-  if (languageId !== "go" && languageId !== "shellscript") {
+  if (!supportedLanguages.includes(languageId)) {
     return;
   }
 
@@ -66,26 +72,32 @@ function formatOnSave(event) {
 }
 
 function activate(context) {
-  const provider = vscode.languages.registerDocumentFormattingEditProvider("shellscript", {
-    provideDocumentFormattingEdits(document, options, token) {
-      if (token.isCancellationRequested) {
-        return [];
-      }
-      let language;
-      try {
-        language = loadLanguageConfig("shellscript");
-      } catch (error) {
-        return Promise.reject(error);
-      }
-      if (!language.enabled) {
-        return [];
-      }
-      return runFormatter(document, "shellscript").then((formatted) => editsFor(document, formatted));
-    },
-  });
-  context.subscriptions.push(provider);
+  for (const languageId of supportedLanguages) {
+    context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider(languageId, {
+      provideDocumentFormattingEdits(document, options, token) {
+        if (token.isCancellationRequested) {
+          return [];
+        }
+        let language;
+        try {
+          language = loadLanguageConfig(languageId);
+        } catch (error) {
+          return Promise.reject(error);
+        }
+        if (!language.enabled) {
+          return [];
+        }
+        return runFormatter(document, languageId).then((formatted) => editsFor(document, formatted));
+      },
+    }));
+  }
   context.subscriptions.push(vscode.workspace.onWillSaveTextDocument(formatOnSave));
 }
+
+const supportedLanguages = [
+  "go", "shellscript", "python", "javascript", "javascriptreact",
+  "typescript", "typescriptreact", "json", "jsonc",
+];
 
 function deactivate() {}
 
