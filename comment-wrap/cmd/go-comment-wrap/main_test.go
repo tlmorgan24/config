@@ -25,7 +25,7 @@ func TestDoesNotPromoteDirectivesOrStandaloneComments(t *testing.T) {
 }
 
 func TestFormatterArgsDisableGolinesCommentWrapping(t *testing.T) {
-	got := formatterArgs([]string{"-m", "100", "--shorten-comments", "--base-formatter=gofmt"})
+	got := formatterArgs([]string{"-m", "100", "--shorten-comments", "--base-formatter=gofmt"}, 80)
 	want := []string{"-m", "100", "--base-formatter=gofmt"}
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Fatalf("got %v, want %v", got, want)

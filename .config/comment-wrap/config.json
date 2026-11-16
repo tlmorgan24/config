@@ -1,0 +1,10 @@
+{
+  "go": {
+    "enabled": true,
+    "width": 100
+  },
+  "shellscript": {
+    "enabled": true,
+    "width": 100
+  }
+}

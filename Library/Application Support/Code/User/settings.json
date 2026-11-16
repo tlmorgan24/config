@@ -196,7 +196,6 @@
 
   "editor.insertSpaces": true, // By default, insert spaces when tab is pressed (language-specific overrides specified below)
   "editor.tabSize": 4,  // Default number of spaces (language-specific overrides specified below)
-  "editor.formatOnSave": true,
 
   // Go
   // Semantic highlighting from the language server, rather than simple regex-based textmate, so that e.g.
@@ -216,7 +215,7 @@
   "go.alternateTools": {
     "customFormatter": "${env:HOME}/.local/bin/go-comment-wrap"
   },
-  "go.formatFlags": ["-m", "100", "--base-formatter=gofmt"],
+  "go.formatFlags": ["--base-formatter=gofmt"],
 
   "[shellscript]": {  // E.g. bash (see files.associations)
     "editor.tabSize": 2

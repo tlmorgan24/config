@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tlmorgan24/config/comment-wrap/config"
 	"github.com/tlmorgan24/config/comment-wrap/gowrap"
 )
 
@@ -19,7 +20,22 @@ func main() {
 		fatal(err)
 	}
 
-	width := maxLineLength(os.Args[1:])
+	settings, err := config.Load()
+	if err != nil {
+		fatal(err)
+	}
+	if !settings.Go.Enabled {
+		_, err = os.Stdout.Write(source)
+		if err != nil {
+			fatal(err)
+		}
+		return
+	}
+
+	width := settings.Go.Width
+	if configuredWidth := maxLineLength(os.Args[1:]); configuredWidth > 0 {
+		width = configuredWidth
+	}
 	source = gowrap.Format(source, width)
 
 	golines, err := exec.LookPath("golines")
@@ -34,7 +50,7 @@ func main() {
 		}
 	}
 
-	command := exec.Command(golines, formatterArgs(os.Args[1:])...)
+	command := exec.Command(golines, formatterArgs(os.Args[1:], width)...)
 	command.Stdin = bytes.NewReader(source)
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -61,15 +77,22 @@ func maxLineLength(args []string) int {
 			}
 		}
 	}
-	return 100
+	return 0
 }
 
-func formatterArgs(args []string) []string {
+func formatterArgs(args []string, width int) []string {
 	filtered := make([]string, 0, len(args))
+	hasWidth := false
 	for _, arg := range args {
 		if arg != "--shorten-comments" {
 			filtered = append(filtered, arg)
 		}
+		if arg == "-m" || strings.HasPrefix(arg, "-m=") || strings.HasPrefix(arg, "--max-len=") {
+			hasWidth = true
+		}
+	}
+	if !hasWidth {
+		filtered = append([]string{"-m", strconv.Itoa(width)}, filtered...)
 	}
 	return filtered
 }

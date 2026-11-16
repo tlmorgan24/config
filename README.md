@@ -272,6 +272,9 @@ Most of these are default, some are custom (or the keybinding was customised) an
 * Secondary click on a variable -> 'Rename symbol' - renames all occurrences of a symbol in a syntax-aware way (using the language server), rather than a dumb find-and-replace. Use this to change function/variable names.
 * ctrl+tab - switch between most-recently focused files.
 * cmd+alt+left/right - switch between most recent cursor locations (including across files)
+* cmd+s - save with formatting, if the language has a formatter enabled. To save without formatting, do cmd+k then s.
+
+Custom formatters (which I mainly use to wrap comments nicely) are in the comment-wrap directory and set up by `copy.sh`. Configure them in .config/comment-wrap/config.json (formatter will run on save if `"enabled"` is `true`). Remember to copy across the changes (run `copy.sh`) each time you change the config.
 
 ### Search
 
