@@ -575,7 +575,7 @@ BEGIN {
     elsif (defined $5) { push @items, ["f", $5] }
     else               { push @items, ["rest"] }
   }
-  die "shuffle: bad <new-order>\n" unless (pos($o) // 0) == length $o;
+  die "shuffle: bad <new-order>\n" unless $o =~ /\S/ && $o !~ /,\s*\z/ && (pos($o) // 0) == length $o;
   for (@items) { next unless $_->[0] eq "f"; $used{$_->[1]} = 1; $max = $_->[1] if $_->[1] > $max }
 }
 chomp;

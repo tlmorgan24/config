@@ -35,7 +35,7 @@ ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#cba6f7'
 # Options: peach
 ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=#fab387'
 ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=#fab387'
-ZSH_HIGHLIGHT_STYLES[shuffle-excluded]='fg=#f5c2e7'  # An excluded field such as `-1`
+
 # Operators: sky
 ZSH_HIGHLIGHT_STYLES[redirection]='fg=#89dceb'  # `>` `<` `>>` etc
 # `|` `&&` `||` `&` (as logical operators are in other languages). `;` is recoloured below.
@@ -110,7 +110,8 @@ ZSH_HIGHLIGHT_STYLES[arithmetic-number]='fg=#fab387'  # Peach
 ZSH_HIGHLIGHT_STYLES[regex-escape]='fg=#f5c2e7'  # Pink (the guide's colour for regex): `\[` `\d` `.` `[:alpha:]` etc
 ZSH_HIGHLIGHT_STYLES[regex-operator]='fg=#89dceb'  # Sky: `*` `+?` `{2,3}` `|` `^` `$`, and the `^` and `-` in `[^a-z]`
 ZSH_HIGHLIGHT_STYLES[regex-group]='fg=#cba6f7'  # Mauve: the `?:` `?=` `?<name>` `?i` etc in `(?:...)`, and `*SKIP` etc
-# Red: what a regex or Perl string can't have, e.g. `(?=` and `\1` in fd, `\d` in sed, `\q` anywhere
+# Red: what a regex or Perl string can't have, e.g. `(?=` and `\1` in fd, `\d` in sed, `\q` anywhere, and what shuffle's
+# <new-order> can't have
 ZSH_HIGHLIGHT_STYLES[syntax-error]='fg=#f38ba8'
 
 # sed scripts, in the arguments of sed (also see my regex highlighter below). Their text (e.g. a replacement) is left
@@ -124,7 +125,8 @@ ZSH_HIGHLIGHT_STYLES[sed-delimiter]='fg=#9399b2'  # Overlay 2: the `/`s of `s/..
 ZSH_HIGHLIGHT_STYLES[sed-label]='fg=#89b4fa'  # Blue (functions): the `loop` of `:loop` and `b loop`
 
 # Perl code, in the arguments of perl and my p and pp functions (also see my regex highlighter below), coloured as the
-# shell's own code is above. Its brackets are coloured by depth (as above).
+# shell's own code is above. Its brackets are coloured by depth (as above). The <new-order> of my shuffle function is
+# coloured with these styles too (its numbers, `-`s, `...`, strings, escapes and commas).
 ZSH_HIGHLIGHT_STYLES[perl-default]='fg=#cdd6f4'  # Text: the rest, rather than the green of the shell string it's in
 ZSH_HIGHLIGHT_STYLES[perl-keyword]='fg=#cba6f7'  # Mauve: `if` `my` `sub` `return` etc
 ZSH_HIGHLIGHT_STYLES[perl-function]='fg=#89b4fa'  # Blue: `print` `split` etc, and subs and methods
@@ -405,125 +407,6 @@ _zsh_highlight_highlighter_arithmetic_paint() {
   done
 }
 
-# Colour the field numbers, ranges and separators in shuffle's <new-order> argument. Quoted literal fields are left to
-# the main highlighter's string styles.
-_zsh_highlight_highlighter_shuffle_predicate() { _zsh_highlight_highlighter_main_predicate }
-
-_zsh_highlight_highlighter_shuffle_paint() {
-  emulate -L zsh
-  local -a entries=("${_zsh_highlight__highlighter_main_cache[@]}")
-  _zsh_highlight_commands _zsh_highlight_shuffle_command
-}
-
-_zsh_highlight_shuffle_command() {
-  emulate -L zsh
-  local name
-  local -a values starts ends
-  _zsh_highlight_command_args shuffle "$@" || return
-  (( $+functions[$name] && $#values )) || return
-  local -i i j start end
-  for (( i = 1; i <= $#values; i++ )); do
-    [[ $values[i] == -* && $values[i] != - && $values[i] != -[0-9]* ]] || break
-    [[ $values[i] == -- ]] && { (( i++ )); break }
-    if [[ $values[i] == --output-separator ]]; then
-      (( i++ ))
-    elif [[ $values[i] == --* ]]; then
-      continue
-    else
-      for (( j = 2; j <= ${#values[i]}; j++ )); do
-        [[ ${values[i][j]} == [Fo] ]] || continue
-        (( j == ${#values[i]} )) && (( i++ ))
-        break
-      done
-    fi
-  done
-  (( i <= $#values && starts[i] >= 0 )) || return
-  start=$starts[i] end=$ends[i]
-  local order
-  local -a positions
-  _zsh_highlight_regex_unquote $start $end || return
-  order=$REPLY positions=("${reply[@]}")
-  local -i item_start comma_index dash_index closed
-  i=1
-  while (( i <= $#order )); do
-    while [[ $order[i] == [[:space:]] ]]; do (( i++ )); done
-    (( i <= $#order )) || { (( item_start )) || _zsh_highlight_add_highlight $start $end syntax-error; break; }
-    item_start=$i
-    if [[ $order[i] == '"' ]]; then
-      closed=0
-      (( i++ ))
-      while (( i <= $#order )); do
-        if [[ $order[i] == '\' ]]; then
-          (( i += 2 ))
-        elif [[ $order[i] == '"' ]]; then
-          closed=1
-          (( i++ ))
-          break
-        else
-          (( i++ ))
-        fi
-      done
-      (( closed )) || {
-        _zsh_highlight_add_highlight $(( positions[item_start] - 1 )) $end syntax-error
-        break
-      }
-    elif [[ $order[i] == '-' ]]; then
-      dash_index=i
-      (( i++ ))
-      item_start=$i
-      while [[ $order[i] == [0-9] ]]; do
-        (( i++ ))
-      done
-      (( i > item_start )) || {
-        _zsh_highlight_add_highlight $(( positions[dash_index] - 1 )) $end syntax-error
-        break
-      }
-      _zsh_highlight_add_highlight $(( positions[dash_index] - 1 )) $positions[i-1] shuffle-excluded
-    elif [[ $order[i] == [0-9] ]]; then
-      while [[ $order[i] == [0-9] ]]; do
-        _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] arithmetic-number
-        (( i++ ))
-      done
-      if [[ $order[i] == '-' ]]; then
-        dash_index=i
-        _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] arithmetic-operator
-        (( i++ ))
-        item_start=$i
-        while [[ $order[i] == [0-9] ]]; do
-          _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] arithmetic-number
-          (( i++ ))
-        done
-        (( i > item_start )) || {
-          _zsh_highlight_add_highlight $(( positions[dash_index] - 1 )) $end syntax-error
-          break
-        }
-      fi
-    elif [[ $order[i,i+2] == '...' ]]; then
-      _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i+2] reserved-word
-      (( i += 3 ))
-    else
-      _zsh_highlight_add_highlight $(( positions[item_start] - 1 )) $end syntax-error
-      break
-    fi
-    while [[ $order[i] == [[:space:]] ]]; do (( i++ )); done
-    if (( i <= $#order )); then
-      if [[ $order[i] == ',' ]]; then
-        comma_index=i
-        _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] commandseparator
-        (( i++ ))
-        while [[ $order[i] == [[:space:]] ]]; do (( i++ )); done
-        (( i <= $#order )) || {
-          _zsh_highlight_add_highlight $(( positions[comma_index] - 1 )) $positions[comma_index] syntax-error
-          break
-        }
-      else
-        _zsh_highlight_add_highlight $(( positions[i] - 1 )) $end syntax-error
-        break
-      fi
-    fi
-  done
-}
-
 # Colour the numbers, variables, operators and brackets in `$BUFFER[$1,$2]`. Anything else (like a `$(command)` inside)
 # is left as the main highlighter coloured it.
 _zsh_highlight_arithmetic_contents() {
@@ -742,12 +625,13 @@ _zsh_highlight_highlighter_rainbow_paint() {
 }
 
 # Colour the regexes given to the commands that take Perl-style ones, or much the same (see
-# _zsh_highlight_regex_pattern): GNU grep with -P or -E, rg, fd, GNU sed with -E, and perl and my p, pp, shuffle, fr, br, ff and
-# bf functions (in .zshrc). That's the pattern arguments of grep, rg and fd (and ff and bf, which pass them to fd), the
-# -F field separators of perl, p and shuffle, and the -R record separators of p, fr and br. The code given to perl and p, and the
-# scripts given to sed, are coloured as a whole, with their regexes among them. What a command is, and so which regexes
-# it takes, is worked out as it would be run: aliases are expanded as zsh would (so my `grep` is `ggrep -P`, and `sed`
-# is `gsed -E`), and a grep or sed counts only if it's GNU's (as ggrep and gsed are on macOS, and grep and sed are on
+# _zsh_highlight_regex_pattern): GNU grep with -P or -E, rg, fd, GNU sed with -E, and perl and my p, pp, shuffle, fr,
+# br, ff and bf functions (in .zshrc). That's the pattern arguments of grep, rg and fd (and ff and bf, which pass them
+# to fd), the -F field separators of perl, p and shuffle, and the -R record separators of p, fr and br. The code given
+# to perl and p, and the scripts given to sed, are coloured as a whole, with their regexes among them, and so is the
+# <new-order> given to shuffle (see _zsh_highlight_regex_order). What a command is, and so which regexes it takes, is
+# worked out as it would be run: aliases are expanded as zsh would (so my `grep` is `ggrep -P`, and `sed` is
+# `gsed -E`), and a grep or sed counts only if it's GNU's (as ggrep and gsed are on macOS, and grep and sed are on
 # Linux), by its --version. Then the options decide: e.g. -P or -E for grep (a mix, like `grep -E` with my alias, has
 # the ones typed coloured as errors, as grep rejects it), -P for rg (else its default, Rust's regexes, as fd's), and -F
 # or -g (for fd) for none. Only arguments that reach the command as typed (bar quotes and backslashes) are coloured, so
@@ -756,7 +640,8 @@ _zsh_highlight_highlighter_rainbow_paint() {
 # ff, fr, fl, bf, br and bl (and the rainbow highlighter's, so a regex's brackets carry on the depth of the brackets
 # around it).
 #
-# If the options of p, shuffle fr, br, ff or bf change, update the parsing of them below to match.
+# If the options of p, shuffle, fr, br, ff or bf change, update the parsing of them below to match, and if the grammar
+# of shuffle's <new-order> changes, update _zsh_highlight_regex_order.
 _zsh_highlight_highlighter_regex_predicate() { _zsh_highlight_highlighter_main_predicate }
 
 _zsh_highlight_highlighter_regex_paint() {
@@ -884,7 +769,7 @@ _zsh_highlight_regex_command() {
   # The arguments: their text (unquoted), and their start and end on the command line (-1 for those of an alias)
   local -a values starts ends found reply positions fields
   local -i i k
-  _zsh_highlight_command_args '(grep|ggrep|sed|gsed|rg|fd|fdfind|ff|bf|fr|br|perl|p|pp|shuffle)' "$@" || return
+  _zsh_highlight_command_args '(grep|ggrep|rg|fd|fdfind|ff|bf|perl|p|pp|shuffle|fr|br|sed|gsed)' "$@" || return
   # Which program it is, by its name, but for grep and sed, by whether it's GNU's (whose regexes these follow), as
   # ggrep and gsed are on macOS (where grep and sed are BSD's), and grep and sed are on Linux. Any other grep or sed
   # isn't coloured.
@@ -895,7 +780,8 @@ _zsh_highlight_regex_command() {
     (fdfind) tool=fd ;;  # fd's name on Debian and Ubuntu
   esac
   # Find the regexes, as "index offset kind": the regex is in the index'th argument, starting at its offset'th
-  # character, and it's a pattern, Perl code (with regexes in), or a pattern optionally written `/like this/`.
+  # character, and it's a pattern, Perl code (with regexes in), a pattern optionally written `/like this/`, or
+  # shuffle's <new-order>.
   case $tool in
     (gnu-grep|rg)
       local short
@@ -1027,8 +913,8 @@ _zsh_highlight_regex_command() {
       found+=("$i 1 code") ;;
     (shuffle)
       (( $+functions[$name] )) || return
-      # As shuffle parses them: options up to the first positional argument (the order, which may start with a dash
-      # followed by a digit). -F and -o take the rest of their bundle, or else the next argument.
+      # As shuffle parses them: options, then the order (which may start with a dash followed by a digit, as no option
+      # does), then files. -F and -o take the rest of their bundle, or else the next argument.
       for (( i = 1; i <= $#values; i++ )); do
         value=$values[i]
         [[ $value == -* && $value != - && $value != -[0-9]* ]] || break
@@ -1041,12 +927,13 @@ _zsh_highlight_regex_command() {
           case $value[k] in
             (F)
               if (( k < $#value )); then found+=("$i $(( k + 1 )) slashed")
-              elif (( i + 1 < $#values )); then (( i++ )); found+=("$i 1 slashed"); fi
+              elif (( i < $#values )); then (( i++ )); found+=("$i 1 slashed"); fi
               break ;;
             (o) (( k < $#value )) || (( i++ )); break ;;
           esac
         done
-      done ;;
+      done
+      (( i <= $#values )) && found+=("$i 1 order") ;;
     # `fr <separator> <code>`, and br alike (the code is the shell's)
     (fr|br) (( $+functions[$name] )) && found=("1 1 slashed") ;;
     (fd|ff|bf)
@@ -1150,6 +1037,7 @@ _zsh_highlight_regex_command() {
       (pattern) _zsh_highlight_regex_pattern $flavour $REPLY "$value" $positions ;;
       (code) _zsh_highlight_regex_code $REPLY "$value" $positions ;;
       (sed) _zsh_highlight_regex_sed $REPLY "$value" $positions ;;
+      (order) _zsh_highlight_regex_order "$value" $positions ;;
       (slashed)
         if [[ $value == /?*/ ]]; then
           _zsh_highlight_add_highlight $(( positions[1] - 1 )) $positions[1] perl-delimiter
@@ -1767,6 +1655,91 @@ _zsh_highlight_regex_sed_part() {
   REPLY=$(( j > n ? n : j ))
 }
 
+# Usage: `_zsh_highlight_regex_order <order> <position>...`
+#
+# Colour the <new-order> given to my shuffle function (in .zshrc), whose characters are at the given positions on the
+# command line, as shuffle reads it: comma-separated items, each a field number `2` or a range `1-3` (numbers, with the
+# `-` an operator), an ignored field `-0`, `...`, or a "string" (with its `\` escapes). The commas are punctuation, and
+# what shuffle rejects (an unknown item, two items with no comma between them, a lone `-`, a leading, doubled or
+# trailing comma) is coloured as an error, from where it starts to the end (except a comma, which is just itself). An
+# unclosed string is left as a string, as it may still be being typed. If shuffle's grammar changes, update this.
+_zsh_highlight_regex_order() {
+  emulate -L zsh
+  local s=$1
+  local -a pos=("${@:2}")
+  local -i i j k n=$#1 item=0 comma=0  # item: whether an item has just been read, comma: where a trailing comma is
+  # Colour the order as text, rather than as the shell string it's in, a stretch at a time (as _zsh_highlight_regex_code
+  # does).
+  for (( i = 1; i <= n; i = j + 1 )); do
+    for (( j = i; j < n && pos[j+1] == pos[j] + 1; j++ )); do :; done
+    _zsh_highlight_regex_add $i $j perl-default
+  done
+  for (( i = 1; i <= n; i++ )); do
+    [[ $s[i] == [[:space:]] ]] && continue
+    if [[ $s[i] == , ]]; then
+      _zsh_highlight_regex_add $i $i perl-punctuation
+      (( item )) || _zsh_highlight_regex_add $i $i syntax-error  # Nothing before it
+      item=0 comma=i
+      continue
+    fi
+    if (( item )); then  # Two items with no comma between them
+      _zsh_highlight_regex_add $i $n syntax-error
+      return
+    fi
+    case $s[i] in
+      ('"')
+        for (( j = i + 1; j <= n; j++ )); do
+          [[ $s[j] == '\' ]] && { (( j++ )); continue }
+          [[ $s[j] == '"' ]] && break
+        done
+        (( j > n )) && j=n  # Unclosed, e.g. while still typing
+        _zsh_highlight_regex_add $i $j perl-string
+        for (( k = i + 1; k < j; k++ )); do
+          [[ $s[k] == '\' ]] && { _zsh_highlight_regex_add $k $(( k + 1 )) perl-escape; (( k++ )) }
+        done
+        i=j ;;
+      ('-')  # `-0`: ignore a field
+        if [[ $s[i+1] == [0-9] ]]; then
+          _zsh_highlight_regex_add $i $i perl-operator
+          for (( j = i + 1; j < n; j++ )); do [[ $s[j+1] == [0-9] ]] || break; done
+          _zsh_highlight_regex_add $(( i + 1 )) $j perl-number
+          i=j
+        else
+          _zsh_highlight_regex_add $i $n syntax-error
+          return
+        fi ;;
+      ([0-9])  # `2`, or a range `1-3` (which can descend)
+        for (( j = i; j < n; j++ )); do [[ $s[j+1] == [0-9] ]] || break; done
+        _zsh_highlight_regex_add $i $j perl-number
+        i=j
+        if [[ $s[i+1] == - ]]; then
+          _zsh_highlight_regex_add $(( i + 1 )) $(( i + 1 )) perl-operator
+          if [[ $s[i+2] == [0-9] ]]; then
+            for (( j = i + 2; j < n; j++ )); do [[ $s[j+1] == [0-9] ]] || break; done
+            _zsh_highlight_regex_add $(( i + 2 )) $j perl-number
+            i=j
+          else  # A range with no end, e.g. while still typing
+            _zsh_highlight_regex_add $(( i + 1 )) $n syntax-error
+            return
+          fi
+        fi ;;
+      (.)
+        if [[ $s[i,i+2] == '...' ]]; then
+          _zsh_highlight_regex_add $i $(( i + 2 )) perl-keyword
+          (( i += 2 ))
+        else
+          _zsh_highlight_regex_add $i $n syntax-error
+          return
+        fi ;;
+      (*)
+        _zsh_highlight_regex_add $i $n syntax-error
+        return ;;
+    esac
+    item=1 comma=0
+  done
+  (( comma )) && _zsh_highlight_regex_add $comma $comma syntax-error  # A trailing comma
+}
+
 # Colour `$s[$1,$2]` in style $3, given the positions on the command line of s's characters in $pos (both the caller's)
 _zsh_highlight_regex_add() {
   _zsh_highlight_add_highlight $(( pos[$1] - 1 )) $pos[$2] $3
@@ -1833,5 +1806,5 @@ _zsh_highlight_highlighter_selection_paint() {
 # Run these after main, so they can override main's colours (and regex after rainbow, as it needs rainbow's brackets,
 # and selection last, as it needs everything else's colours).
 ZSH_HIGHLIGHT_HIGHLIGHTERS=(
-  main continuation pathunderline arithmetic parameter keywords separators shuffle rainbow regex selection
+  main continuation pathunderline arithmetic parameter keywords separators rainbow regex selection
 )
