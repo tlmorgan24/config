@@ -1,16 +1,35 @@
 {
   "name": "line-comment-continue",
   "displayName": "Line Comment Continue",
-  "description": "Continue whole-line comments on Enter",
+  "description": "Continue comments on Enter",
   "publisher": "thomasmorgan",
   "version": "0.0.1",
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:go",
+    "onLanguage:shellscript"
+  ],
   "engines": {
     "vscode": "^1.80.0"
   },
   "contributes": {
-    "languages": [
-      { "id": "go", "configuration": "./slash-comments.json" },
-      { "id": "shellscript", "configuration": "./hash-comments.json" }
+    "commands": [
+      {
+        "command": "lineCommentContinue.enter",
+        "title": "Continue Line Comment"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == go"
+      },
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == shellscript"
+      }
     ]
   }
 }
