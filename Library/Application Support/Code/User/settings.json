@@ -188,6 +188,12 @@
   "editor.letterSpacing": 0,
   "editor.smoothScrolling": true,
 
+  // Pressing space inside an empty pair of brackets gives `{ | }`, `[ | ]`, or `( | )`.
+  "autopairs-code.jumping.enable": false, // Only use the extension for bracket spacing.
+  "autopairs-code.spacing.enableForBraces": true,
+  "autopairs-code.spacing.enableForBrackets": true,
+  "autopairs-code.spacing.enableForParentheses": true,
+
   "editor.insertSpaces": true, // By default, insert spaces when tab is pressed (language-specific overrides specified below)
   "editor.tabSize": 4,  // Default number of spaces (language-specific overrides specified below)
 

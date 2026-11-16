@@ -3,6 +3,7 @@
 
 catppuccin.catppuccin-vsc  # Theme
 catppuccin.catppuccin-vsc-icons  # File icons
+jbhannah.autopairs-code  # Space inside empty bracket pairs, like zsh-autopair
 github.vscode-github-actions
 ms-azuretools.vscode-docker  # Also installs vscode-containers.
 golang.go

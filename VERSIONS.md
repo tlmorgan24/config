@@ -67,6 +67,7 @@ Every installed extension, including those pulled in by vscode-extensions.txt's 
 | catppuccin.catppuccin-vsc-icons | 1.26.0 |
 | github.vscode-github-actions | 0.32.3 |
 | golang.go | 0.58.0 |
+| jbhannah.autopairs-code | 0.3.0 |
 | mechatroner.rainbow-csv | 3.24.1 |
 | ms-azuretools.vscode-containers | 2.5.3 |
 | ms-azuretools.vscode-docker | 2.0.0 |
