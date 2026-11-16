@@ -26,16 +26,37 @@ func Format(lines []string, comments []Comment, style Style, width int) []string
 			continue
 		}
 
-		indent := comment.LineContents[:len(comment.LineContents)-len(strings.TrimLeft(comment.LineContents, " \t"))]
-		wrapped := Wrap(content, indent, style, width)
 		if comment.Standalone {
-			lines = ReplaceLine(lines, comment.Line, wrapped, LineEnding(lines[comment.Line]))
+			start := i
+			for start > 0 {
+				previous := comments[start-1]
+				if !previous.Standalone ||
+					strings.TrimSpace(previous.Content) == "" ||
+					previous.Line+1 != comments[start].Line ||
+					commentIndentLevel(previous.Content) != commentIndentLevel(comment.Content) {
+					break
+				}
+				start--
+			}
+
+			paragraph := make([]string, 0, i-start+1)
+			for paragraphComment := start; paragraphComment <= i; paragraphComment++ {
+				paragraph = append(paragraph, strings.TrimSpace(comments[paragraphComment].Content))
+			}
+			firstComment := comments[start]
+			indent := lineIndent(firstComment.LineContents, firstComment.Column)
+			prefix := indent + style.Prefix + commentSeparator(firstComment.Content)
+			wrapped := wrapWithPrefix(strings.Join(paragraph, " "), prefix, width)
+			lines = ReplaceLines(lines, comments[start].Line, comment.Line, wrapped, LineEnding(lines[comments[start].Line]))
+			i = start
 			continue
 		}
 		if len(comment.LineContents) <= width {
 			continue
 		}
 
+		indent := lineIndent(comment.LineContents, comment.Column)
+		wrapped := Wrap(content, indent, style, width)
 		code := strings.TrimRight(comment.LineContents[:comment.Column], " \t")
 		lines = ReplaceLine(lines, comment.Line, append(wrapped, code), LineEnding(lines[comment.Line]))
 	}
@@ -44,7 +65,10 @@ func Format(lines []string, comments []Comment, style Style, width int) []string
 
 // Wrap breaks comment content into lines using the supplied comment style.
 func Wrap(content, indent string, style Style, width int) []string {
-	prefix := indent + style.Prefix + " "
+	return wrapWithPrefix(content, indent+style.Prefix+" ", width)
+}
+
+func wrapWithPrefix(content, prefix string, width int) []string {
 	available := width - len(prefix)
 	if available < 1 {
 		available = 1
@@ -69,11 +93,39 @@ func Wrap(content, indent string, style Style, width int) []string {
 	return result
 }
 
+func lineIndent(line string, column int) string {
+	beforeComment := line
+	if column > 0 {
+		beforeComment = line[:column]
+	}
+	return beforeComment[:len(beforeComment)-len(strings.TrimLeft(beforeComment, " \t"))]
+}
+
+func commentIndent(content string) string {
+	return content[:len(content)-len(strings.TrimLeft(content, " \t"))]
+}
+
+func commentSeparator(content string) string {
+	indent := commentIndent(content)
+	if indent == "" {
+		return " "
+	}
+	return indent
+}
+
+func commentIndentLevel(content string) int {
+	return len(commentIndent(content))
+}
+
 func ReplaceLine(lines []string, line int, replacement []string, ending string) []string {
+	return ReplaceLines(lines, line, line, replacement, ending)
+}
+
+func ReplaceLines(lines []string, firstLine, lastLine int, replacement []string, ending string) []string {
 	for i := range replacement {
 		replacement[i] += ending
 	}
-	return append(lines[:line], append(replacement, lines[line+1:]...)...)
+	return append(lines[:firstLine], append(replacement, lines[lastLine+1:]...)...)
 }
 
 func LineEnding(line string) string {
