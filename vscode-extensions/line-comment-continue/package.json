@@ -24,6 +24,10 @@
       {
         "command": "lineCommentContinue.enter",
         "title": "Continue Line Comment"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "title": "Remove Line Comment Bullet"
       }
     ],
     "keybindings": [
@@ -70,6 +74,51 @@
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
+        "when": "editorTextFocus && editorLangId == jsonc"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == go"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == shellscript"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == python"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == javascript"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == javascriptreact"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == typescript"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == typescriptreact"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == json"
+      },
+      {
+        "command": "lineCommentContinue.backspace",
+        "key": "backspace",
         "when": "editorTextFocus && editorLangId == jsonc"
       }
     ]

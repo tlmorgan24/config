@@ -171,8 +171,44 @@ async function continueComment() {
   }
 }
 
+async function removeBullet() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.selection.isEmpty === false) {
+    return vscode.commands.executeCommand("deleteLeft");
+  }
+
+  const position = editor.selection.active;
+  const prefix = commentPrefixes[editor.document.languageId];
+  if (!prefix) {
+    return vscode.commands.executeCommand("deleteLeft");
+  }
+
+  const line = editor.document.lineAt(position.line);
+  const comment = parseCommentLine(line.text, prefix);
+  const bullet = comment && bulletMarker(comment.content);
+  if (!comment || !bullet) {
+    return vscode.commands.executeCommand("deleteLeft");
+  }
+
+  const contentStart = comment.indentation.length + prefix.length + comment.separator.length;
+  const markerStart = contentStart + comment.content.length - comment.content.trimStart().length;
+  const markerEnd = markerStart + bullet.marker.length;
+  if (position.character < markerEnd || /\S/.test(line.text.slice(markerEnd, position.character))) {
+    return vscode.commands.executeCommand("deleteLeft");
+  }
+
+  const applied = await editor.edit((builder) => {
+    builder.delete(new vscode.Range(position.line, markerStart, position.line, markerEnd));
+  });
+  if (!applied) {
+    throw new Error("Line Comment Continue could not apply the edit");
+  }
+  editor.selection = new vscode.Selection(position.line, markerStart, position.line, markerStart);
+}
+
 function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand("lineCommentContinue.enter", continueComment));
+  context.subscriptions.push(vscode.commands.registerCommand("lineCommentContinue.backspace", removeBullet));
 }
 
 function deactivate() {}
@@ -182,4 +218,5 @@ module.exports = {
   deactivate,
   bulletMarker,
   continuationFor,
+  removeBullet,
 };
