@@ -492,6 +492,110 @@ elsif ($ENV{PRS_L}) { $\ = "" }  # Final record had no separator, so nothing to 
 # Like p, but slurp the whole input as one record (-0777).
 pp() { p -0777 "$@"; }
 
+# Usage: shuffle [options] <new-order>
+#
+# <new-order> is always the last argument (so it may start with a dash) and contains comma-separated fields, where each
+# field can be:
+#   an integer i, to mean the original field i (0-based).
+#   a range i-j, as shorthand for i,i+1,etc,j-1,j (if i < j) or i,i-1,etc,j+1,j (if i > j) or i (if i == j).
+#   -i, to mean "ignore field i" for the `...` syntax below.
+#   ..., to mean "all fields not captured by explicit integers/ranges, in their original order".
+#   a string "s" (double quotes are necessary and must be passed without being interpreted by the shell).
+#
+# All lines of the input are printed. If a line has fewer fields than the maximum specified in <new-order>,
+# it is passed through unchanged. Else, the fields are shuffled according to <new-order> and printed back out,
+# separated by the output separator (the first match of the field separator on the line, by default).
+#
+# options (short flags can be bundled, and an option taking a value uses up the rest of the bundle, as in perl):
+#   -F <separator>                 field separator, as a perl regex, optionally written `/like this/` (default: whitespace,
+#                                  as in perl -a).
+#   -o, --output-separator <sep>   output separator, used literally.
+#   -b, --boundary                 expect the fields to have leading and trailing delimiters (e.g. |a|b|c| rather than
+#                                  a|b|c). Remove them when processing the fields and add them back when outputting.
+#   -p, --pad                      strip leading and trailing whitespace from every field when processing, and pad with a
+#                                  single leading and trailing space when outputting.
+#
+# E.g.: `shuffle -bpF'\|' '-0,1-2,"hi",...'` turns `|a|b|c | d|` into `| b | c | hi | d |`
+# 
+# My regex highlighter (in syntax-highlighting.zsh) parses the options of this function too, to colour the regex given
+# to -F, so update it to match if they change.
+shuffle() {
+  local b=0 p=0 out= has_out=0 sep= c bundle
+  while (( $# > 1 )) && [[ $1 == -* && $1 != - ]]; do  # The last argument is always <new-order>.
+    case $1 in
+      --)                   shift; break ;;
+      --boundary)           b=1 ;;
+      --pad)                p=1 ;;
+      --output-separator=*) out=${1#*=} has_out=1 ;;
+      --output-separator)
+        (( $# >= 3 )) || { echo "shuffle: $1 needs an argument" >&2; return 2; }
+        out=$2 has_out=1; shift ;;
+      --*) echo "shuffle: unknown option $1" >&2; return 2 ;;
+      *)
+        bundle=${1#-}
+        while [[ -n $bundle ]]; do
+          c=${bundle:0:1} bundle=${bundle:1}
+          case $c in
+            b) b=1 ;;
+            p) p=1 ;;
+            F|o)  # Takes the rest of the bundle, or else the next argument.
+              if [[ -z $bundle ]]; then
+                (( $# >= 3 )) || { echo "shuffle: -$c needs an argument" >&2; return 2; }
+                shift; bundle=$1
+              fi
+              if [[ $c == F ]]; then
+                sep=$bundle
+                [[ $sep == /*/ && ${#sep} -ge 2 ]] && sep=${sep:1:${#sep}-2}
+                [[ -z $sep ]] && { echo "shuffle: -F separator can't be empty" >&2; return 2; }
+              else
+                out=$bundle has_out=1
+              fi
+              bundle= ;;
+            *) echo "shuffle: unknown option -$c" >&2; return 2 ;;
+          esac
+        done ;;
+    esac
+    shift
+  done
+  (( $# == 1 )) || { echo "usage: shuffle [options] <new-order>" >&2; return 2; }
+  local order=$1
+
+  SH_B=$b SH_P=$p SH_SEP=$sep SH_OUT=$out SH_HAS_OUT=$has_out SH_ORDER=$order perl -ne '
+BEGIN {
+  our $custom = length $ENV{SH_SEP};  # Without -F, split like perl -a does.
+  our $sep = $custom ? qr/$ENV{SH_SEP}/ : qr/\s+/;
+  our (@items, %used, %ign); our $max = -1;
+  my $o = $ENV{SH_ORDER};
+  while ($o =~ /\G\s*(?:"((?:[^"\\]|\\.)*)"|-(\d+)|(\d+)-(\d+)|(\d+)|(\.\.\.))\s*(?:,|\z)/gc) {
+    if    (defined $1) { (my $s = $1) =~ s/\\(.)/$1/g; push @items, ["s", $s] }
+    elsif (defined $2) { $ign{$2} = 1 }
+    elsif (defined $3) { push @items, map { ["f", $_] } ($3 <= $4 ? $3 .. $4 : reverse $4 .. $3) }
+    elsif (defined $5) { push @items, ["f", $5] }
+    else               { push @items, ["rest"] }
+  }
+  die "shuffle: bad <new-order>\n" unless (pos($o) // 0) == length $o;
+  for (@items) { next unless $_->[0] eq "f"; $used{$_->[1]} = 1; $max = $_->[1] if $_->[1] > $max }
+}
+chomp;
+my ($orig, $pre, $post) = ($_, "", "");
+if ($ENV{SH_B}) {
+  s/\A($sep)// ? ($pre = $1) : do { print "$orig\n"; next };
+  s/($sep)\z// ? ($post = $1) : do { print "$orig\n"; next };
+}
+my @F = $custom ? split($sep, $_, -1) : split(" ", $_, -1);
+if (@F <= $max) { print "$orig\n"; next }
+if ($ENV{SH_P}) { s/\A\s+|\s+\z//g for @F }
+my $j = $ENV{SH_HAS_OUT} ? $ENV{SH_OUT} : ($orig =~ /($sep)/ ? $1 : "");
+my @out = map {
+  $_->[0] eq "s" ? $_->[1]
+  : $_->[0] eq "f" ? $F[$_->[1]]
+  : (map { $F[$_] } grep { !$used{$_} && !$ign{$_} } 0 .. $#F)
+} @items;
+@out = map { " $_ " } @out if $ENV{SH_P};
+print $pre, join($j, @out), $post, "\n";
+'
+}
+
 # Usage: `ff [fd args] <code>`
 #
 # ff stands for "For each File" or "For each output of Fd".

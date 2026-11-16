@@ -623,9 +623,9 @@ _zsh_highlight_highlighter_rainbow_paint() {
 }
 
 # Colour the regexes given to the commands that take Perl-style ones, or much the same (see
-# _zsh_highlight_regex_pattern): GNU grep with -P or -E, rg, fd, GNU sed with -E, and perl and my p, pp, fr, br, ff and
+# _zsh_highlight_regex_pattern): GNU grep with -P or -E, rg, fd, GNU sed with -E, and perl and my p, pp, shuffle, fr, br, ff and
 # bf functions (in .zshrc). That's the pattern arguments of grep, rg and fd (and ff and bf, which pass them to fd), the
-# -F field separators of perl and p, and the -R record separators of p, fr and br. The code given to perl and p, and the
+# -F field separators of perl, p and shuffle, and the -R record separators of p, fr and br. The code given to perl and p, and the
 # scripts given to sed, are coloured as a whole, with their regexes among them. What a command is, and so which regexes
 # it takes, is worked out as it would be run: aliases are expanded as zsh would (so my `grep` is `ggrep -P`, and `sed`
 # is `gsed -E`), and a grep or sed counts only if it's GNU's (as ggrep and gsed are on macOS, and grep and sed are on
@@ -637,7 +637,7 @@ _zsh_highlight_highlighter_rainbow_paint() {
 # ff, fr, fl, bf, br and bl (and the rainbow highlighter's, so a regex's brackets carry on the depth of the brackets
 # around it).
 #
-# If the options of p, fr, br, ff or bf change, update the parsing of them below to match.
+# If the options of p, shuffle fr, br, ff or bf change, update the parsing of them below to match.
 _zsh_highlight_highlighter_regex_predicate() { _zsh_highlight_highlighter_main_predicate }
 
 _zsh_highlight_highlighter_regex_paint() {
@@ -765,7 +765,7 @@ _zsh_highlight_regex_command() {
   # The arguments: their text (unquoted), and their start and end on the command line (-1 for those of an alias)
   local -a values starts ends found reply positions fields
   local -i i k
-  _zsh_highlight_command_args '(grep|ggrep|rg|fd|fdfind|ff|bf|perl|p|pp|fr|br|sed|gsed)' "$@" || return
+  _zsh_highlight_command_args '(grep|ggrep|sed|gsed|rg|fd|fdfind|ff|bf|fr|br|perl|p|pp|shuffle)' "$@" || return
   # Which program it is, by its name, but for grep and sed, by whether it's GNU's (whose regexes these follow), as
   # ggrep and gsed are on macOS (where grep and sed are BSD's), and grep and sed are on Linux. Any other grep or sed
   # isn't coloured.
@@ -906,6 +906,28 @@ _zsh_highlight_regex_command() {
         done
       done
       found+=("$i 1 code") ;;
+    (shuffle)
+      (( $+functions[$name] )) || return
+      # As shuffle parses them: options up to the last argument (the order, which may start with a dash). -F and -o take
+      # the rest of their bundle, or else the next argument (never the last one, which is the order); -F's is a regex.
+      for (( i = 1; i < $#values; i++ )); do
+        value=$values[i]
+        [[ $value == -?* ]] || break
+        [[ $value == -- ]] && break
+        if [[ $value == --* ]]; then
+          [[ $value == --output-separator ]] && (( i++ ))
+          continue
+        fi
+        for (( k = 2; k <= $#value; k++ )); do
+          case $value[k] in
+            (F)
+              if (( k < $#value )); then found+=("$i $(( k + 1 )) slashed")
+              elif (( i + 1 < $#values )); then (( i++ )); found+=("$i 1 slashed"); fi
+              break ;;
+            (o) (( k < $#value )) || (( i++ )); break ;;
+          esac
+        done
+      done ;;
     # `fr <separator> <code>`, and br alike (the code is the shell's)
     (fr|br) (( $+functions[$name] )) && found=("1 1 slashed") ;;
     (fd|ff|bf)
