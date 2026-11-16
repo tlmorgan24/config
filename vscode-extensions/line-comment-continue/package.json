@@ -9,7 +9,8 @@
   },
   "contributes": {
     "languages": [
-      { "id": "go", "configuration": "./slash-comments.json" }
+      { "id": "go", "configuration": "./slash-comments.json" },
+      { "id": "shellscript", "configuration": "./hash-comments.json" }
     ]
   }
 }
