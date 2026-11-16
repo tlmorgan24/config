@@ -1,0 +1,23 @@
+{
+  "name": "normalised-copy-paste",
+  "displayName": "Normalised Copy Paste",
+  "description": "Copy and paste editor text while adapting indentation to its destination",
+  "publisher": "thomasmorgan",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "normalisedCopyPaste.copy",
+        "title": "Copy with Normalized Indentation"
+      },
+      {
+        "command": "normalisedCopyPaste.paste",
+        "title": "Paste with Normalized Indentation"
+      }
+    ]
+  }
+}

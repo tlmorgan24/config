@@ -70,6 +70,7 @@ fi
 if command -v code >/dev/null; then
   extensions=(
     'vscode-extensions/copy-reference copy-reference'
+    'vscode-extensions/normalised-copy-paste normalised-copy-paste'
     'vscode-extensions/go-run-buttons go-run-buttons'
     'vscode-extensions/line-comment-continue line-comment-continue'
   )

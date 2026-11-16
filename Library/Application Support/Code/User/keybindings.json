@@ -205,6 +205,17 @@
     "command": "copyFilePath",
     "when": "editorFocus"
   },
+  // Copy and paste multiline text without carrying its original indentation into a differently indented context.
+  {
+    "key": "cmd+c",
+    "command": "normalisedCopyPaste.copy",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "cmd+v",
+    "command": "normalisedCopyPaste.paste",
+    "when": "editorTextFocus"
+  },
   // Delete back to the first non-whitespace character of the line, rather than to column 0 (VS Code's default on macOS),
   // so that rewriting a line keeps its indentation.
   {
