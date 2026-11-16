@@ -117,3 +117,61 @@ func TestFormatPreservesCommentIndentOnWrap(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+func TestFormatWrapsBulletsAndPullsInAlignedComment(t *testing.T) {
+	source := []string{
+		"// - first item is long\n",
+		"//   second item\n",
+	}
+	got := Format(source, []Comment{
+		{Line: 0, Column: 0, Content: " - first item is long", Standalone: true, LineContents: "// - first item is long"},
+		{Line: 1, Column: 0, Content: "   second item", Standalone: true, LineContents: "//   second item"},
+	}, Style{Prefix: "//"}, 21)
+	want := []string{
+		"// - first item is\n",
+		"//   long second item\n",
+	}
+	if strings.Join(got, "") != strings.Join(want, "") {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestFormatKeepsBulletsAndUnalignedCommentsSeparate(t *testing.T) {
+	source := []string{
+		"// - item\n",
+		"//   aligned continuation\n",
+		"//   * next bullet\n",
+		"// other paragraph\n",
+	}
+	got := Format(source, []Comment{
+		{Line: 0, Column: 0, Content: " - item", Standalone: true, LineContents: "// - item"},
+		{Line: 1, Column: 0, Content: "   aligned continuation", Standalone: true, LineContents: "//   aligned continuation"},
+		{Line: 2, Column: 0, Content: "   * next bullet", Standalone: true, LineContents: "//   * next bullet"},
+		{Line: 3, Column: 0, Content: " other paragraph", Standalone: true, LineContents: "// other paragraph"},
+	}, Style{Prefix: "//"}, 80)
+	want := []string{
+		"// - item aligned continuation\n",
+		"//   * next bullet\n",
+		"// other paragraph\n",
+	}
+	if strings.Join(got, "") != strings.Join(want, "") {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBulletMarkerRecognizesNumericMarkers(t *testing.T) {
+	tests := []struct {
+		content string
+		want    string
+	}{
+		{content: "1. item", want: "1. "},
+		{content: "12) item", want: "12) "},
+		{content: "(3) item", want: "(3) "},
+	}
+	for _, test := range tests {
+		got, ok := bulletMarker(test.content)
+		if !ok || got != test.want {
+			t.Errorf("bulletMarker(%q) = %q, %t; want %q, true", test.content, got, ok, test.want)
+		}
+	}
+}
