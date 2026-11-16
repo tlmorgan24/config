@@ -140,6 +140,8 @@ ZSH_HIGHLIGHT_STYLES[perl-escape]='fg=#f5c2e7'  # Pink: `\n` `\t` `\"` etc in st
 ZSH_HIGHLIGHT_STYLES[perl-comment]='fg=#9399b2,italic'  # Overlay 2, italic
 ZSH_HIGHLIGHT_STYLES[perl-quote-operator]='fg=#cba6f7'  # Mauve: `m` `s` `qr` `q` `tr` etc and their flags (`g` `i` etc)
 ZSH_HIGHLIGHT_STYLES[perl-delimiter]='fg=#9399b2'  # Overlay 2: the `/`s of `/.../` `s/.../.../` etc
+ZSH_HIGHLIGHT_STYLES[shuffle-number]='fg=#f9e2af'  # Yellow: an included field number in shuffle's <new-order>
+ZSH_HIGHLIGHT_STYLES[shuffle-excluded-number]='fg=#9399b2'  # Overlay 2: an excluded field number in shuffle's <new-order>
 
 # Other
 #
@@ -1702,7 +1704,7 @@ _zsh_highlight_regex_order() {
         if [[ $s[i+1] == [0-9] ]]; then
           _zsh_highlight_regex_add $i $i perl-operator
           for (( j = i + 1; j < n; j++ )); do [[ $s[j+1] == [0-9] ]] || break; done
-          _zsh_highlight_regex_add $(( i + 1 )) $j perl-number
+          _zsh_highlight_regex_add $(( i + 1 )) $j shuffle-excluded-number
           i=j
         else
           _zsh_highlight_regex_add $i $n syntax-error
@@ -1710,13 +1712,13 @@ _zsh_highlight_regex_order() {
         fi ;;
       ([0-9])  # `2`, or a range `1-3` (which can descend)
         for (( j = i; j < n; j++ )); do [[ $s[j+1] == [0-9] ]] || break; done
-        _zsh_highlight_regex_add $i $j perl-number
+        _zsh_highlight_regex_add $i $j shuffle-number
         i=j
         if [[ $s[i+1] == - ]]; then
           _zsh_highlight_regex_add $(( i + 1 )) $(( i + 1 )) perl-operator
           if [[ $s[i+2] == [0-9] ]]; then
             for (( j = i + 2; j < n; j++ )); do [[ $s[j+1] == [0-9] ]] || break; done
-            _zsh_highlight_regex_add $(( i + 2 )) $j perl-number
+            _zsh_highlight_regex_add $(( i + 2 )) $j shuffle-number
             i=j
           else  # A range with no end, e.g. while still typing
             _zsh_highlight_regex_add $(( i + 1 )) $n syntax-error
