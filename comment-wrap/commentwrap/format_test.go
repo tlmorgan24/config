@@ -31,19 +31,35 @@ func TestFormatSupportsSlashAndHashCommentStyles(t *testing.T) {
 			got := Format(test.source, []Comment{{
 				Line:         0,
 				Column:       strings.IndexAny(test.source[0], "/#"),
-				Content:      "this comment is long enough to wrap",
+				Content:      " this comment is long enough to wrap",
 				Standalone:   true,
 				LineContents: test.source[0][:len(test.source[0])-1],
 			}}, test.style, 27)
 			if len(got) != len(test.want) {
 				t.Fatalf("got %q, want %q", got, test.want)
 			}
+
 			for i := range got {
 				if got[i] != test.want[i] {
 					t.Fatalf("got %q, want %q", got, test.want)
 				}
 			}
+
 		})
+	}
+}
+
+func TestFormatPreservesMissingSpaceAfterCommentMarker(t *testing.T) {
+	source := []string{"//hello this comment is long enough to wrap\n"}
+	comments := []Comment{{
+		Line: 0, Column: 0, Content: "hello this comment is long enough to wrap",
+		Standalone: true, LineContents: "//hello this comment is long enough to wrap",
+	}}
+
+	got := Format(source, comments, Style{Prefix: "//"}, 30)
+	want := []string{"//hello this comment is long\n", "//enough to wrap\n"}
+	if strings.Join(got, "") != strings.Join(want, "") {
+		t.Fatalf("got %q, want %q", strings.Join(got, ""), strings.Join(want, ""))
 	}
 }
 

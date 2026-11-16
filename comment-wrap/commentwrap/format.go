@@ -51,7 +51,8 @@ func Format(lines []string, comments []Comment, style Style, width int) []string
 		}
 
 		indent := lineIndent(comment.LineContents, comment.Column)
-		wrapped := Wrap(content, indent, style, width)
+		prefix := indent + style.Prefix + commentSeparator(comment.Content)
+		wrapped := wrapWithPrefix(content, prefix, width)
 		code := strings.TrimRight(comment.LineContents[:comment.Column], " \t")
 		lines = ReplaceLine(lines, comment.Line, append(wrapped, code), LineEnding(lines[comment.Line]))
 	}
@@ -191,11 +192,7 @@ func commentIndent(content string) string {
 }
 
 func commentSeparator(content string) string {
-	indent := commentIndent(content)
-	if indent == "" {
-		return " "
-	}
-	return indent
+	return commentIndent(content)
 }
 
 func commentIndentLevel(content string) int {
