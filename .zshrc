@@ -492,10 +492,9 @@ elsif ($ENV{PRS_L}) { $\ = "" }  # Final record had no separator, so nothing to 
 # Like p, but slurp the whole input as one record (-0777).
 pp() { p -0777 "$@"; }
 
-# Usage: shuffle [options] <new-order>
+# Usage: shuffle [options] <new-order> [files]
 #
-# <new-order> is always the last argument (so it may start with a dash) and contains comma-separated fields, where each
-# field can be:
+# <new-order> contains comma-separated fields, where each field can be:
 #   an integer i, to mean the original field i (0-based).
 #   a range i-j, as shorthand for i,i+1,etc,j-1,j (if i < j) or i,i-1,etc,j+1,j (if i > j) or i (if i == j).
 #   -i, to mean "ignore field i" for the `...` syntax below.
@@ -514,21 +513,23 @@ pp() { p -0777 "$@"; }
 #                                  a|b|c). Remove them when processing the fields and add them back when outputting.
 #   -p, --pad                      strip leading and trailing whitespace from every field when processing, and pad with a
 #                                  single leading and trailing space when outputting.
+#   --                             end of options (never needed for an order, but allows an unusual one).
 #
-# E.g.: `shuffle -bpF'\|' '-0,1-2,"hi",...'` turns `|a|b|c | d|` into `| b | c | hi | d |`
-# 
-# My regex highlighter (in syntax-highlighting.zsh) parses the options of this function too, to colour the regex given
-# to -F, so update it to match if they change.
+# E.g.: `shuffle -bpF'\|' '-0,1-2,"hi",...' file.txt` turns `|a|b|c | d|` into `| b | c | hi | d |`
+#
+# My regex highlighter (in syntax-highlighting.zsh) parses the arguments of this function too, to colour the regex given
+# to -F and the <new-order>, so update it to match if they change.
 shuffle() {
   local b=0 p=0 out= has_out=0 sep= c bundle
-  while (( $# > 1 )) && [[ $1 == -* && $1 != - ]]; do  # The last argument is always <new-order>.
+  # Options end at the first argument that isn't one: a lone `-`, or something like `-0,1-2` (an order, not an option).
+  while [[ $1 == -* && $1 != - && $1 != -[0-9]* ]]; do
     case $1 in
       --)                   shift; break ;;
       --boundary)           b=1 ;;
       --pad)                p=1 ;;
       --output-separator=*) out=${1#*=} has_out=1 ;;
       --output-separator)
-        (( $# >= 3 )) || { echo "shuffle: $1 needs an argument" >&2; return 2; }
+        (( $# >= 2 )) || { echo "shuffle: $1 needs an argument" >&2; return 2; }
         out=$2 has_out=1; shift ;;
       --*) echo "shuffle: unknown option $1" >&2; return 2 ;;
       *)
@@ -540,7 +541,7 @@ shuffle() {
             p) p=1 ;;
             F|o)  # Takes the rest of the bundle, or else the next argument.
               if [[ -z $bundle ]]; then
-                (( $# >= 3 )) || { echo "shuffle: -$c needs an argument" >&2; return 2; }
+                (( $# >= 2 )) || { echo "shuffle: -$c needs an argument" >&2; return 2; }
                 shift; bundle=$1
               fi
               if [[ $c == F ]]; then
@@ -557,8 +558,9 @@ shuffle() {
     esac
     shift
   done
-  (( $# == 1 )) || { echo "usage: shuffle [options] <new-order>" >&2; return 2; }
+  (( $# >= 1 )) || { echo "usage: shuffle [options] <new-order> [files]" >&2; return 2; }
   local order=$1
+  shift
 
   SH_B=$b SH_P=$p SH_SEP=$sep SH_OUT=$out SH_HAS_OUT=$has_out SH_ORDER=$order perl -ne '
 BEGIN {
@@ -593,7 +595,7 @@ my @out = map {
 } @items;
 @out = map { " $_ " } @out if $ENV{SH_P};
 print $pre, join($j, @out), $post, "\n";
-'
+' -- "$@"
 }
 
 # Usage: `ff [fd args] <code>`

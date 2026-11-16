@@ -406,8 +406,8 @@ _zsh_highlight_highlighter_arithmetic_paint() {
   done
 }
 
-# Colour the field numbers, ranges and separators in shuffle's final <new-order> argument. Quoted literal fields are left
-# to the main highlighter's string styles.
+# Colour the field numbers, ranges and separators in shuffle's <new-order> argument. Quoted literal fields are left to
+# the main highlighter's string styles.
 _zsh_highlight_highlighter_shuffle_predicate() { _zsh_highlight_highlighter_main_predicate }
 
 _zsh_highlight_highlighter_shuffle_paint() {
@@ -422,8 +422,24 @@ _zsh_highlight_shuffle_command() {
   local -a values starts ends
   _zsh_highlight_command_args shuffle "$@" || return
   (( $+functions[$name] && $#values )) || return
-  local -i i start=$starts[-1] end=$ends[-1]
-  (( start >= 0 )) || return
+  local -i i j start end
+  for (( i = 1; i <= $#values; i++ )); do
+    [[ $values[i] == -* && $values[i] != - && $values[i] != -[0-9]* ]] || break
+    [[ $values[i] == -- ]] && { (( i++ )); break }
+    if [[ $values[i] == --output-separator ]]; then
+      (( i++ ))
+    elif [[ $values[i] == --* ]]; then
+      continue
+    else
+      for (( j = 2; j <= ${#values[i]}; j++ )); do
+        [[ ${values[i][j]} == [Fo] ]] || continue
+        (( j == ${#values[i]} )) && (( i++ ))
+        break
+      done
+    fi
+  done
+  (( i <= $#values && starts[i] >= 0 )) || return
+  start=$starts[i] end=$ends[i]
   local order char
   local -a positions
   _zsh_highlight_regex_unquote $start $end || return
@@ -946,12 +962,12 @@ _zsh_highlight_regex_command() {
       found+=("$i 1 code") ;;
     (shuffle)
       (( $+functions[$name] )) || return
-      # As shuffle parses them: options up to the last argument (the order, which may start with a dash). -F and -o take
-      # the rest of their bundle, or else the next argument (never the last one, which is the order); -F's is a regex.
-      for (( i = 1; i < $#values; i++ )); do
+      # As shuffle parses them: options up to the first positional argument (the order, which may start with a dash
+      # followed by a digit). -F and -o take the rest of their bundle, or else the next argument.
+      for (( i = 1; i <= $#values; i++ )); do
         value=$values[i]
-        [[ $value == -?* ]] || break
-        [[ $value == -- ]] && break
+        [[ $value == -* && $value != - && $value != -[0-9]* ]] || break
+        [[ $value == -- ]] && { (( i++ )); break }
         if [[ $value == --* ]]; then
           [[ $value == --output-separator ]] && (( i++ ))
           continue
