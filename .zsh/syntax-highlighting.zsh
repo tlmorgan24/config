@@ -1195,7 +1195,12 @@ _zsh_highlight_regex_pattern() {
         [[ $s[i+1] == [iIjJmMOqTyY] || $s[i+1] == o && $s[i+2] != '{' ]] && style=syntax-error
         (( ! interpolate )) && [[ $s[i+1] == [lLuUF] ]] && style=syntax-error
       fi
-      _zsh_highlight_regex_add $i $j $style
+      if [[ $style == regex-escape && $s[i+1] != [[:alnum:]] ]] && (( j == i + 1 )); then
+        # An escaped metacharacter is literal, so only its backslash is an escape.
+        _zsh_highlight_regex_add $i $i $style
+      else
+        _zsh_highlight_regex_add $i $j $style
+      fi
     elif (( class )); then  # In a `[...]`
       if [[ $s[i] == ']' ]] && (( i > first )); then  # A `]` first in the class is literal.
         _zsh_highlight_regex_add $i $i bracket-depth-$(( (depth + $#groups + class - 1) % 6 + 1 ))
