@@ -35,8 +35,7 @@ ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#cba6f7'
 # Options: peach
 ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=#fab387'
 ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=#fab387'
-ZSH_HIGHLIGHT_STYLES[shuffle-field]='fg=#f9e2af'  # The field numbers, ranges and separators in shuffle's <new-order>
-
+ZSH_HIGHLIGHT_STYLES[shuffle-excluded]='fg=#f5c2e7'  # An excluded field such as `-1`
 # Operators: sky
 ZSH_HIGHLIGHT_STYLES[redirection]='fg=#89dceb'  # `>` `<` `>>` etc
 # `|` `&&` `||` `&` (as logical operators are in other languages). `;` is recoloured below.
@@ -440,21 +439,87 @@ _zsh_highlight_shuffle_command() {
   done
   (( i <= $#values && starts[i] >= 0 )) || return
   start=$starts[i] end=$ends[i]
-  local order char
+  local order
   local -a positions
   _zsh_highlight_regex_unquote $start $end || return
   order=$REPLY positions=("${reply[@]}")
-  local quote
-  for (( i = 1; i <= $#order; i++ )); do
-    char=$order[i]
-    if [[ -n $quote ]]; then
-      [[ $char == '\' ]] && (( i++ )) || [[ $char == $quote ]] && quote=
+  local -i item_start comma_index dash_index closed
+  i=1
+  while (( i <= $#order )); do
+    while [[ $order[i] == [[:space:]] ]]; do (( i++ )); done
+    (( i <= $#order )) || { (( item_start )) || _zsh_highlight_add_highlight $start $end syntax-error; break; }
+    item_start=$i
+    if [[ $order[i] == '"' ]]; then
+      closed=0
+      (( i++ ))
+      while (( i <= $#order )); do
+        if [[ $order[i] == '\' ]]; then
+          (( i += 2 ))
+        elif [[ $order[i] == '"' ]]; then
+          closed=1
+          (( i++ ))
+          break
+        else
+          (( i++ ))
+        fi
+      done
+      (( closed )) || {
+        _zsh_highlight_add_highlight $(( positions[item_start] - 1 )) $end syntax-error
+        break
+      }
+    elif [[ $order[i] == '-' ]]; then
+      dash_index=i
+      (( i++ ))
+      item_start=$i
+      while [[ $order[i] == [0-9] ]]; do
+        (( i++ ))
+      done
+      (( i > item_start )) || {
+        _zsh_highlight_add_highlight $(( positions[dash_index] - 1 )) $end syntax-error
+        break
+      }
+      _zsh_highlight_add_highlight $(( positions[dash_index] - 1 )) $positions[i-1] shuffle-excluded
+    elif [[ $order[i] == [0-9] ]]; then
+      while [[ $order[i] == [0-9] ]]; do
+        _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] arithmetic-number
+        (( i++ ))
+      done
+      if [[ $order[i] == '-' ]]; then
+        dash_index=i
+        _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] arithmetic-operator
+        (( i++ ))
+        item_start=$i
+        while [[ $order[i] == [0-9] ]]; do
+          _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] arithmetic-number
+          (( i++ ))
+        done
+        (( i > item_start )) || {
+          _zsh_highlight_add_highlight $(( positions[dash_index] - 1 )) $end syntax-error
+          break
+        }
+      fi
+    elif [[ $order[i,i+2] == '...' ]]; then
+      _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i+2] reserved-word
+      (( i += 3 ))
     else
-      case $char in
-        ('"') quote=$char ;;
-        ('\') (( i++ )) ;;
-        ([0-9.,-]) _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] shuffle-field ;;
-      esac
+      _zsh_highlight_add_highlight $(( positions[item_start] - 1 )) $end syntax-error
+      break
+    fi
+    while [[ $order[i] == [[:space:]] ]]; do (( i++ )); done
+    if (( i <= $#order )); then
+      if [[ $order[i] == ',' ]]; then
+        comma_index=i
+        _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] commandseparator
+        (( i++ ))
+        while [[ $order[i] == [[:space:]] ]]; do (( i++ )); done
+        (( i <= $#order )) || {
+          _zsh_highlight_add_highlight $(( positions[comma_index] - 1 )) $positions[comma_index] syntax-error
+          break
+        }
+      else
+        _zsh_highlight_add_highlight $(( positions[i] - 1 )) $end syntax-error
+        break
+      fi
     fi
   done
 }
