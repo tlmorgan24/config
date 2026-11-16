@@ -196,6 +196,7 @@
 
   "editor.insertSpaces": true, // By default, insert spaces when tab is pressed (language-specific overrides specified below)
   "editor.tabSize": 4,  // Default number of spaces (language-specific overrides specified below)
+  "editor.formatOnSave": true,
 
   // Go
   // Semantic highlighting from the language server, rather than simple regex-based textmate, so that e.g.
@@ -207,14 +208,13 @@
     "ui.semanticTokenTypes": { "string": false, "number": false }
   },
   "[go]": {
-    "editor.insertSpaces": false, // Go prefers tabs over spaces
-    "editor.formatOnSave": true // should already be set to true by Go extension, but just in case
+    "editor.insertSpaces": false // Go prefers tabs over spaces
   },
-  // Formatting to run on save. Use custom tool which wraps comments (including promoting long 
+  // Formatting. Use custom tool which wraps comments (including promoting long 
   // trailing comments to their own line), then runs golines to wrap actual code.
   "go.formatTool": "custom", 
   "go.alternateTools": {
-    "customFormatter": "${env:HOME}/.local/bin/go-wrap-comments"
+    "customFormatter": "${env:HOME}/.local/bin/go-comment-wrap"
   },
   "go.formatFlags": ["-m", "100", "--base-formatter=gofmt"],
 

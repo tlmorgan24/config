@@ -40,8 +40,13 @@ fi
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/drop" .)
 # Build my checkout program (see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/checkout" .)
-# Build the Go formatter wrapper that moves overlong trailing comments above their statements.
-(cd "$script_dir/go-wrap-comments" && go build -o "$LOCAL_BIN/go-wrap-comments" .)
+# Build every comment formatter command. Each command directory becomes an executable with the same name, so adding a
+# language only requires adding another entry under comment-wrap/cmd/.
+for command_dir in "$script_dir/comment-wrap/cmd"/*/; do
+  [[ -d "$command_dir" ]] || continue
+  command_name="$(basename "$command_dir")"
+  (cd "$script_dir/comment-wrap" && go build -o "$LOCAL_BIN/$command_name" "./cmd/$command_name")
+done
 
 # Create venv for the scrollshot program (see README.md) in this repo.
 python3 -m venv --clear "$HOME/.local/share/scrollshot-venv" >/dev/null
@@ -73,6 +78,7 @@ if command -v code >/dev/null; then
     'vscode-extensions/normalised-copy-paste normalised-copy-paste'
     'vscode-extensions/go-run-buttons go-run-buttons'
     'vscode-extensions/line-comment-continue line-comment-continue'
+    'vscode-extensions/comment-wrap comment-wrap'
   )
   vsix_dir="$(mktemp -d)"
   trap 'rm -rf "$vsix_dir"' EXIT

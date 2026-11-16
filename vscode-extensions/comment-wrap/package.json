@@ -1,0 +1,14 @@
+{
+  "name": "comment-wrap",
+  "displayName": "Comment Wrap",
+  "description": "Wrap comments when formatting",
+  "publisher": "thomasmorgan",
+  "version": "0.0.1",
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:shellscript"
+  ],
+  "engines": {
+    "vscode": "^1.80.0"
+  }
+}
