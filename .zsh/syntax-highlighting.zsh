@@ -35,6 +35,7 @@ ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#cba6f7'
 # Options: peach
 ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=#fab387'
 ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=#fab387'
+ZSH_HIGHLIGHT_STYLES[shuffle-field]='fg=#f9e2af'  # The field numbers, ranges and separators in shuffle's <new-order>
 
 # Operators: sky
 ZSH_HIGHLIGHT_STYLES[redirection]='fg=#89dceb'  # `>` `<` `>>` etc
@@ -402,6 +403,43 @@ _zsh_highlight_highlighter_arithmetic_paint() {
       (( finish -= 2 ))
     fi
     _zsh_highlight_arithmetic_contents $(( start + 4 )) $finish
+  done
+}
+
+# Colour the field numbers, ranges and separators in shuffle's final <new-order> argument. Quoted literal fields are left
+# to the main highlighter's string styles.
+_zsh_highlight_highlighter_shuffle_predicate() { _zsh_highlight_highlighter_main_predicate }
+
+_zsh_highlight_highlighter_shuffle_paint() {
+  emulate -L zsh
+  local -a entries=("${_zsh_highlight__highlighter_main_cache[@]}")
+  _zsh_highlight_commands _zsh_highlight_shuffle_command
+}
+
+_zsh_highlight_shuffle_command() {
+  emulate -L zsh
+  local name
+  local -a values starts ends
+  _zsh_highlight_command_args shuffle "$@" || return
+  (( $+functions[$name] && $#values )) || return
+  local -i i start=$starts[-1] end=$ends[-1]
+  (( start >= 0 )) || return
+  local order char
+  local -a positions
+  _zsh_highlight_regex_unquote $start $end || return
+  order=$REPLY positions=("${reply[@]}")
+  local quote
+  for (( i = 1; i <= $#order; i++ )); do
+    char=$order[i]
+    if [[ -n $quote ]]; then
+      [[ $char == '\' ]] && (( i++ )) || [[ $char == $quote ]] && quote=
+    else
+      case $char in
+        ('"') quote=$char ;;
+        ('\') (( i++ )) ;;
+        ([0-9.,-]) _zsh_highlight_add_highlight $(( positions[i] - 1 )) $positions[i] shuffle-field ;;
+      esac
+    fi
   done
 }
 
@@ -1714,5 +1752,5 @@ _zsh_highlight_highlighter_selection_paint() {
 # Run these after main, so they can override main's colours (and regex after rainbow, as it needs rainbow's brackets,
 # and selection last, as it needs everything else's colours).
 ZSH_HIGHLIGHT_HIGHLIGHTERS=(
-  main continuation pathunderline arithmetic parameter keywords separators rainbow regex selection
+  main continuation pathunderline arithmetic parameter keywords separators shuffle rainbow regex selection
 )
