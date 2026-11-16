@@ -35,7 +35,7 @@ Note .zprofile is not shown in the repo, because your .zprofile is instead appen
 
 ## Background
 
-A terminal sends the commands you type to the command-line program it is connected to (e.g. Zsh). It’s easy to assume that the terminal “holds” the text you type, and only sends it once you press enter. But actually, everything you type immediately gets sent to the program (and the program usually prints the character you sent, so you can see it).
+A terminal sends the commands you type to the command-line program it is connected to (e.g. Zsh). It’s easy to assume that the terminal "holds" the text you type, and only sends it once you press enter. But actually, everything you type immediately gets sent to the program (and the program usually prints the character you sent, so you can see it).
 
 For this reason, if you want to edit the command you’re typing, it’s the program’s job (not the terminal’s). I.e.: you type a character → terminal sends character (or an associated **keybinding**) to the program → programs responds according to its own rules/config.
 
@@ -272,9 +272,39 @@ Most of these are default, some are custom (or the keybinding was customised) an
 * Secondary click on a variable -> 'Rename symbol' - renames all occurrences of a symbol in a syntax-aware way (using the language server), rather than a dumb find-and-replace. Use this to change function/variable names.
 * ctrl+tab - switch between most-recently focused files.
 * cmd+alt+left/right - switch between most recent cursor locations (including across files)
-* cmd+s - save with formatting, if the language has a formatter enabled. To save without formatting, do cmd+k then s.
 
-Custom formatters (which I mainly use to wrap comments nicely) are in the comment-wrap directory and set up by `copy.sh`. Configure them in .config/comment-wrap/config.json (formatter will run on save if `"enabled"` is `true`). Remember to copy across the changes (run `copy.sh`) each time you change the config.
+### Formatting
+
+Custom formatters (which I mainly use to wrap comments nicely) are in the comment-wrap/ directory and set up by `copy.sh`. Configure them in .config/comment-wrap/config.json. Remember to copy across the changes (run `copy.sh`) each time you change the config. 
+
+A formatter will run on save (cmd+s) if its `"enabled"` field is `true`. Can still save without formatting by doing cmd+k then s.
+
+The formatters reflow comment lines to the configured maximum width (e.g. 100 characters), and within a paragraph, short lines get promoted to the line above (and then reflowed again), so you don't end up with e.g. `# long line\n# short line\n# long line`.
+
+A line is only allowed to finish short if any of these are true:
+
+- the line below it is not a comment
+- the line below it is a blank comment (i.e., a comment mark with no other non-whitespace characters).
+- the line below it has a different "indent level", where "indent level" is measured from the end of the comment mark to the next non-whitespace character. E.g. "// hello" and "//   hello" are different "indent levels" (even if the // marks themselves are at the same indent level).
+
+Other clarifications:
+
+- Indent level is preserved. Eg if the current line is "//   hello…overflow", when it wraps onto the line below, that line should be "//   overflow" (not "// overflow")
+-	Outside the above exceptions, \n and a space are assumed interchangeable. I.e., if the current line is short and the line below is long, the \n converts into a space. If the current line is long, the space converts into \n.
+
+The formatters also recognise bullet points in comments:
+
+1. `- `, `* `, `(1) `, `1) `, and `1. ` are recognised as bullet markers.
+2. Each bullet starts a new logical paragraph.
+3. When wrapping a bullet, continuation lines align with the first character after the marker.
+4. Likewise (the reverse direction), a non-bullet comment whose first non-whitespace character aligns with the bullet's first character (after the marker) is considered part of that bullet and may be pulled into it. 
+5. No lines other than as laid out in point 4 can be pulled into a bullet.
+
+I also define actions to occur on enter/delete while typing comments in vscode-extensions/line-comment-continue/:
+
+* Enter preserves the indentation of the current comment marker and the indentation of the *text* with respect to the comment marker. For example, `//   hello|`, then enter, creates the new line, `//   |` (where `|` represents the cursor).
+* It recognises bullet markers and inserts a new marker on enter. For numeric markers, it increments the number.
+* Backspace when the cursor is after a bullet marker deletes the entire marker, rather than a single character.
 
 ### Search
 
