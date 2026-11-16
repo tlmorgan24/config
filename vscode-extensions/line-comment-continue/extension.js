@@ -3,6 +3,13 @@ const vscode = require("vscode");
 const commentPrefixes = {
   go: "//",
   shellscript: "#",
+  python: "#",
+  javascript: "//",
+  javascriptreact: "//",
+  typescript: "//",
+  typescriptreact: "//",
+  json: "//",
+  jsonc: "//",
 };
 
 function bulletMarker(content) {

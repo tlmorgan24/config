@@ -7,7 +7,14 @@
   "main": "./extension.js",
   "activationEvents": [
     "onLanguage:go",
-    "onLanguage:shellscript"
+    "onLanguage:shellscript",
+    "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:json",
+    "onLanguage:jsonc"
   ],
   "engines": {
     "vscode": "^1.80.0"
@@ -29,6 +36,41 @@
         "command": "lineCommentContinue.enter",
         "key": "enter",
         "when": "editorTextFocus && editorLangId == shellscript"
+      },
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == python"
+      },
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == javascript"
+      },
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == javascriptreact"
+      },
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == typescript"
+      },
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == typescriptreact"
+      },
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == json"
+      },
+      {
+        "command": "lineCommentContinue.enter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == jsonc"
       }
     ]
   }
