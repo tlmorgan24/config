@@ -257,14 +257,15 @@ Usage: `/review <spec-file> [--rounds <n>] [--model <model>] [--base <commit>]`
 
 ## VS Code
 
-Most of these are default, some are custom (or the keybinding was customised) and some are from extensions. Extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`.
+Most of these are default, some are custom (or the keybinding was customised) and some are from extensions. Third-party extensions are listed in `vscode-extensions.txt` and automatically installed by `./install.sh`; custom extensions are in the vscode-extensions directory and automatically installed by `./copy.sh`.
 
 ### Miscellaneous
 
 * Run `code <file>` or `code <directory>` to open files/folder in VS Code. If did not install VS Code through Homebrew, may have to manually add this to ~/.zprofile: `export PATH="/Applications/Visual Studio Code.app/Contents/Resources/app/bin:$PATH"`.
 * cmd+alt+c - copy relative path to current file, with reference to current line/selection if the editor is currently focused (e.g. `src/main.go`, `src/main.go:12` or `src/main.go:12-18`). With multiple cursors, copies one reference per line (separated by \n). If editor is focused, but still only want to copy only the file with no reference, do cmd+k then the same shortcut.
 * shift+cmd+alt+c - as above, but absolute instead of relative path.
-* Alt+z: Toggle between views that wrap long lines vs let them run off the screen
+* Alt+z: Toggle between views that wrap long lines vs let them run off the screen.
+* cmd+d: toggle normal/diff view of current file at current cursor location.
 
 ### Navigation and editing
 

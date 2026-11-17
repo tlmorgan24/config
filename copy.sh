@@ -73,19 +73,13 @@ fi
 # package each source directory as a .vsix (a zip with the extension under `extension/`) and install it, replacing any
 # earlier install.
 if command -v code >/dev/null; then
-  extensions=(
-    'vscode-extensions/copy-reference copy-reference'
-    'vscode-extensions/normalised-copy-paste normalised-copy-paste'
-    'vscode-extensions/go-run-buttons go-run-buttons'
-    'vscode-extensions/line-comment-continue line-comment-continue'
-    'vscode-extensions/comment-wrap comment-wrap'
-  )
   vsix_dir="$(mktemp -d)"
   trap 'rm -rf "$vsix_dir"' EXIT
-  for extension in "${extensions[@]}"; do
-    read -r source_dir package_name <<< "$extension"
+  for source_dir in "$script_dir/vscode-extensions"/*/; do
+    [[ -d "$source_dir" ]] || continue
+    package_name="$(basename "$source_dir")"
     mkdir "$vsix_dir/extension"
-    cp -R "$script_dir/$source_dir/." "$vsix_dir/extension/"
+    cp -R "$source_dir/." "$vsix_dir/extension/"
     (cd "$vsix_dir" && zip -qr "$package_name.vsix" extension)
     rm -rf "$vsix_dir/extension"
     # This prints a `url.parse()` deprecation warning (DEP0169), which is VS Code's fault: after installing, its CLI

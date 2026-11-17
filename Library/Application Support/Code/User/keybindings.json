@@ -247,5 +247,12 @@
   {
     "key": "cmd+alt+right",
     "command": "workbench.action.navigateForward"
+  },
+
+  // toggle normal/diff view of current file at current cursor location
+  {
+    "key": "cmd+d",
+    "command": "diffAtCursor.toggle",
+    "when": "editorTextFocus"
   }
 ]
