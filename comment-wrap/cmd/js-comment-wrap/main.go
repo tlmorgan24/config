@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/tlmorgan24/config/comment-wrap/commentwrap"
 	"github.com/tlmorgan24/config/comment-wrap/config"
 	"github.com/tlmorgan24/config/comment-wrap/jswrap"
 )
@@ -27,7 +28,10 @@ func main() {
 		fatal(err)
 	}
 	if language.Enabled {
-		source = jswrap.Format(source, language.Width)
+		source = jswrap.Format(source, commentwrap.Options{
+			Width:    language.Width,
+			TabWidth: language.TabWidth, MinColWidth: language.MinColWidth,
+		})
 	}
 	if _, err := os.Stdout.Write(source); err != nil {
 		fatal(err)

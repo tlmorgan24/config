@@ -5,13 +5,12 @@ import (
 	"unicode"
 )
 
-const (
-	// tabWidth is how many columns a tab counts for when measuring width.
-	tabWidth = 4
-	// minColWidth is the narrowest the last column of a table is squeezed to
-	// (the table may then exceed the configured width).
-	minColWidth = 30
-)
+// Options controls comment wrapping.
+type Options struct {
+	Width       int
+	TabWidth    int
+	MinColWidth int
+}
 
 // Comment describes a line comment found by a language-specific scanner.
 type Comment struct {
@@ -35,12 +34,12 @@ type edit struct {
 // Format reflows comments. All replacements are computed against the original
 // line numbers and then applied from bottom to top, so replacing one comment
 // cannot invalidate the locations of comments that have not been applied yet.
-func Format(lines []string, comments []Comment, style Style, width int) []string {
+func Format(lines []string, comments []Comment, style Style, options Options) []string {
 	var edits []edit
 	for i := 0; i < len(comments); {
 		c := comments[i]
 		if !c.Standalone {
-			if e, ok := trailingEdit(c, style, width); ok {
+			if e, ok := trailingEdit(c, style, options); ok {
 				edits = append(edits, e)
 			}
 			i++
@@ -65,7 +64,7 @@ func Format(lines []string, comments []Comment, style Style, width int) []string
 		edits = append(edits, edit{
 			first:       run[0].Line,
 			last:        run[len(run)-1].Line,
-			replacement: formatRun(run, indent, style, width),
+			replacement: formatRun(run, indent, style, options),
 		})
 	}
 
@@ -85,28 +84,28 @@ func hasText(run []Comment) bool {
 	return false
 }
 
-func trailingEdit(c Comment, style Style, width int) (edit, bool) {
+func trailingEdit(c Comment, style Style, options Options) (edit, bool) {
 	content := strings.TrimSpace(c.Content)
 	if content == "" {
 		return edit{}, false
 	}
-	if displayWidth(strings.TrimRight(c.LineContents, "\r\n")) <= width {
+	if displayWidth(strings.TrimRight(c.LineContents, "\r\n"), options) <= options.Width {
 		return edit{}, false
 	}
 	prefix := lineIndent(c.LineContents, c.Column) + style.Prefix + commentIndent(c.Content)
-	wrapped := wrapWithPrefix(content, prefix, width)
+	wrapped := wrapWithPrefix(content, prefix, options)
 	code := strings.TrimRight(c.LineContents[:c.Column], " \t")
 	return edit{first: c.Line, last: c.Line, replacement: append(wrapped, code)}, true
 }
 
 // Wrap breaks comment content into lines using the supplied comment style.
-func Wrap(content, indent string, style Style, width int) []string {
-	return wrapWithPrefix(content, indent+style.Prefix+" ", width)
+func Wrap(content, indent string, style Style, options Options) []string {
+	return wrapWithPrefix(content, indent+style.Prefix+" ", options)
 }
 
-func wrapWithPrefix(content, prefix string, width int) []string {
-	avail := width - displayWidth(prefix)
-	lines := wrapText(strings.Fields(content), avail, avail)
+func wrapWithPrefix(content, prefix string, options Options) []string {
+	avail := options.Width - displayWidth(prefix, options)
+	lines := wrapText(strings.Fields(content), avail, avail, options)
 	for i := range lines {
 		lines[i] = prefix + lines[i]
 	}
@@ -127,14 +126,14 @@ type cline struct {
 	seps   []string
 }
 
-func parseLines(run []Comment) []cline {
+func parseLines(run []Comment, options Options) []cline {
 	out := make([]cline, len(run))
 	for i, c := range run {
 		content := strings.TrimRight(c.Content, "\r\n")
 		lead := leadingSpace(content)
 		rest := content[len(lead):]
 		text := strings.TrimRight(rest, " \t")
-		ln := cline{lead: lead, rest: rest, text: text, blank: text == "", indent: displayWidth(lead)}
+		ln := cline{lead: lead, rest: rest, text: text, blank: text == "", indent: displayWidth(lead, options)}
 		if !ln.blank {
 			ln.items, ln.seps = splitItems(text)
 		}
@@ -328,7 +327,7 @@ func listStyleAt(cl []cline, k int) (style string, ok bool) {
 	return "ws", true
 }
 
-func scan(cl []cline) []*block {
+func scan(cl []cline, options Options) []*block {
 	var blocks []*block
 	var cur *block
 	var lists []*listCtx
@@ -368,9 +367,9 @@ func scan(cl []cline) []*block {
 
 		switch {
 		case isStd: // 1. standard bullets
-			newBlock(newBullet(ln, sb))
+			newBlock(newBullet(ln, sb, options))
 		case wordInList: // 2. word bullets (only inside an intro list)
-			newBlock(newBullet(ln, wb))
+			newBlock(newBullet(ln, wb, options))
 		case cur != nil && cur.kind == kBullet && I == cur.textLevel:
 			// Continuation of the nearest bullet above.
 			cur.words = append(cur.words, strings.Fields(ln.text)...)
@@ -414,13 +413,13 @@ func scan(cl []cline) []*block {
 	return blocks
 }
 
-func newBullet(ln cline, mi markerInfo) *block {
+func newBullet(ln cline, mi markerInfo, options Options) *block {
 	marker := ln.rest[:mi.prefixLen]
 	text := ln.rest[mi.prefixLen:]
 	if strings.TrimSpace(text) == "" {
 		marker = strings.TrimRight(marker, " \t") + " "
 	}
-	cols := displayWidth(marker)
+	cols := displayWidth(marker, options)
 	return &block{
 		kind: kBullet, lead: ln.lead, indent: ln.indent,
 		marker: marker, contPad: cols, textLevel: ln.indent + cols,
@@ -441,37 +440,37 @@ func (b *block) addRow(ln cline) {
 // Rendering
 // ---------------------------------------------------------------------------
 
-func formatRun(run []Comment, indentStr string, style Style, width int) []string {
+func formatRun(run []Comment, indentStr string, style Style, options Options) []string {
 	prefix := indentStr + style.Prefix
-	prefixCols := displayWidth(prefix)
+	prefixCols := displayWidth(prefix, options)
 	var out []string
-	for _, b := range scan(parseLines(run)) {
+	for _, b := range scan(parseLines(run, options), options) {
 		switch b.kind {
 		case kBlank:
 			out = append(out, prefix)
 		case kProse:
-			avail := width - prefixCols - b.indent
-			for _, l := range wrapText(b.words, avail, avail) {
+			avail := options.Width - prefixCols - b.indent
+			for _, l := range wrapText(b.words, avail, avail, options) {
 				out = append(out, prefix+b.lead+l)
 			}
 		case kBullet:
-			out = append(out, b.renderBullet(prefix, prefixCols, width)...)
+			out = append(out, b.renderBullet(prefix, prefixCols, options)...)
 		case kTable:
-			out = append(out, b.renderTable(prefix, prefixCols, width)...)
+			out = append(out, b.renderTable(prefix, prefixCols, options)...)
 		}
 	}
 	return out
 }
 
-func (b *block) renderBullet(prefix string, prefixCols, width int) []string {
+func (b *block) renderBullet(prefix string, prefixCols int, options Options) []string {
 	if len(b.words) == 0 {
 		return []string{prefix + b.lead + b.marker}
 	}
-	firstAvail := width - prefixCols - b.indent - displayWidth(b.marker)
-	contAvail := width - prefixCols - b.indent - b.contPad
+	firstAvail := options.Width - prefixCols - b.indent - displayWidth(b.marker, options)
+	contAvail := options.Width - prefixCols - b.indent - b.contPad
 	contLead := b.lead + spaces(b.contPad)
 	var out []string
-	for i, l := range wrapText(b.words, firstAvail, contAvail) {
+	for i, l := range wrapText(b.words, firstAvail, contAvail, options) {
 		if i == 0 {
 			out = append(out, prefix+b.lead+b.marker+l)
 		} else {
@@ -481,21 +480,21 @@ func (b *block) renderBullet(prefix string, prefixCols, width int) []string {
 	return out
 }
 
-func (b *block) renderTable(prefix string, prefixCols, width int) []string {
+func (b *block) renderTable(prefix string, prefixCols int, options Options) []string {
 	cols := b.count - 1
 	colW := make([]int, cols)
 	sum := 0
 	for k := 0; k < cols; k++ {
 		for _, r := range b.rows {
-			if w := displayWidth(r.cells[k]) + displayWidth(r.seps[k]); w > colW[k] {
+			if w := displayWidth(r.cells[k], options) + displayWidth(r.seps[k], options); w > colW[k] {
 				colW[k] = w
 			}
 		}
 		sum += colW[k]
 	}
-	avail := width - prefixCols - b.indent - sum
-	if avail < minColWidth {
-		avail = minColWidth
+	avail := options.Width - prefixCols - b.indent - sum
+	if avail < options.MinColWidth {
+		avail = options.MinColWidth
 	}
 	contLead := b.lead + spaces(sum)
 
@@ -506,9 +505,9 @@ func (b *block) renderTable(prefix string, prefixCols, width int) []string {
 		sb.WriteString(b.lead)
 		for k := 0; k < cols; k++ {
 			sb.WriteString(r.cells[k])
-			sb.WriteString(spaces(colW[k] - displayWidth(r.cells[k])))
+			sb.WriteString(spaces(colW[k] - displayWidth(r.cells[k], options)))
 		}
-		lines := wrapText(r.words, avail, avail)
+		lines := wrapText(r.words, avail, avail, options)
 		if len(lines) == 0 {
 			lines = []string{""}
 		}
@@ -525,7 +524,7 @@ func (b *block) renderTable(prefix string, prefixCols, width int) []string {
 // the line gets a line of its own. A line is never started with a word that
 // would make it look like the start of a new bullet; the break moves to
 // another word instead.
-func wrapText(words []string, firstAvail, contAvail int) []string {
+func wrapText(words []string, firstAvail, contAvail int, options Options) []string {
 	if firstAvail < 1 {
 		firstAvail = 1
 	}
@@ -540,7 +539,7 @@ func wrapText(words []string, firstAvail, contAvail int) []string {
 		}
 		j, w := i, 0
 		for j < len(words) {
-			ww := displayWidth(words[j])
+			ww := displayWidth(words[j], options)
 			if j > i && w+1+ww > avail {
 				break
 			}
@@ -608,15 +607,15 @@ func commentIndent(content string) string {
 	return leadingSpace(content)
 }
 
-// displayWidth measures s in terminal columns: a tab counts as tabWidth,
-// combining and format characters as 0, East Asian wide characters and emoji
-// as 2, everything else as 1.
-func displayWidth(s string) int {
+// displayWidth measures s in terminal columns: a tab counts as the configured
+// tab width, combining and format characters as 0, East Asian wide characters 
+// and emoji as 2, everything else as 1.
+func displayWidth(s string, options Options) int {
 	w := 0
 	for _, r := range s {
 		switch {
 		case r == '\t':
-			w += tabWidth
+			w += options.TabWidth
 		case r < 0x20 || r == 0x7f:
 		case unicode.In(r, unicode.Mn, unicode.Me, unicode.Cf):
 		case isWide(r):

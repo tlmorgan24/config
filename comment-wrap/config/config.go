@@ -8,8 +8,10 @@ import (
 )
 
 type Language struct {
-	Enabled bool `json:"enabled"`
-	Width   int  `json:"width"`
+	Enabled     bool `json:"enabled"`
+	Width       int  `json:"width"`
+	TabWidth    int  `json:"tabWidth"`
+	MinColWidth int  `json:"minColWidth"`
 }
 
 type Config struct {
@@ -26,15 +28,15 @@ type Config struct {
 
 func Load() (Config, error) {
 	config := Config{
-		Go:              Language{Enabled: true, Width: 100},
-		Shellscript:     Language{Enabled: true, Width: 100},
-		Python:          Language{Enabled: true, Width: 100},
-		Javascript:      Language{Enabled: true, Width: 100},
-		Javascriptreact: Language{Enabled: true, Width: 100},
-		Typescript:      Language{Enabled: true, Width: 100},
-		Typescriptreact: Language{Enabled: true, Width: 100},
-		Json:            Language{Enabled: true, Width: 100},
-		Jsonc:           Language{Enabled: true, Width: 100},
+		Go:              Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
+		Shellscript:     Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
+		Python:          Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
+		Javascript:      Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
+		Javascriptreact: Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
+		Typescript:      Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
+		Typescriptreact: Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
+		Json:            Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
+		Jsonc:           Language{Enabled: true, Width: 100, TabWidth: 4, MinColWidth: 30},
 	}
 
 	path := os.Getenv("COMMENT_WRAP_CONFIG")
@@ -63,9 +65,31 @@ func Load() (Config, error) {
 		config.Typescript.Width, config.Typescriptreact.Width,
 		config.Json.Width, config.Jsonc.Width,
 	}
+	tabWidths := []int{
+		config.Go.TabWidth, config.Shellscript.TabWidth, config.Python.TabWidth,
+		config.Javascript.TabWidth, config.Javascriptreact.TabWidth,
+		config.Typescript.TabWidth, config.Typescriptreact.TabWidth,
+		config.Json.TabWidth, config.Jsonc.TabWidth,
+	}
+	minColWidths := []int{
+		config.Go.MinColWidth, config.Shellscript.MinColWidth, config.Python.MinColWidth,
+		config.Javascript.MinColWidth, config.Javascriptreact.MinColWidth,
+		config.Typescript.MinColWidth, config.Typescriptreact.MinColWidth,
+		config.Json.MinColWidth, config.Jsonc.MinColWidth,
+	}
 	for _, width := range widths {
 		if width < 1 {
 			return Config{}, fmt.Errorf("widths in %s must be positive", path)
+		}
+	}
+	for _, width := range tabWidths {
+		if width < 1 {
+			return Config{}, fmt.Errorf("tab widths in %s must be positive", path)
+		}
+	}
+	for _, width := range minColWidths {
+		if width < 1 {
+			return Config{}, fmt.Errorf("minimum column widths in %s must be positive", path)
 		}
 	}
 	return config, nil

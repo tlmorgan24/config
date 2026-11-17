@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tlmorgan24/config/comment-wrap/commentwrap"
 	"github.com/tlmorgan24/config/comment-wrap/config"
 	"github.com/tlmorgan24/config/comment-wrap/gowrap"
 )
@@ -36,7 +37,11 @@ func main() {
 	if configuredWidth := maxLineLength(os.Args[1:]); configuredWidth > 0 {
 		width = configuredWidth
 	}
-	source = gowrap.Format(source, width)
+	source = gowrap.Format(source, commentwrap.Options{
+		Width:       width,
+		TabWidth:    settings.Go.TabWidth,
+		MinColWidth: settings.Go.MinColWidth,
+	})
 
 	golines, err := exec.LookPath("golines")
 	if err != nil {

@@ -34,7 +34,7 @@ func TestFormatSupportsSlashAndHashCommentStyles(t *testing.T) {
 				Content:      " this comment is long enough to wrap",
 				Standalone:   true,
 				LineContents: test.source[0][:len(test.source[0])-1],
-			}}, test.style, 27)
+			}}, test.style, Options{Width: 27, TabWidth: 4, MinColWidth: 30})
 			if len(got) != len(test.want) {
 				t.Fatalf("got %q, want %q", got, test.want)
 			}
@@ -56,7 +56,7 @@ func TestFormatPreservesMissingSpaceAfterCommentMarker(t *testing.T) {
 		Standalone: true, LineContents: "//hello this comment is long enough to wrap",
 	}}
 
-	got := Format(source, comments, Style{Prefix: "//"}, 30)
+	got := Format(source, comments, Style{Prefix: "//"}, Options{Width: 30, TabWidth: 4, MinColWidth: 30})
 	want := []string{"//hello this comment is long\n", "//enough to wrap\n"}
 	if strings.Join(got, "") != strings.Join(want, "") {
 		t.Fatalf("got %q, want %q", strings.Join(got, ""), strings.Join(want, ""))
@@ -71,7 +71,7 @@ func TestFormatReflowsAdjacentComments(t *testing.T) {
 	got := Format(source, []Comment{
 		{Line: 0, Column: 0, Content: " LONGLINEWITH ADDITIONALTEXT", Standalone: true, LineContents: "// LONGLINEWITH ADDITIONALTEXT"},
 		{Line: 1, Column: 0, Content: " shortline", Standalone: true, LineContents: "// shortline"},
-	}, Style{Prefix: "//"}, 27)
+	}, Style{Prefix: "//"}, Options{Width: 27, TabWidth: 4, MinColWidth: 30})
 	want := []string{
 		"// LONGLINEWITH\n",
 		"// ADDITIONALTEXT shortline\n",
@@ -111,7 +111,7 @@ func TestFormatKeepsCommentParagraphBoundaries(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := Format(test.source, test.comments, Style{Prefix: "//"}, 80)
+			got := Format(test.source, test.comments, Style{Prefix: "//"}, Options{Width: 80, TabWidth: 4, MinColWidth: 30})
 			if strings.Join(got, "") != strings.Join(test.want, "") {
 				t.Fatalf("got %q, want %q", got, test.want)
 			}
@@ -127,7 +127,7 @@ func TestFormatPreservesCommentIndentOnWrap(t *testing.T) {
 		Content:      "   this comment is long enough to wrap",
 		Standalone:   true,
 		LineContents: source[0][:len(source[0])-1],
-	}}, Style{Prefix: "//"}, 27)
+	}}, Style{Prefix: "//"}, Options{Width: 27, TabWidth: 4, MinColWidth: 30})
 	want := []string{"//   this comment is long\n", "//   enough to wrap\n"}
 	if strings.Join(got, "") != strings.Join(want, "") {
 		t.Fatalf("got %q, want %q", got, want)
@@ -142,7 +142,7 @@ func TestFormatWrapsBulletsAndPullsInAlignedComment(t *testing.T) {
 	got := Format(source, []Comment{
 		{Line: 0, Column: 0, Content: " - first item is long", Standalone: true, LineContents: "// - first item is long"},
 		{Line: 1, Column: 0, Content: "   second item", Standalone: true, LineContents: "//   second item"},
-	}, Style{Prefix: "//"}, 21)
+	}, Style{Prefix: "//"}, Options{Width: 21, TabWidth: 4, MinColWidth: 30})
 	want := []string{
 		"// - first item is\n",
 		"//   long second item\n",
@@ -164,7 +164,7 @@ func TestFormatKeepsBulletsAndUnalignedCommentsSeparate(t *testing.T) {
 		{Line: 1, Column: 0, Content: "   aligned continuation", Standalone: true, LineContents: "//   aligned continuation"},
 		{Line: 2, Column: 0, Content: "   * next bullet", Standalone: true, LineContents: "//   * next bullet"},
 		{Line: 3, Column: 0, Content: " other paragraph", Standalone: true, LineContents: "// other paragraph"},
-	}, Style{Prefix: "//"}, 80)
+	}, Style{Prefix: "//"}, Options{Width: 80, TabWidth: 4, MinColWidth: 30})
 	want := []string{
 		"// - item aligned continuation\n",
 		"//   * next bullet\n",
@@ -228,7 +228,7 @@ func TestWordBulletRecognizesMarkers(t *testing.T) {
 
 // formatText runs Format over a multi-line string of '#' comments, the way a
 // scanner would present them.
-func formatText(src string, width int) string {
+func formatText(src string, width int, options ...Options) string {
 	var lines []string
 	for _, l := range strings.SplitAfter(src, "\n") {
 		if l != "" {
@@ -248,7 +248,12 @@ func formatText(src string, width int) string {
 			LineContents: text,
 		})
 	}
-	return strings.Join(Format(lines, comments, Style{Prefix: "#"}, width), "")
+	if len(options) == 0 {
+		return strings.Join(Format(lines, comments, Style{Prefix: "#"}, Options{Width: width, TabWidth: 4, MinColWidth: 30}), "")
+	}
+	return strings.Join(Format(lines, comments, Style{Prefix: "#"}, Options{
+		Width: width, TabWidth: options[0].TabWidth, MinColWidth: options[0].MinColWidth,
+	}), "")
 }
 
 // checkFormat verifies the output and that formatting it again changes nothing.
@@ -280,6 +285,22 @@ func TestFormatTableWrapsLastColumn(t *testing.T) {
 		"#              output listing\n" +
 		"# -b           short\n"
 	checkFormat(t, src, want, 34)
+}
+
+func TestFormatOptionsControlDisplayAndMinimumColumnWidths(t *testing.T) {
+	table := "# -a, --all    include everything in the output listing\n" +
+		"# -b  short\n"
+	defaultOutput := formatText(table, 34)
+	narrowMinimum := formatText(table, 34, Options{TabWidth: 4, MinColWidth: 10})
+	if len(strings.Split(narrowMinimum, "\n")) <= len(strings.Split(defaultOutput, "\n")) {
+		t.Fatalf("smaller minimum column width should allow different wrapping:\ndefault:\n%s\ncustom:\n%s", defaultOutput, narrowMinimum)
+	}
+
+	tabbed := "\t# first second third\n"
+	narrowTabs := formatText(tabbed, 20, Options{TabWidth: 8, MinColWidth: 30})
+	if len(strings.Split(narrowTabs, "\n")) <= len(strings.Split(formatText(tabbed, 20), "\n")) {
+		t.Fatalf("wider tab width should reduce available text width:\n%s", narrowTabs)
+	}
 }
 
 func TestFormatTableLastColumnNeverNarrowerThanMinimum(t *testing.T) {

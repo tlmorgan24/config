@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/tlmorgan24/config/comment-wrap/commentwrap"
 	"github.com/tlmorgan24/config/comment-wrap/config"
 	"github.com/tlmorgan24/config/comment-wrap/shellwrap"
 )
@@ -23,7 +24,10 @@ func main() {
 	if !settings.Shellscript.Enabled {
 		_, err = os.Stdout.Write(source)
 	} else {
-		_, err = os.Stdout.Write(shellwrap.Format(source, settings.Shellscript.Width))
+		_, err = os.Stdout.Write(shellwrap.Format(source, commentwrap.Options{
+			Width:    settings.Shellscript.Width,
+			TabWidth: settings.Shellscript.TabWidth, MinColWidth: settings.Shellscript.MinColWidth,
+		}))
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "shell-comment-wrap: %v\n", err)

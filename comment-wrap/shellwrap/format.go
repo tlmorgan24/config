@@ -6,7 +6,7 @@ import (
 	"github.com/tlmorgan24/config/comment-wrap/commentwrap"
 )
 
-func Format(source []byte, width int) []byte {
+func Format(source []byte, options commentwrap.Options) []byte {
 	text := string(source)
 	lines := strings.SplitAfter(text, "\n")
 	var comments []commentwrap.Comment
@@ -47,7 +47,7 @@ func Format(source []byte, width int) []byte {
 		}
 	}
 
-	return []byte(strings.Join(commentwrap.Format(lines, comments, commentwrap.Style{Prefix: "#"}, width), ""))
+	return []byte(strings.Join(commentwrap.Format(lines, comments, commentwrap.Style{Prefix: "#"}, options), ""))
 }
 
 func isShellCommentStart(line string, column int) bool {

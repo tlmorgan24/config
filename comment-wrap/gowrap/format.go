@@ -8,7 +8,7 @@ import (
 	"github.com/tlmorgan24/config/comment-wrap/commentwrap"
 )
 
-func Format(source []byte, width int) []byte {
+func Format(source []byte, options commentwrap.Options) []byte {
 	lines := strings.SplitAfter(string(source), "\n")
 	fileSet := token.NewFileSet()
 	file := fileSet.AddFile("", -1, len(source))
@@ -43,7 +43,7 @@ func Format(source []byte, width int) []byte {
 		})
 	}
 
-	return []byte(strings.Join(commentwrap.Format(lines, comments, commentwrap.Style{Prefix: "//"}, width), ""))
+	return []byte(strings.Join(commentwrap.Format(lines, comments, commentwrap.Style{Prefix: "//"}, options), ""))
 }
 
 func isDirective(comment string) bool {
