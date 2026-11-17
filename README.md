@@ -288,31 +288,119 @@ Custom formatters (which I mainly use to wrap comments nicely) are in the commen
 
 A formatter will run on save (cmd+s) if its `"enabled"` field is `true`. Can still save without formatting by doing cmd+k then s.
 
-The formatters reflow comment lines to the configured maximum width (e.g. 100 characters), and within a paragraph, short lines get promoted to the line above (and then reflowed again), so you don't end up with e.g. `# long line\n# short line\n# long line`.
+The formatters reflow comment lines to the configured MAX_WIDTH (called `"width"` in config.json), e.g. 100 characters. Within a paragraph, short lines get promoted to the line above (and then reflowed again), so you don't end up with e.g. `# long line\n# short line\n# long line`.
 
-A line is only allowed to finish short if any of these are true:
+#### Definitions
 
-- the line below it is not a comment
-- the line below it is a blank comment (i.e., a comment mark with no other non-whitespace characters).
-- the line below it has a different "indent level", where "indent level" is measured from the end of the comment mark to the next non-whitespace character. E.g. "// hello" and "//   hello" are different "indent levels" (even if the // marks themselves are at the same indent level).
+The comment marks of a sequence of comments must always be aligned (either all at the indent level of the surrounding code, or all at the absolute first column). So, when I talk about different "indent levels" within a comment, I mean the amount of whitespace BETWEEN the comment mark and the next non-whitespace text. E.g. `// hello` vs `//   hello`.
+
+"Paragraphs" of a comment are separated by a line whose only non-whitespace is the comment marker itself (if there were no comment marker, they would be considered separate comments, rather than paragraphs of the same comment). E.g.:
+```bash
+# This is paragraph one
+# of the example.
+#
+# This is paragraph two.
+```
+
+A line is "overfull" if it goes beyond MAX_WIDTH. A line is "underfull" if the next line is non-empty (except the comment mark and whitespace) and appending the first word of the next line would not push it beyond MAX_WIDTH.
+
+#### The basic rules
+
+If a trailing comment (i.e., on the same line as actual code) is overfull, it gets moved to the line above the code. The rest of the rules relate only to comments already on (or just moved to) their own entire line.
+
+An overfull line is never allowed and will be reflowed onto the next line, unless a single word is longer than the entire MAX_WIDTH. In this case (as we never break up words), it is given its own line and we accept that it must go beyond MAX_WIDTH. The only other situation where we accept going beyond MAX_WIDTH is in certain tables (see below).
+
+A line is only allowed to be underfull if any of these are true:
+
+- the line below it is not part of the same paragraph (i.e., the line below is a blank comment or not a comment).
+- the line below it has a different indent level.
 
 Other clarifications:
 
 - Indent level is preserved. Eg if the current line is "//   hello…overflow", when it wraps onto the line below, that line should be "//   overflow" (not "// overflow")
 -	Outside the above exceptions, \n and a space are assumed interchangeable. I.e., if the current line is short and the line below is long, the \n converts into a space. If the current line is long, the space converts into \n.
+- If a single word is longer than the entire MAX_WIDTH, it cannot be broken up. It is given its own line and we accept that it must go beyond MAX_WIDTH. This and certain tables (below) are the only situation where we accept going beyond MAX_WIDTH.
 
-The formatters also recognise bullet points in comments:
+#### Special cases
 
-1. `- `, `* `, `(1) `, `1) `, and `1. ` are recognised as bullet markers.
-2. Each bullet starts a new logical paragraph.
-3. When wrapping a bullet, continuation lines align with the first character after the marker.
-4. Likewise (the reverse direction), a non-bullet comment whose first non-whitespace character aligns with the bullet's first character (after the marker) is considered part of that bullet and may be pulled into it. 
-5. No lines other than as laid out in point 4 can be pulled into a bullet.
+The above works well for prose, but comments often use list or table-like structures where the above rules would mess things up (e.g. a short list item would absorb the start of the list item below it). Here is an example of such a comment:
+
+```bash
+# Usage: shuffle [options] <new-order> [files]
+#
+# <new-order> contains comma-separated fields, where each field can be:
+#   an integer i, to mean the original field i (0-based).
+#   a range i-j, as shorthand for i,i+1,etc,j-1,j (if i < j) or i,i-1,etc,j+1,j (if i > j) or i (if i == j).
+#   -i, to mean "ignore field i" for the `...` syntax below.
+#   ..., to mean "all fields not captured by explicit integers/ranges, in their original order".
+#   a string "s" (double quotes are necessary and must be passed without being interpreted by the shell).
+#
+# Each record of the input (a line, by default) is split into fields, which are shuffled according to <new-order> and
+# printed back out. Uppercase options describe the input and lowercase ones the output. Input separators and boundaries
+# are perl regexes, optionally written `/like this/`; output ones are used literally.
+#
+# Options (short flags can be bundled, long options can take either --name=value or --name value):
+#   -R<sep>, --record-sep=<sep>       input record separator, as for p (default: newline).
+#   -r<sep>, --out-record-sep=<sep>   output record separator (default: whatever -R matched, so a record keeps its own
+#                                     separator). A final unterminated record stays unterminated.
+#   -F<sep>, --field-sep=<sep>        input field separator (default: whitespace, as in perl -a).
+#   -f<sep>, --out-field-sep=<sep>    output field separator (default: the first match of -F in the record. Unlike for
+#                                     records there is no "current match", as fields can be skipped and reordered).
+```
+
+So, the formatters aim to handle the most common situations properly:
+
+##### Bullets
+
+Certain cases (described below) are recognised as bullet points with a "text alignment level". In these cases:
+1. Each bullet starts a new logical paragraph.
+2. When wrapping a bullet, continuation lines align with the bullet's "text alignment level".
+3. Likewise (the reverse direction), a non-bullet comment whose first non-whitespace character is at the text alignment level of the bullet above (without any new paragraphs between them) is considered part of that bullet and may be pulled into it. So, the general rule that a line is only left underfull "if the line below it has a different indent level" does not apply to bullets, as the "text alignment level" is usually different to the "indent level" of the bullet marker itself.
+4. No lines other than as laid out in point 3 can be pulled into a bullet.
+
+A bullet is assumed to be intended when the line starts with 0+ whitespaces followed by `- `, `* `, `(1) `, `1) `, or `1. ` (likewise for other integers). These are recognised as bullet markers, and the first non-whitespace after the bullet marker is the "text alignment level" of that bullet.
+
+A bullet is also assumed to be intended when a line (indent level = INTRO_INDENT) ends with a colon, and the next line has a larger indent level (LIST_INDENT). There are three possible cases for this indented line:
+  * the line uses a standard bullet marker as per above, so gets treated as such.
+  * the line starts with 0+ whitespaces, followed by a single word followed by `: ` or ` - `. This is treated as a bullet marker, meaning the "text alignment level" is the first non-whitespace after the `: `/` - `.
+  * the line does not satisfy either of the above. First see if it can be a table (see precedence rules below), otherwise assume the indent alone is acting as the bullet marker. If following the usual approach, the "text alignment level" would be the first character of the first word. But, reflowed long lines would be indistinguishable from new bullets. Instead, the first line of a bullet should be at LIST_INDENT, while following lines (if part of the same bullet) should be at LIST_INDENT + (LIST_INDENT - INTRO_INDENT). The next bullet returns to being at LIST_INDENT. This allows the formatter to know whether a line can be pulled up (part of the above bullet) or not.
+
+The bullet list ends when there is a blank line, a line that is less indented than LIST_INDENT, or a line that is the same indent as LIST_INDENT and does not match the same bullet style (the possible styles being `- `, `* `, `(1) `, `1) `, `1. `, word+`: `, word+` - `, whitespace-only).
+
+A numerical bullet of matching style but mismatching number is considered part of the same list. The formatter does not enforce a consistent increment (e.g., if a bullet list starts at `(2)`, it is not shifted to start at `(1)`), to prevent stale references like "see point (3)".
+
+##### Tables
+
+* Each run of 2+ whitespaces after the first non-whitespace of a comment line is recognised as a table-item separator. The separator plus the text before it (up to the end of the previous separator or the line's comment mark, whichever is closer) is the "width" of the table item. Trailing whitespace is ignored (i.e., the last table item is never empty, and its "width" is just its text).
+* Consecutive lines at the same indent level and with the same number of table items (minimum 2) are considered rows of the same table. They are modified by the formatter to align the starts of their table items. This means adding additional whitespace to the separators of short-width items, such that all items of a column have the same width. The longest-width item+separator of each column are unchanged.
+* If the table width is beyond MAX_WIDTH after the above:
+  * Reduce the last column's width just enough to satisfy MAX_WIDTH, or if this would reduce the column below MIN_COL_WIDTH (e.g. 30 chars), reduce it to MIN_COL_WIDTH and accept that the table goes beyond MAX_WIDTH. I.e., `last_column_width = max(MAX_WIDTH − last_column_start, MIN_COL_WIDTH)`.
+  * Reflow the last column similarly to how you would reflow bullet text (the "text alignment level" being the first character of the column), but where the max width is the column width (which, as per above, may go beyond MAX_WIDTH).
+* If a line is at a different indent level or has a different number of table items to the above table row, it is checked as follows:
+  * If it is a blank line, it ends the table, and the next line will be a new paragraph.
+  * Else if its indent level is greater than the table's first column, it is considered part of the above row's last item (pull upwards if there is space). The line is ignored when evaluating subsequent lines as possibly part of the same table. Note, the stricter rule of requiring alignment with the table's last column's "text alignment level" breaks under edits made to the last row (e.g. if you add text to an earlier column, this pushes the "text alignment level" of the last column forward while its continuation lags behind).
+  * Else, treat the table as ended, and the current line is as a new paragraph (i.e., as if the line above were a blank line).
+
+##### Preventing confusion of which case to apply
+
+If multiple cases may apply, precedence is as follows:
+
+1. Standard bullets, i.e., `- `, `* `, `(1) `, `1) `, or `1. `
+2. "Word + `: `/` - `" bullets
+3. Tables
+4. Whitespace bullets
+5. Regular prose
+
+When reflowing, ensure that the new lines (which should be part of the same paragraph) would not be confused for new bullet points. If it would, break at another word instead.
+
+#### While typing
 
 I also define actions to occur on enter/delete while typing comments in vscode-extensions/line-comment-continue/:
 
-* Enter preserves the indentation of the current comment marker and the indentation of the *text* with respect to the comment marker. For example, `//   hello|`, then enter, creates the new line, `//   |` (where `|` represents the cursor).
-* It recognises bullet markers and inserts a new marker on enter. For numeric markers, it increments the number.
+* Enter preserves the indentation of the current comment marker and the alignment of the *text* with respect to the comment marker. For example, `//   hello|`, then enter, creates the new line, `//   |` (where `|` represents the cursor).
+* It recognises bullet markers and inserts a new marker on enter.
+* For numeric markers, on enter on a bullet line or on deletion of a comment with bullets below it, it adjusts the numbers to be consecutive starting from the first number. While the on-save formatter does not do this to prevent stale references, it is considered appropriate behaviour for a live editing tool like this, as you can see the changes and intervene if it will produce stale references.
+  * This is currently buggy. Imagine bullets 1, 2, 3, 4. If you delete bullet 3, nothing happens (I believe on-delete number adjustment is not implemented in the tool yet), leaving 1, 2, 4. Then, pressing enter on bullet 2 inserts bullet 3 and increments 4 to 5, leaving 1, 2, 3, 5.
 * Backspace when the cursor is after a bullet marker deletes the entire marker, rather than a single character.
 
 ### Search
