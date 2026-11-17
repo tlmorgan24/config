@@ -197,8 +197,11 @@ Limitations of `ff`/`fr`/`fl`/`bf`/`br`/`bl`:
 * `rebase-main [options]` - equivalent to `rebase-origin main [options]`
 * `merge-origin <branch> [options]` - merges chosen remote branch into current branch. The remote branch is automatically fetched before the merge. Options (e.g. `--no-ff`) are passed to `git merge`.
 * `merge-main [options]` - equivalent to `merge-origin main [options]`
+
+### Other
+* `restore [options] <path>` - like `git restore` (with same options), but defaults to `--staged --worktree` and asks for confirmation before overwriting untracked files. 
 * `clonecd [flags] <repository> [directory]` - like `git clone`, but then `cd`s into the cloned repository. Arguments are same as `git clone`.
-* `cloneco [flags] <repository> [directory]` - like `clonecd`, but also opens the repository in VS Code.
+* `cloneco [flags] <repository> [directory]` - like `clonecd`, but also opens the repository in VS Code.ks
 
 ### GitHub
 

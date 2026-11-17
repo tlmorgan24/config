@@ -968,6 +968,89 @@ merge-main() {
   merge-origin main "$@"
 }
 
+# restore: like `git restore`, but defaults to --staged --worktree.
+#   restore <paths>              index + worktree (--source defaults to HEAD)
+#   restore --staged <paths>     index only (--source defaults to HEAD)
+#   restore --worktree <paths>   worktree only (--source defaults to index)
+# Snapshots tracked changes to refs/restore-snapshot (separate from `git stash`)
+# first, and asks for confirmation if untracked files would be overwritten.
+#   List snapshots:  git reflog show refs/restore-snapshot
+#   Recover one:     git stash apply refs/restore-snapshot@{0}
+restore() {
+  emulate -L zsh
+  git rev-parse --git-dir >/dev/null 2>&1 || { print -u2 "restore: not in a git repo"; return 2 }
+
+  local -a orig=("$@") pathspec clobber
+  local s= w= p= src= dd=
+
+  # Parse just enough to know the target locations, source, and pathspecs.
+  while (( $# )); do
+    if [[ -n $dd ]]; then
+      pathspec+=("$1")
+    else
+      case $1 in
+        --)         dd=1 ;;
+        --staged)   s=1 ;;
+        --worktree) w=1 ;;
+        --patch)    p=1 ;;
+        --source=*) src=${1#--source=} ;;
+        --source|-s) src=$2; shift ;;
+        -s?*)       src=${1#-s} ;;
+        --*)        ;;                       # other long flags: pass through
+        -?*)        [[ $1 == *S* ]] && s=1   # short clusters: -S, -W, -p, -SW, ...
+                    [[ $1 == *W* ]] && w=1
+                    [[ $1 == *p* ]] && p=1 ;;
+        *)          pathspec+=("$1") ;;
+      esac
+    fi
+    shift
+  done
+
+  if (( ! ${#pathspec} )); then
+    print -u2 "usage: restore [--staged / --worktree] [--source=<tree>] [-p] <path>..."
+    return 2
+  fi
+
+  # Neither flag given: restore both.
+  if [[ -z $s && -z $w ]]; then
+    orig=(--staged --worktree "${orig[@]}")
+    s=1 w=1
+  fi
+
+  # Snapshot tracked changes (staged + unstaged) to a private ref's reflog,
+  # so `git stash list` / `git stash pop` are unaffected. Skipped for -p.
+  if [[ -z $p ]]; then
+    local snap
+    snap=$(git stash create 2>/dev/null)
+    [[ -n $snap ]] && git update-ref --create-reflog -m "restore snapshot: ${orig[*]}" \
+      refs/restore-snapshot "$snap"
+  fi
+
+  # Untracked files get overwritten only if the worktree is restored from a
+  # tree that tracks a same-name file. With the index as the source this
+  # can't happen, so skip the check.
+  if [[ -n $w ]]; then
+    local from=
+    if [[ -n $src ]]; then from=$src
+    elif [[ -n $s ]]; then from=HEAD
+    fi
+    if [[ -n $from ]]; then
+      clobber=( ${(f)"$(comm -12 \
+        <(git -c core.quotepath=off ls-files --others --exclude-standard --full-name -- "${pathspec[@]}" | sort) \
+        <(git -c core.quotepath=off ls-tree -r --name-only --full-name "$from" | sort))"} )
+    fi
+  fi
+
+  if (( ${#clobber} )); then
+    print -u2 "These untracked files would be overwritten (not recoverable):"
+    print -lu2 -- "  ${^clobber}"
+    read -q "?Continue? [y/N] " || { print -u2 "\nAborted."; return 1 }
+    print -u2
+  fi
+
+  git restore "${orig[@]}"
+}
+
 # Make gh CLI prompt inputs more natural (otherwise, sending escape sequences like alt+backspace causes a crash).
 export GH_EXPERIMENTAL_PROMPTER=1
 
