@@ -501,71 +501,98 @@ pp() { p -0777 "$@"; }
 #   ..., to mean "all fields not captured by explicit integers/ranges, in their original order".
 #   a string "s" (double quotes are necessary and must be passed without being interpreted by the shell).
 #
-# All lines of the input are printed. If a line has fewer fields than the maximum specified in <new-order>,
-# it is passed through unchanged. Else, the fields are shuffled according to <new-order> and printed back out,
-# separated by the output separator (the first match of the field separator on the line, by default).
+# Each record of the input (a line, by default) is split into fields, which are shuffled according to <new-order> and
+# printed back out. Uppercase options describe the input and lowercase ones the output. Input separators and boundaries
+# are perl regexes, optionally written `/like this/`; output ones are used literally.
 #
-# options (short flags can be bundled, and an option taking a value uses up the rest of the bundle, as in perl):
-#   -F <separator>                 field separator, as a perl regex, optionally written `/like this/` (default: whitespace,
-#                                  as in perl -a).
-#   -o, --output-separator <sep>   output separator, used literally.
-#   -b, --boundary                 expect the fields to have leading and trailing delimiters (e.g. |a|b|c| rather than
-#                                  a|b|c). Remove them when processing the fields and add them back when outputting.
-#   -p, --pad                      strip leading and trailing whitespace from every field when processing, and pad with a
-#                                  single leading and trailing space when outputting.
-#   --                             end of options (never needed for an order, but allows an unusual one).
+# Options (short flags can be bundled, long options can take either --name=value or --name value):
+#   -R<sep>, --record-sep=<sep>       input record separator, as for p (default: newline).
+#   -r<sep>, --out-record-sep=<sep>   output record separator (default: whatever -R matched, so a record keeps its own
+#                                     separator). A final unterminated record stays unterminated.
+#   -F<sep>, --field-sep=<sep>        input field separator (default: whitespace, as in perl -a).
+#   -f<sep>, --out-field-sep=<sep>    output field separator (default: the first match of -F in the record. Unlike for
+#                                     records there is no "current match", as fields can be skipped and reordered).
+#   -S<re>, --start=<re>              regex that each record starts with, removed before splitting.
+#   -E<re>, --end=<re>                regex that each record ends with, removed before splitting.
+#   -B<re>, --bounds=<re>             shorthand for -S<re> -E<re>.
+#   -s<str>, --out-start=<str>        start to prepend to each output record (default: whatever -S matched).
+#   -e<str>, --out-end=<str>          end to append to each output record (default: whatever -E matched).
+#   -b<str>, --out-bounds=<str>       shorthand for -s<str> -e<str>.
+#   -t, --trim                        strip leading and trailing whitespace from every field before processing.
+#   -p, --print                       print records that are malformed (a missing boundary, or too few fields) unchanged.
+#   -d, --drop                        drop such records.
+#   -x, --error                       stop with an error on such records (the default).
 #
-# E.g.: `shuffle -bpF'\|' '-0,1-2,"hi",...' file.txt` turns `|a|b|c | d|` into `| b | c | hi | d |`
+# E.g.: `shuffle -tB'\|' -F'\|' -f' | ' -s'| ' -e' |' '-0,1-2,"hi",...' file.txt` turns `|a|b|c | d|` into
+# `| b | c | hi | d |`.
 #
-# My regex highlighter (in syntax-highlighting.zsh) parses the arguments of this function too, to colour the regex given
-# to -F and the <new-order>, so update it to match if they change.
+# My regex highlighter (in syntax-highlighting.zsh) parses the arguments of this function too, to colour the regexes
+# given to -R, -F, -S, -E and -B and the <new-order>, so update it to match if they change.
 shuffle() {
-  local b=0 p=0 out= has_out=0 sep= c bundle
+  local -A o  # Option values by short letter; ${+o[x]} tells whether x was given, even if empty.
+  local -A long=(
+    record-sep R out-record-sep r field-sep F out-field-sep f start S out-start s end E out-end e bounds B out-bounds b
+    trim t print p drop d error x
+  )
+  local mode=error trim=0 valued=RrFfSsEeBb arg name c bundle val hasval
   # Options end at the first argument that isn't one: a lone `-`, or something like `-0,1-2` (an order, not an option).
   while [[ $1 == -* && $1 != - && $1 != -[0-9]* ]]; do
-    case $1 in
-      --)                   shift; break ;;
-      --boundary)           b=1 ;;
-      --pad)                p=1 ;;
-      --output-separator=*) out=${1#*=} has_out=1 ;;
-      --output-separator)
-        (( $# >= 2 )) || { echo "shuffle: $1 needs an argument" >&2; return 2; }
-        out=$2 has_out=1; shift ;;
-      --*) echo "shuffle: unknown option $1" >&2; return 2 ;;
-      *)
-        bundle=${1#-}
-        while [[ -n $bundle ]]; do
-          c=${bundle:0:1} bundle=${bundle:1}
-          case $c in
-            b) b=1 ;;
-            p) p=1 ;;
-            F|o)  # Takes the rest of the bundle, or else the next argument.
-              if [[ -z $bundle ]]; then
-                (( $# >= 2 )) || { echo "shuffle: -$c needs an argument" >&2; return 2; }
-                shift; bundle=$1
-              fi
-              if [[ $c == F ]]; then
-                sep=$bundle
-                [[ $sep == /*/ && ${#sep} -ge 2 ]] && sep=${sep:1:${#sep}-2}
-                [[ -z $sep ]] && { echo "shuffle: -F separator can't be empty" >&2; return 2; }
-              else
-                out=$bundle has_out=1
-              fi
-              bundle= ;;
-            *) echo "shuffle: unknown option -$c" >&2; return 2 ;;
-          esac
-        done ;;
-    esac
-    shift
+    arg=$1; shift
+    [[ $arg == -- ]] && break
+    if [[ $arg == --* ]]; then
+      name=${arg#--} val= hasval=0
+      if [[ $name == *=* ]]; then val=${name#*=} name=${name%%=*} hasval=1; fi
+      c=${long[$name]}
+      [[ -n $c ]] || { echo "shuffle: unknown option --$name" >&2; return 2; }
+      if [[ $valued == *$c* ]]; then
+        if (( !hasval )); then
+          (( $# )) || { echo "shuffle: --$name needs an argument" >&2; return 2; }
+          val=$1; shift
+        fi
+        o[$c]=$val
+        continue
+      fi
+      (( hasval )) && { echo "shuffle: --$name takes no argument" >&2; return 2; }
+      bundle=$c  # An argless long option is handled like its short one.
+    else
+      bundle=${arg#-}
+    fi
+    while [[ -n $bundle ]]; do
+      c=${bundle:0:1} bundle=${bundle:1}
+      case $c in
+        t) trim=1 ;;
+        p) mode=print ;;
+        d) mode=drop ;;
+        x) mode=error ;;
+        [RrFfSsEeBb]) o[$c]=$bundle bundle= ;;  # The value is the rest of the bundle, as in perl and p.
+        *) echo "shuffle: unknown option -$c" >&2; return 2 ;;
+      esac
+    done
   done
   (( $# >= 1 )) || { echo "usage: shuffle [options] <new-order> [files]" >&2; return 2; }
-  local order=$1
+  local order=$1 k v
   shift
 
-  SH_B=$b SH_P=$p SH_SEP=$sep SH_OUT=$out SH_HAS_OUT=$has_out SH_ORDER=$order perl -ne '
+  (( ${+o[B]} )) && { (( ${+o[S]} )) || o[S]=${o[B]}; (( ${+o[E]} )) || o[E]=${o[B]}; }
+  (( ${+o[b]} )) && { (( ${+o[s]} )) || o[s]=${o[b]}; (( ${+o[e]} )) || o[e]=${o[b]}; }
+  for k in F S E; do  # Input regexes may be written /like this/. (-R is unwrapped by p itself.)
+    v=${o[$k]-}
+    [[ $v == /*/ && ${#v} -ge 2 ]] && o[$k]=${v:1:${#v}-2}
+  done
+  (( ${+o[F]} )) && [[ -z ${o[F]} ]] && { echo "shuffle: -F separator can't be empty" >&2; return 2; }
+
+  local -x SH_ORDER=$order SH_MODE=$mode SH_TRIM=$trim SH_F=${o[F]-} SH_S=${o[S]-} SH_E=${o[E]-} \
+    SH_FO=${o[f]-} SH_SO=${o[s]-} SH_EO=${o[e]-} SH_RO=${o[r]-} \
+    SH_HAS_FO=${+o[f]} SH_HAS_SO=${+o[s]} SH_HAS_EO=${+o[e]} SH_HAS_RO=${+o[r]}
+
+  # p -l strips each record's separator from $_ and puts the exact matched one back on every print, via $\ . A literal
+  # newline separator lets p use perl's own $/, so the common case stays fast.
+  local code='
 BEGIN {
-  our $custom = length $ENV{SH_SEP};  # Without -F, split like perl -a does.
-  our $sep = $custom ? qr/$ENV{SH_SEP}/ : qr/\s+/;
+  our $custom = length $ENV{SH_F};  # Without -F, split like perl -a does.
+  our $fs = $custom ? qr/$ENV{SH_F}/ : qr/\s+/;
+  our $ls = length $ENV{SH_S} ? qr/\A($ENV{SH_S})/ : undef;
+  our $es = length $ENV{SH_E} ? qr/($ENV{SH_E})\z/ : undef;
   our (@items, %used, %ign); our $max = -1;
   my $o = $ENV{SH_ORDER};
   while ($o =~ /\G\s*(?:"((?:[^"\\]|\\.)*)"|-(\d+)|(\d+)-(\d+)|(\d+)|(\.\.\.))\s*(?:,|\z)/gc) {
@@ -578,24 +605,32 @@ BEGIN {
   die "shuffle: bad <new-order>\n" unless $o =~ /\S/ && $o !~ /,\s*\z/ && (pos($o) // 0) == length $o;
   for (@items) { next unless $_->[0] eq "f"; $used{$_->[1]} = 1; $max = $_->[1] if $_->[1] > $max }
 }
-chomp;
-my ($orig, $pre, $post) = ($_, "", "");
-if ($ENV{SH_B}) {
-  s/\A($sep)// ? ($pre = $1) : do { print "$orig\n"; next };
-  s/($sep)\z// ? ($post = $1) : do { print "$orig\n"; next };
+my ($rec, $body, $pre, $post, $bad) = ($_, $_, "", "");
+$\ = $ENV{SH_RO} if $ENV{SH_HAS_RO} && length $\;  # Not for an unterminated final record.
+if ($ls) { $body =~ s/$ls// ? ($pre = $1) : ($bad = "has no left boundary") }
+if ($es && !$bad) { $body =~ s/$es// ? ($post = $1) : ($bad = "has no right boundary") }
+my @fld;
+unless ($bad) {
+  @fld = $custom ? split($fs, $body, -1) : split(" ", $body, -1);
+  $bad = "has " . @fld . " fields, needs at least " . ($max + 1) if @fld <= $max;
 }
-my @F = $custom ? split($sep, $_, -1) : split(" ", $_, -1);
-if (@F <= $max) { print "$orig\n"; next }
-if ($ENV{SH_P}) { s/\A\s+|\s+\z//g for @F }
-my $j = $ENV{SH_HAS_OUT} ? $ENV{SH_OUT} : ($orig =~ /($sep)/ ? $1 : "");
+if ($bad) {
+  if    ($ENV{SH_MODE} eq "print") { print $rec; next }
+  elsif ($ENV{SH_MODE} eq "drop")  { next }
+  warn "shuffle: record $. $bad\n"; exit 1;
+}
+if ($ENV{SH_TRIM}) { s/\A\s+|\s+\z//g for @fld }
+my $j  = $ENV{SH_HAS_FO} ? $ENV{SH_FO} : ($body =~ /($fs)/ ? $1 : "");
+my $lo = $ENV{SH_HAS_SO} ? $ENV{SH_SO} : $pre;
+my $ro = $ENV{SH_HAS_EO} ? $ENV{SH_EO} : $post;
 my @out = map {
   $_->[0] eq "s" ? $_->[1]
-  : $_->[0] eq "f" ? $F[$_->[1]]
-  : (map { $F[$_] } grep { !$used{$_} && !$ign{$_} } 0 .. $#F)
+  : $_->[0] eq "f" ? $fld[$_->[1]]
+  : (map { $fld[$_] } grep { !$used{$_} && !$ign{$_} } 0 .. $#fld)
 } @items;
-@out = map { " $_ " } @out if $ENV{SH_P};
-print $pre, join($j, @out), $post, "\n";
-' -- "$@"
+print $lo, join($j, @out), $ro;
+'
+  p -l -R"${o[R]-$'\n'}" -- "$code" "$@"
 }
 
 # Usage: `ff [fd args] <code>`
@@ -726,7 +761,7 @@ alias pip='pip3'
 
 # Usage: `goinit [directory [module name]]`
 #
-# Quickly initialise a Go program: mkcd into the directory, init a module there, create boilerplate main.go to edit,
+# Quickly initialise a Go program: mkcd into the directory, init a module there, create boilerplate main.go,
 # and open in VS Code for you to edit and run. Directory defaults to CWD (pass "" to give a module name
 # without changing directory) and the module name defaults to draft. Aborts if main.go already exists in the
 # directory (should use `code .` to open existing project).
@@ -758,7 +793,7 @@ EOF
 # Usage: `pyinit [directory]`
 #
 # Quickly initialise a Python program: mkcd into the directory, create a .venv there, activate it in the current shell,
-# create a boilerplate main.py to edit, and open in VS Code for you to edit and run. Directory defaults to CWD. Aborts 
+# create boilerplate main.py, and open in VS Code for you to edit and run. Directory defaults to CWD. Aborts 
 # if main.py or .venv already exists in the directory (should use `code .` to open existing project).
 pyinit() {
   local dir="${1:-.}"

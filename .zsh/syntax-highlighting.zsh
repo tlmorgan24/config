@@ -629,9 +629,10 @@ _zsh_highlight_highlighter_rainbow_paint() {
 # Colour the regexes given to the commands that take Perl-style ones, or much the same (see
 # _zsh_highlight_regex_pattern): GNU grep with -P or -E, rg, fd, GNU sed with -E, and perl and my p, pp, shuffle, fr,
 # br, ff and bf functions (in .zshrc). That's the pattern arguments of grep, rg and fd (and ff and bf, which pass them
-# to fd), the -F field separators of perl, p and shuffle, and the -R record separators of p, fr and br. The code given
-# to perl and p, and the scripts given to sed, are coloured as a whole, with their regexes among them, and so is the
-# <new-order> given to shuffle (see _zsh_highlight_regex_order). What a command is, and so which regexes it takes, is
+# to fd), the -F field separators of perl, p and shuffle, and the -R record separators of p, fr and br. Shuffle's -S,
+# -E and -B record-boundary regexes are also coloured. The code given to perl and p, and the scripts given to sed, are
+# coloured as a whole, with their regexes among them, and so is the <new-order> given to shuffle (see
+# _zsh_highlight_regex_order). What a command is, and so which regexes it takes, is
 # worked out as it would be run: aliases are expanded as zsh would (so my `grep` is `ggrep -P`, and `sed` is
 # `gsed -E`), and a grep or sed counts only if it's GNU's (as ggrep and gsed are on macOS, and grep and sed are on
 # Linux), by its --version. Then the options decide: e.g. -P or -E for grep (a mix, like `grep -E` with my alias, has
@@ -916,22 +917,36 @@ _zsh_highlight_regex_command() {
     (shuffle)
       (( $+functions[$name] )) || return
       # As shuffle parses them: options, then the order (which may start with a dash followed by a digit, as no option
-      # does), then files. -F and -o take the rest of their bundle, or else the next argument.
+      # does), then files. Input regex options take the rest of their short-option bundle or the next argument, while
+      # long options take either --name=value or the next argument.
+      local -A long_regex=(
+        record-sep R field-sep F start S end E bounds B
+      )
       for (( i = 1; i <= $#values; i++ )); do
         value=$values[i]
         [[ $value == -* && $value != - && $value != -[0-9]* ]] || break
         [[ $value == -- ]] && { (( i++ )); break }
         if [[ $value == --* ]]; then
-          [[ $value == --output-separator ]] && (( i++ ))
+          option=${${value#--}%%=*}
+          if [[ -n $long_regex[$option] ]]; then
+            if [[ $value == *=* ]]; then
+              found+=("$i $(( ${#option} + 4 )) slashed")
+            elif (( i < $#values )); then
+              (( i++ )); found+=("$i 1 slashed")
+            fi
+          elif [[ $value != *=* && $option == (out-record-sep|out-field-sep|out-start|out-end|out-bounds) ]]; then
+            (( i++ ))
+          fi
           continue
         fi
         for (( k = 2; k <= $#value; k++ )); do
           case $value[k] in
-            (F)
+            ([RrFfSsEeBb])
               if (( k < $#value )); then found+=("$i $(( k + 1 )) slashed")
               elif (( i < $#values )); then (( i++ )); found+=("$i 1 slashed"); fi
               break ;;
-            (o) (( k < $#value )) || (( i++ )); break ;;
+            ([tpdx]) ;;
+            (*) break ;;
           esac
         done
       done
