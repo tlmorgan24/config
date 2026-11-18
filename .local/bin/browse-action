@@ -122,17 +122,21 @@ search_hidden_opts() {
 
 # The fzf actions to bring the header and help up to date
 labels='+transform-header(browse-action header)+transform-border-label(browse-action help)'
+# Replace the shared collector's source only when browsing state changes. Query changes reuse its cache.
+source_list='execute-silent(python3 "$FZF_SEARCH_HELPER" set-source "browse-action list")'
+source_relist='execute-silent(python3 "$FZF_SEARCH_HELPER" set-source "browse-action relist")'
+query='python3 "$FZF_SEARCH_HELPER" query'
 
 # Print the fzf actions to show the list for the new state. The query is cleared once fzf has the new list (see
 # `load`), as clearing it any earlier would show the old list in full, with the cursor on its first entry.
 show() {
   touch "$state/placing" "$state/loading"
-  echo "reload-sync(browse-action list)$labels"
+  echo "$source_list+reload-sync($query)$labels"
 }
 
 show_cleared() {
   touch "$state/placing" "$state/loading"
-  echo "reload-sync(browse-action clear)+reload(browse-action list)$labels"
+  echo "reload-sync(browse-action clear)+$source_list+reload($query)$labels"
 }
 
 # Print the fzf actions to put the cursor where `focus` or `top` says, which needs the query to be clear (so the
@@ -227,7 +231,7 @@ case "$action" in
     else  # Browsing, so search, keeping the query (e.g. to look deeper for what wasn't in this directory).
       touch "$state/searching"
       touch "$state/top-soon" "$state/loading"
-      echo "reload(browse-action list)$labels"
+      echo "$source_list+reload($query)$labels"
     fi
     ;;
   sort)
@@ -293,11 +297,11 @@ case "$action" in
     if [[ -e "$state/list.part" ]]; then
       # Still listing (e.g. everything below ~, which takes 50s), so list everything again without waiting for it to
       # finish, and leave the cursor where it is, rather than moving it once the listing finishes.
-      echo 'reload(browse-action relist)+transform-header(browse-action header)'
+      echo "$source_relist+reload($query)+transform-header(browse-action header)"
     else
       # Relisting keeps the query, and so the order of the matches, so the entry below is at the next position.
       echo $((FZF_POS + 1)) > "$state/pos"
-      echo 'reload-sync(browse-action relist)+transform-header(browse-action header)'
+      echo "$source_relist+reload-sync($query)+transform-header(browse-action header)"
     fi
     ;;
   load)
@@ -318,7 +322,7 @@ case "$action" in
       actions='first+execute-silent(rm "$BROWSE_STATE/top-soon")+refresh-preview'  # As for `placing` (see place)
     elif [[ -e "$state/placing" && -e "$state/keep-query" ]]; then
       # Only once fzf has matched the whole new list against the query (as `load` can come before that).
-      if (( FZF_TOTAL_COUNT == $(wc -l < "$state/list") )); then
+      if [[ ! -e "$state/loading" ]] && (( FZF_MATCH_COUNT == FZF_TOTAL_COUNT )); then
         rm "$state/keep-query"
         actions=$(place)
       fi

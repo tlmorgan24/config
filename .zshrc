@@ -1396,28 +1396,39 @@ _fzf_help() {
       args+=(${(q)arg})
     fi
   done
-  REPLY="${code}zsh -f ${(q)HOME}/.zsh/fzf-help.zsh $args"
+  REPLY="${code}"'[[ -n $FZF_SEARCH_STATE && ! -e $FZF_SEARCH_STATE/case-sensitive ]] && export FZF_HELP_ACTIVE_KEYS="${FZF_HELP_ACTIVE_KEYS:-}|⌃i|"; '"zsh -f ${(q)HOME}/.zsh/fzf-help.zsh $args"
   reply=(
     --border-label-pos=3
     --bind="start,resize:+transform-border-label:$REPLY"
   )
 }
 
-# Put in $reply the fzf options for ctrl+s to cycle the search mode between fuzzy, words (each word exact, in any order)
-# and phrase (the whole query exact, spaces included), for my ctrl+r and `browse`. The prompt shows the mode, and
-# doubles as the cycle's memory of it. Each time the query or mode changes, fzf searches for the query as rewritten for
-# the mode by ~/.zsh/fzf-search-mode.zsh, while the query box keeps showing what was typed.
+# Put in $reply the fzf options for ctrl+s to cycle the search mode between fuzzy, words (each word exact, in any order),
+# phrase (the whole query exact, spaces included), and regex. Ctrl+i toggles case insensitivity (on by default).
+# The shared collector keeps the source streaming independently of query reloads; matching snapshots uses fzf's
+# native matcher normally, its filter mode for case-sensitive matches, and ripgrep for regex. Search fields are the
+# original TSV fields. Passing regexes to fd would mean another implementation and repeat traversals while typing;
+# filtering cached rows shares the syntax across tools, at the cost of keeping a second copy of the source in memory.
+# Ctrl+i and Tab are the same terminal key, so browse uses Ctrl+Space to mark entries instead.
+_fzf_search() {
+  python3 "$HOME/.zsh/fzf-search.py" run "$@"
+}
+
 _fzf_search_mode_opts() {
   local cycle=(
     'mode=fuzzy'
     '[[ $FZF_PROMPT == fuzzy* ]] && mode=words'
     '[[ $FZF_PROMPT == words* ]] && mode=phrase'
+    '[[ $FZF_PROMPT == phrase* ]] && mode=regex'
     'echo "change-prompt($mode> )+trigger(change)"'
   )
   reply=(
+    --ignore-case  # The shared matcher applies case-sensitive filtering before rows reach fzf.
     --prompt='fuzzy> '
     --bind="ctrl-s:transform:${(j:; :)cycle}"
-    --bind="change:transform-search:zsh -f ${(q)HOME}/.zsh/fzf-search-mode.zsh"
+    --bind="change:transform:zsh -f ${(q)HOME}/.zsh/fzf-search-mode.zsh --actions"
+    --bind='load:+transform:python3 "$FZF_SEARCH_HELPER" poll'
+    --bind="ctrl-i:execute-silent(python3 \"\$FZF_SEARCH_HELPER\" toggle-case)+trigger(change)+transform-border-label:$REPLY"
   )
 }
 
@@ -1469,7 +1480,7 @@ source <(fzf --zsh)
 
 # Usage: `browse [options] [directory]`
 #
-# Custom file browser. Output: full path to the chosen file/directory. By default, allow multi-select (select with tab,
+# Custom file browser. Output: full path to the chosen file/directory. By default, allow multi-select (Ctrl+Space to select,
 # confirm selection with enter, sent as separate lines of stdout). Selections are kept while moving between
 # directories, and the header shows how many there are, along with the directory being browsed. If initial directory
 # not provided, assume current working directory. From the initial directory, can interactively browse by pressing left
@@ -1540,10 +1551,10 @@ browse() {
     --ansi  # Preserve colours
   )
 
-  local help=(←/→ out/in ⌃r recursive ⌃o 'sort order' ⌃s 'search mode' ⌃t types ⌃h 'show hidden')
+  local help=(←/→ out/in ⌃s 'search mode' ⌃i insensitive ⌃r recursive ⌃o 'sort order' ⌃t types ⌃h 'show hidden')
   if [[ "$multi" == true ]]; then
-    FZF_OPTS+=(--bind="tab:transform(browse-action mark {1})")
-    help+=(tab select)
+    FZF_OPTS+=(--bind="ctrl-space:transform(browse-action mark {1})")
+    help+=(⌃space select)
   fi
   help+=(⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter choose esc quit)
   local reply REPLY
@@ -1555,7 +1566,7 @@ browse() {
 
   # Output the selections if there are any, else the highlighted entry fzf outputs (unless fzf was cancelled).
   local chosen
-  chosen=$(browse-action list | fzf "${FZF_OPTS[@]}")
+  chosen=$(_fzf_search 'browse-action list' 3 default "${FZF_OPTS[@]}")
   local exit_status=$?
   if (( exit_status == 0 )) && [[ -s $BROWSE_STATE/marks ]]; then
     cat $BROWSE_STATE/marks
@@ -1671,7 +1682,7 @@ claude-search() {
     'list=here header="${PWD/#$HOME/~}"'
     '[[ -e $CLAUDE_SEARCH_STATE/here ]] && list=all header="all directories"'
     '[[ $list == here ]] && touch $CLAUDE_SEARCH_STATE/here || rm $CLAUDE_SEARCH_STATE/here'
-    'echo "reload(cat $CLAUDE_SEARCH_STATE/$list.tsv)+change-header:$header"'
+    'echo "execute-silent(python3 \"\$FZF_SEARCH_HELPER\" set-source \"cat \$CLAUDE_SEARCH_STATE/$list.tsv\")+reload(python3 \"\$FZF_SEARCH_HELPER\" query)+change-header:$header"'
   )
   local FZF_OPTS=(  # fzf options specific to this function, in addition to FZF_DEFAULT_OPTS
     --delimiter=$'\t'  # fzf is provided `transcript<TAB>line number<TAB>label and message` fields.
@@ -1689,7 +1700,7 @@ claude-search() {
   # Ctrl+r's help says which directory it switches to.
   local reply REPLY
   _fzf_help -c 'dir="this directory"; [[ -e $CLAUDE_SEARCH_STATE/here ]] && dir="all directories"' \
-    ⌃r '$dir' ⌃s 'search mode' ⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter resume esc quit
+    ⌃r '$dir' ⌃s 'search mode' ⌃i insensitive ⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter resume esc quit
   FZF_OPTS+=($reply --bind="ctrl-r:+transform-border-label:$REPLY")
   _fzf_search_mode_opts
   FZF_OPTS+=($reply --prompt='words> ')
@@ -1731,11 +1742,13 @@ claude-search() {
     }
     END { flush() }
   '
-  # Give fzf the list as it's made, while saving it as `all.tsv`.
+  # Save both directory scopes before starting fzf.
   local transcript
   {
     touch $CLAUDE_SEARCH_STATE/here.tsv
-    transcript=$(awk -v OFS='\t' $messages $transcripts | tee $CLAUDE_SEARCH_STATE/all.tsv | fzf "${FZF_OPTS[@]}")
+    # Complete the caches before switching sources can cancel their producer.
+    awk -v OFS='\t' $messages $transcripts > $CLAUDE_SEARCH_STATE/all.tsv
+    transcript=$(_fzf_search 'cat "$CLAUDE_SEARCH_STATE/all.tsv"' 3.. history "${FZF_OPTS[@]}")
   } always {
     command rm -r -- $CLAUDE_SEARCH_STATE
   }
@@ -1835,7 +1848,7 @@ if (( $+commands[cmdlog] )); then
       'args= header="all directories" env='
       '[[ -e $CMDLOG_HISTORY_STATE/here ]] && args=--here header="${PWD/#$HOME/~}"'
       '[[ -e $CMDLOG_HISTORY_STATE/colour ]] || env="CMDLOG_HIGHLIGHT= "'
-      'echo "reload(${env}cmdlog search $args)+change-header:$header"'
+      'echo "execute-silent(python3 \"\$FZF_SEARCH_HELPER\" set-source \"${env}cmdlog search $args\")+reload(python3 \"\$FZF_SEARCH_HELPER\" query)+change-header:$header"'
     )
     local FZF_OPTS=(  # fzf options specific to this widget, in addition to FZF_DEFAULT_OPTS
       --delimiter=$'\t'  # cmdlog search gives `id<TAB>time<TAB>status<TAB>command`.
@@ -1856,7 +1869,7 @@ if (( $+commands[cmdlog] )); then
       '[[ -e $CMDLOG_HISTORY_STATE/colour ]] && export FZF_HELP_ACTIVE_KEYS="|⌃t|"'
     )
     local reply REPLY
-    _fzf_help -c "${(j:; :)hints}" ⌃r '$dir' ⌃s 'search mode' ⌃t '$highlight' ⇧↑/↓ 'scroll output' \
+    _fzf_help -c "${(j:; :)hints}" ⌃r '$dir' ⌃s 'search mode' ⌃i insensitive ⌃t '$highlight' ⇧↑/↓ 'scroll output' \
       ⌥z 'wrap output' enter insert esc quit
     FZF_OPTS+=($reply --bind="ctrl-r,ctrl-t:+transform-border-label:$REPLY")
     _fzf_search_mode_opts
@@ -1873,7 +1886,9 @@ if (( $+commands[cmdlog] )); then
       # Export for cmdlog, including when run by fzf.
       local -x CMDLOG_HIGHLIGHT="zsh -f ${(q)HOME}/.zsh/highlight-commands.zsh ${(q)context}"
       local id
-      id=$(if (( colour_rows )); then cmdlog search; else CMDLOG_HIGHLIGHT= cmdlog search; fi | fzf "${FZF_OPTS[@]}")
+      local source='cmdlog search'
+      (( colour_rows )) || source='CMDLOG_HIGHLIGHT= cmdlog search'
+      id=$(_fzf_search "$source" 4.. history "${FZF_OPTS[@]}")
       if [[ -n "$id" ]]; then
         LBUFFER+=$(cmdlog get "$id")  # Leaves the cursor after the inserted command
       fi
