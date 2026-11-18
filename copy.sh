@@ -80,7 +80,7 @@ if command -v code >/dev/null; then
     [[ -d "$source_dir" ]] || continue
     package_name="$(basename "$source_dir")"
     mkdir "$vsix_dir/extension"
-    rsync -a --exclude='/node_modules/' \
+    rsync -a --exclude='/node_modules/' --exclude='*.test.*' \
       "$source_dir/" "$vsix_dir/extension/"
     if [[ -f "$vsix_dir/extension/package-lock.json" ]]; then
       npm ci --prefix "$vsix_dir/extension" --omit=dev --ignore-scripts --no-audit --no-fund

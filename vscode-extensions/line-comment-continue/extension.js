@@ -93,41 +93,131 @@ function sameNumericList(marker, candidate) {
   return numericShape(marker.core) === numericShape(candidate.core);
 }
 
-// Finds the bullet that a line belongs to: either the line itself is a bullet,
-// or it is a continuation line, i.e. directly below the bullet (or other
-// continuation lines) with its text aligned to the bullet's text. A blank
-// comment line, or a line at another alignment, ends the chain.
+function wordMarker(content) {
+  const match = content.match(/^(\S+:)(\s+|$)|^(\S+ -)(\s+|$)/);
+  if (!match) return null;
+  const marker = match[0];
+  return { marker, style: match[1] ? "word:" : "word-", bare: content.slice(marker.length).trim() === "" };
+}
+
+function markerStyle(content) {
+  const bullet = bulletMarker(content);
+  if (bullet) return bullet.number === null ? bullet.core : numericShape(bullet.core);
+  return wordMarker(content)?.style || "ws";
+}
+
+// Identify all bullet forms in one scan, using the formatter's precedence.
+// Standard markers stand alone; other forms need a colon-introduced list.
+// Keep the owning item as well as its text alignment, so Enter can choose
+// between a sibling and a continuation consistently for every bullet form.
 function bulletContext(document, lineNumber, prefix) {
-  const comment = parseCommentLine(document.lineAt(lineNumber).text, prefix);
-  if (!comment) {
-    return null;
+  const indentation = parseCommentLine(document.lineAt(lineNumber).text, prefix).indentation;
+  const comments = [];
+  let firstLine = lineNumber;
+  while (firstLine > 0) {
+    const previous = parseCommentLine(document.lineAt(firstLine - 1).text, prefix);
+    if (!previous || previous.indentation !== indentation) break;
+    firstLine--;
   }
+  for (let i = firstLine; i < document.lineCount; i++) {
+    const comment = parseCommentLine(document.lineAt(i).text, prefix);
+    if (!comment || comment.indentation !== indentation) break;
+    comments.push(comment);
+  }
+  const nextContent = (i) => {
+    let j = i + 1;
+    while (j < comments.length && comments[j].content === "") j++;
+    return j;
+  };
+  const tableAt = (i) => {
+    if (bulletMarker(comments[i].content)) return false;
+    const count = comments[i].content.trimEnd().split(/\s{2,}/).length;
+    if (count < 2) return false;
+    for (let j = i + 1; j < comments.length; j++) {
+      const next = comments[j];
+      if (!next.content || bulletMarker(next.content)) return false;
+      if (next.separator.length > comments[i].separator.length) continue;
+      return next.separator.length === comments[i].separator.length &&
+        next.content.trimEnd().split(/\s{2,}/).length === count;
+    }
+    return false;
+  };
+  const lists = [];
+  let item = null;
+  let table = null;
+  let target = null;
+  let followedByContent = false;
+  for (let i = 0; i <= lineNumber - firstLine + 1 && i < comments.length; i++) {
+    const comment = comments[i];
+    const level = comment.separator.length;
+    const style = markerStyle(comment.content);
+    if (!comment.content) {
+      item = null;
+      table = null;
+      continue;
+    }
+    while (lists.length && (level < lists.at(-1).level ||
+      (level === lists.at(-1).level && style !== lists.at(-1).style))) lists.pop();
+    const list = lists.at(-1);
+    const standard = bulletMarker(comment.content);
+    const word = wordMarker(comment.content);
+    const next = comments[i + 1];
+    const wsContinuation = item?.ws && level > item.separator.length;
+    let markerLine = false;
+    if (wsContinuation) {
+      // Whitespace bullets absorb all deeper lines, even marker-looking text.
+    } else if (standard || (list && level === list.level && style.startsWith("word"))) {
+      const marker = standard || word;
+      const nestedBelow = word?.bare && word.style === "word:" && next?.content &&
+        next.separator.length > level && (bulletMarker(next.content) || wordMarker(next.content));
+      markerLine = !standard && word.bare && !nestedBelow;
+      item = {
+        standard: Boolean(standard), bullet: marker, separator: comment.separator, line: i + firstLine,
+        textSeparator: !standard && word.bare ? null : comment.separator + " ".repeat(
+          standard?.empty ? standard.core.length + 1 : marker.marker.length),
+        altSeparator: null, pullable: Boolean(standard?.empty), hasContent: !marker.empty,
+        ownLine: markerLine, ws: false,
+      };
+      table = null;
+    } else if (item?.pullable && level > item.separator.length) {
+      item.pullable = false;
+      item.hasContent = true;
+      item.altSeparator = comment.separator;
+    } else if (item?.ownLine && item.textSeparator === null && level > item.separator.length) {
+      item.textSeparator = comment.separator;
+    } else if (item && (item.textSeparator?.length === level || item.altSeparator?.length === level)) {
+      // Aligned continuation of the current item.
+    } else if (table && (level > table.level || (level === table.level &&
+      comment.content.trimEnd().split(/\s{2,}/).length === table.count))) {
+      item = null;
+    } else if (tableAt(i)) {
+      item = null;
+      table = { level, count: comment.content.trimEnd().split(/\s{2,}/).length };
+    } else if (list?.style === "ws" && level === list.level) {
+      const ownLine = /^\S+\s*$/.test(comment.content);
+      item = {
+        standard: false, separator: comment.separator, ownLine, ws: !ownLine, line: i + firstLine,
+        textSeparator: ownLine ? null : comment.separator + " ".repeat(level - list.introLevel),
+      };
+      table = null;
+    } else if (!(item && !item.standard && !item.ownLine && level > item.separator.length)) {
+      item = null;
+      table = null;
+    }
 
-  const directBullet = bulletMarker(comment.content);
-  if (directBullet) {
-    return { comment, bullet: directBullet, separator: comment.separator, direct: true };
-  }
-  if (comment.content === "") {
-    return null;
-  }
-
-  for (let previousLineNumber = lineNumber - 1; previousLineNumber >= 0; previousLineNumber--) {
-    const previousLine = parseCommentLine(document.lineAt(previousLineNumber).text, prefix);
-    if (!previousLine || previousLine.indentation !== comment.indentation || previousLine.content === "") {
-      return null;
+    const followingIndex = nextContent(i);
+    const following = comments[followingIndex];
+    const continuationBelow = followingIndex === i + 1 && item && following &&
+      following.separator.length === item.textSeparator?.length && !bulletMarker(following.content);
+    if (!table && !item?.ws && !markerLine && comment.content.trimEnd().endsWith(":") &&
+      following && following.separator.length > level && !continuationBelow &&
+      (markerStyle(following.content) !== "ws" || !tableAt(followingIndex))) {
+      lists.push({ introLevel: level, level: following.separator.length, style: markerStyle(following.content) });
     }
-    const previousBullet = bulletMarker(previousLine.content);
-    if (previousBullet) {
-      if (comment.separator.length === previousLine.separator.length + previousBullet.marker.length) {
-        return { comment, bullet: previousBullet, separator: previousLine.separator, direct: false };
-      }
-      return null;
-    }
-    if (previousLine.separator.length !== comment.separator.length) {
-      return null;
-    }
+    if (i === lineNumber - firstLine) target = item;
+    if (i === lineNumber - firstLine + 1) followedByContent = Boolean(target && item === target);
   }
-  return null;
+  return target ? { ...target, direct: target.line === lineNumber, followedByContent } : null;
 }
 
 // Whether the given line is a (non-bullet) continuation line of a bullet whose
@@ -148,18 +238,19 @@ function continuesBullet(document, lineNumber, prefix, indentation, textLevel) {
 
 // When a bullet's marker changes width (e.g. 9. -> 10.), the text moves, and
 // the continuation lines below it must move too or they stop being part of it.
-function shiftEdits(document, prefix, startLine, indentation, oldTextLevel, delta) {
+function shiftEdits(document, prefix, startLine, indentation, oldTextLevel, delta, alternateLevel = null) {
   const edits = [];
   for (let lineNumber = startLine; lineNumber < document.lineCount; lineNumber++) {
-    if (!continuesBullet(document, lineNumber, prefix, indentation, oldTextLevel)) {
+    if (!continuesBullet(document, lineNumber, prefix, indentation, oldTextLevel) &&
+      !(alternateLevel !== null && continuesBullet(document, lineNumber, prefix, indentation, alternateLevel))) {
       break;
     }
     const comment = parseCommentLine(document.lineAt(lineNumber).text, prefix);
     const start = comment.indentation.length + prefix.length;
-    const separator =
-      delta > 0
-        ? comment.separator + " ".repeat(delta)
-        : comment.separator.slice(0, Math.max(0, comment.separator.length + delta));
+    const targetLevel = Math.max(0, oldTextLevel + delta);
+    const separator = targetLevel > comment.separator.length
+      ? comment.separator + " ".repeat(targetLevel - comment.separator.length)
+      : comment.separator.slice(0, targetLevel);
     edits.push({ start: [lineNumber, start], end: [lineNumber, start + comment.separator.length], text: separator });
   }
   return edits;
@@ -246,20 +337,33 @@ function continuationFor(document, position) {
   }
 
   const context = bulletContext(document, position.line, prefix);
+  const manual = context && !context.standard ? context : null;
   const start = `${comment.indentation}${prefix}`;
   if (
-    context && context.direct &&
+    context?.bullet && context.direct &&
     position.character < start.length + context.separator.length + context.bullet.marker.length
   ) {
     return null;
   }
   const atEnd = line.slice(position.character).trim() === "";
   if (atEnd && comment.content.trimEnd().endsWith(":")) {
-    const textSeparator = context && context.direct
-      ? context.separator + " ".repeat(context.bullet.marker.length)
-      : comment.separator;
+    let textSeparator = comment.separator;
+    if (manual && !(manual.ownLine && manual.separator === comment.separator)) {
+      textSeparator = manual.textSeparator || comment.separator;
+    } else if (context?.standard && context.direct) {
+      textSeparator = context.separator + " ".repeat(context.bullet.marker.length);
+    }
     return {
       continuation: start + colonSeparator(document, position.line, prefix, comment, textSeparator),
+      numericBullet: null,
+    };
+  }
+  if (manual) {
+    const continueText = atEnd && manual.direct && manual.ownLine;
+    return {
+      continuation: start + (continueText
+        ? manual.textSeparator || colonSeparator(document, position.line, prefix, comment, comment.separator)
+        : manual.separator),
       numericBullet: null,
     };
   }
@@ -268,20 +372,21 @@ function continuationFor(document, position) {
   }
 
   const { bullet } = context;
-  const textLevel = context.separator.length + bullet.marker.length;
   const numeric = bullet.number !== null ? bullet : null;
 
   // Enter on a bullet with no text removes the marker, to leave the list.
-  if (context.direct && bullet.empty && atEnd) {
+  if (context.direct && bullet.empty && !context.hasContent && atEnd) {
     return { continuation: null, emptyBullet: true, numericBullet: numeric, context };
   }
 
-  // Enter at the end of a bullet that has continuation lines below it must not
-  // create a new marker directly above them: the formatter would pull them into
-  // it. Just keep the text alignment.
-  if (atEnd && continuesBullet(document, position.line + 1, prefix, comment.indentation, textLevel)) {
+  // Enter directly after a bare marker starts its content. After text, Enter
+  // starts a sibling instead, which takes ownership of remaining content below.
+  if (atEnd && context.direct && bullet.empty && context.followedByContent) {
+    // A bare marker remembers its first content line's original indentation.
+    // Inserting new first content at another level would replace that accepted
+    // alternative and could orphan the existing lines at the original level.
     return {
-      continuation: `${start}${context.separator}${" ".repeat(bullet.marker.length)}`,
+      continuation: start + context.altSeparator,
       numericBullet: null,
       context,
     };
@@ -331,23 +436,22 @@ function planEnter(document, position) {
   const edits = [{ start: at, end: at, text: `${eol}${result.continuation}` }];
   if (result.numericBullet) {
     const bullet = result.numericBullet;
-    const atEnd = line.slice(position.character).trim() === "";
-    if (!atEnd) {
-      // The text after the cursor becomes the new bullet's, so its continuation
-      // lines must follow the new marker's width.
-      const delta = nextNumericMarker(bullet.marker, bullet.number).length - bullet.marker.length;
-      if (delta !== 0) {
-        edits.push(
-          ...shiftEdits(
-            document,
-            prefix,
-            position.line + 1,
-            comment.indentation,
-            list.markerLevel + bullet.marker.length,
-            delta,
-          ),
-        );
-      }
+    // Remaining content belongs to the new sibling, whether the cursor splits
+    // a line or sits at its end. Keep it aligned with the new marker's width.
+    const delta = list.markerLevel + nextNumericMarker(bullet.marker, bullet.number).length -
+      result.context.textSeparator.length;
+    if (delta !== 0 || result.context.altSeparator) {
+      edits.push(
+        ...shiftEdits(
+          document,
+          prefix,
+          position.line + 1,
+          comment.indentation,
+          result.context.textSeparator.length,
+          delta,
+          result.context.altSeparator?.length,
+        ),
+      );
     }
     edits.push(...renumberEdits(document, prefix, position.line + 1, list, bullet.number + 2));
   }

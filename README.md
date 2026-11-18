@@ -460,9 +460,10 @@ I also define actions to occur on enter/delete while typing comments in vscode-e
 
 * Enter preserves the indentation of the current comment marker and the alignment of the *text* with respect to the comment marker. For example, `//   hello|`, then enter, creates the new line, `//   |` (where `|` represents the cursor).
 * Enter at the end of a comment ending in `:` indents beyond its text by `lineCommentContinue.indentSize` spaces (default 2, configurable in VS Code settings.json), or the indentation of existing content below (if already beyond the text). Enter in the middle of text keeps the usual behavior.
-* It recognises bullet markers and inserts a new marker on enter.
+* Enter identifies the current bullet using the above formatter's bullet forms and nesting rules. It inserts a sibling marker for standard bullets (`-`, `*`, `1.`, `1)`, `(1)`). For other bullets, it returns to the appropriate starting column so you can type the next bullet.
+* Enter after bullet text starts a sibling at the cursor, even when continuation text follows below; that remaining text belongs to the new sibling. Immediately after a marker on its own line (standard, word-style, or single-word) with content below, Enter starts content at the existing content's indentation. Word-style and single-word markers also start indented content when none exists yet.
 * For numeric markers, Enter inserts the next number and renumbers later siblings consecutively, preserving the marker style. For example, Enter after bullet 2 in a list numbered 1, 2, 4 produces 1, 2, 3, 4. While the on-save formatter does not renumber to prevent stale references, it is considered appropriate behaviour for a live editing tool like this, as you can see the changes and intervene if it will produce stale references.
-* Enter on an empty standard bullet removes its marker. At the end of a bullet with continuation lines below it, Enter keeps the text alignment; at the end of the last continuation line, it creates the next bullet.
+* Enter on an empty standard bullet removes its marker, unless the marker has content below it.
 * Backspace when the cursor is immediately after a bullet marker deletes the entire marker (rather than a single character) and renumbers later siblings.
 
 ### Doc comments
