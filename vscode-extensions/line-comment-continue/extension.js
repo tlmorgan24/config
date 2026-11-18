@@ -506,6 +506,14 @@ async function applyPlan(editor, plan) {
 }
 
 async function continueComment() {
+  // Identify Enter explicitly: a paste can contain exactly the same newline
+  // and prefix, but should reflow immediately rather than protect a boundary.
+  const formatter = vscode.extensions?.getExtension("tlmorgan24.comment-wrap");
+  let api;
+  if (formatter) {
+    try { api = formatter.isActive ? formatter.exports : await formatter.activate(); }
+    catch { /* Continuation still works if the optional formatter cannot activate. */ }
+  }
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.selections.length !== 1 || editor.selection.isEmpty === false) {
     return vscode.commands.executeCommand("default:type", { text: "\n" });
@@ -515,7 +523,14 @@ async function continueComment() {
   if (!plan) {
     return vscode.commands.executeCommand("default:type", { text: "\n" });
   }
-  return applyPlan(editor, plan);
+  const newline = plan.edits.find((edit) => /[\r\n]/.test(edit.text));
+  const range = newline && toRange(newline);
+  const protection = newline && api?.protectEnter?.(editor.document, {
+    rangeOffset: editor.document.offsetAt(range.start),
+    rangeLength: editor.document.offsetAt(range.end) - editor.document.offsetAt(range.start),
+    text: newline.text,
+  });
+  try { return await applyPlan(editor, plan); } finally { protection?.dispose(); }
 }
 
 async function removeBullet() {

@@ -265,10 +265,11 @@ type tableRow struct {
 }
 
 type block struct {
-	kind   blockKind
-	lead   string // whitespace after the comment mark, first line
-	indent int    // display width of lead
-	words  []string
+	first, last int // source line indices within the comment run
+	kind        blockKind
+	lead        string // whitespace after the comment mark, first line
+	indent      int    // display width of lead
+	words       []string
 
 	// Bullets. marker is what precedes the text on the first line (including
 	// the gap); contPad is how far continuation lines are indented relative to
@@ -390,12 +391,15 @@ func scan(cl []cline, options Options) []*block {
 	var cur *block
 	var lists []*listCtx
 
+	currentLine := 0
 	newBlock := func(b *block) {
+		b.first, b.last = currentLine, currentLine
 		blocks = append(blocks, b)
 		cur = b
 	}
 
 	for i, ln := range cl {
+		currentLine = i
 		if ln.blank {
 			newBlock(&block{kind: kBlank})
 			// A blank comment ends the current paragraph/bullet/table, but not
@@ -501,6 +505,8 @@ func scan(cl []cline, options Options) []*block {
 			newBlock(&block{kind: kProse, lead: ln.lead, indent: I, words: strings.Fields(ln.text)})
 		}
 
+		cur.last = i
+
 		// A line ending in a colon, followed (possibly after blank comment lines)
 		// by a more indented line, introduces a list. A non-bullet line directly
 		// below at the text level of a bullet is a continuation of that bullet
@@ -566,19 +572,25 @@ func formatRun(run []Comment, indentStr string, style Style, options Options) []
 	prefixCols := displayWidth(prefix, options)
 	var out []string
 	for _, b := range scan(parseLines(run, options), options) {
-		switch b.kind {
-		case kBlank:
-			out = append(out, prefix)
-		case kProse:
-			avail := options.Width - prefixCols - b.indent
-			for _, l := range wrapText(b.words, avail, avail, options) {
-				out = append(out, prefix+b.lead+l)
-			}
-		case kBullet:
-			out = append(out, b.renderBullet(prefix, prefixCols, options)...)
-		case kTable:
-			out = append(out, b.renderTable(prefix, prefixCols, options)...)
+		out = append(out, b.render(prefix, prefixCols, options)...)
+	}
+	return out
+}
+
+func (b *block) render(prefix string, prefixCols int, options Options) []string {
+	var out []string
+	switch b.kind {
+	case kBlank:
+		out = append(out, prefix)
+	case kProse:
+		avail := options.Width - prefixCols - b.indent
+		for _, l := range wrapText(b.words, avail, avail, options) {
+			out = append(out, prefix+b.lead+l)
 		}
+	case kBullet:
+		out = append(out, b.renderBullet(prefix, prefixCols, options)...)
+	case kTable:
+		out = append(out, b.renderTable(prefix, prefixCols, options)...)
 	}
 	return out
 }

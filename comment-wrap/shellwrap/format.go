@@ -7,6 +7,12 @@ import (
 )
 
 func Format(source []byte, options commentwrap.Options) []byte {
+	lines := strings.SplitAfter(string(source), "\n")
+	return []byte(strings.Join(commentwrap.Format(lines, Comments(source), commentwrap.Style{Prefix: "#"}, options), ""))
+}
+
+// Comments scans source without requiring syntactically complete code.
+func Comments(source []byte) []commentwrap.Comment {
 	text := string(source)
 	lines := strings.SplitAfter(text, "\n")
 	var comments []commentwrap.Comment
@@ -47,7 +53,7 @@ func Format(source []byte, options commentwrap.Options) []byte {
 		}
 	}
 
-	return []byte(strings.Join(commentwrap.Format(lines, comments, commentwrap.Style{Prefix: "#"}, options), ""))
+	return comments
 }
 
 func isShellCommentStart(line string, column int) bool {

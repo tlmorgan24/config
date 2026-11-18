@@ -4,6 +4,8 @@ const fs = require("fs");
 const { parse, printParseErrorCode } = require("jsonc-parser");
 const os = require("os");
 const path = require("path");
+const { LiveReflow } = require("./live");
+const { LiveFormatter } = require("./live-formatter");
 
 function configFile() {
   return process.env.COMMENT_WRAP_CONFIG || path.join(os.homedir(), "comment-wrap", "config.jsonc");
@@ -75,6 +77,23 @@ function editsFor(document, formatted) {
 }
 
 function activate(context) {
+  const output = vscode.window.createOutputChannel("Comment Wrap");
+  const formatter = new LiveFormatter(path.join(os.homedir(), ".local", "bin", "live-comment-wrap"));
+  const live = new LiveReflow((document, request) => formatter.run(document, request), loadConfig, (error) => output.appendLine(`Live reflow: ${error.message}`));
+  let previousEditor = vscode.window.activeTextEditor;
+  context.subscriptions.push(
+    output, formatter, live,
+    vscode.workspace.onDidChangeTextDocument((event) => live.changed(event)),
+    vscode.workspace.onDidCloseTextDocument((document) => live.close(document)),
+    vscode.window.onDidChangeTextEditorSelection((event) => live.selected(event)),
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (previousEditor && previousEditor !== editor) live.leave(previousEditor);
+      previousEditor = editor;
+    }),
+    vscode.workspace.onDidChangeConfiguration(() => {
+      for (const document of live.states.keys()) live.reset(document);
+    }),
+  );
   let providers = [];
   const registerProviders = () => {
     try {
@@ -82,6 +101,7 @@ function activate(context) {
       const replacements = Object.keys(languages).map((languageId) =>
         vscode.languages.registerDocumentFormattingEditProvider(languageId, {
           provideDocumentFormattingEdits(document, options, token) {
+            live.reset(document);
             if (token.isCancellationRequested) {
               return [];
             }
@@ -89,7 +109,9 @@ function activate(context) {
             if (!language) {
               return [];
             }
-            return runFormatter(document, language, options).then((formatted) => editsFor(document, formatted));
+            const version = document.version;
+            return runFormatter(document, language, options).then((formatted) =>
+              token.isCancellationRequested || document.version !== version ? [] : editsFor(document, formatted));
           },
         }));
       providers.forEach((provider) => provider.dispose());
@@ -108,6 +130,7 @@ function activate(context) {
     watcher.onDidDelete(registerProviders),
     { dispose: () => providers.forEach((provider) => provider.dispose()) },
   );
+  return { protectEnter: (document, change) => live.protectEnter(document, change) };
 }
 
 function deactivate() {}

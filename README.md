@@ -456,6 +456,8 @@ When reflowing, ensure that the new lines (which should be part of the same para
 
 ### Formatting while typing
 
+#### On enter/delete
+
 I also define actions to occur on enter/delete while typing comments in vscode-extensions/line-comment-continue/:
 
 * Enter preserves the indentation of the current comment marker and the alignment of the *text* with respect to the comment marker. For example, `//   hello|`, then enter, creates the new line, `//   |` (where `|` represents the cursor).
@@ -465,6 +467,16 @@ I also define actions to occur on enter/delete while typing comments in vscode-e
 * For numeric markers, Enter inserts the next number and renumbers later siblings consecutively, preserving the marker style. For example, Enter after bullet 2 in a list numbered 1, 2, 4 produces 1, 2, 3, 4. While the on-save formatter does not renumber to prevent stale references, it is considered appropriate behaviour for a live editing tool like this, as you can see the changes and intervene if it will produce stale references.
 * Enter on an empty standard bullet removes its marker, unless the marker has content below it.
 * Backspace when the cursor is immediately after a bullet marker deletes the entire marker (rather than a single character) and renumbers later siblings.
+
+#### Live reflow
+
+The Comment Wrap extension (which provides the whole-document formatter) also reflows while typing or deleting, after a 100 ms pause. It uses the same rules as the document formatter, but only on the active paragraph. Set `"commentWrap.liveReflow": false` in VS Code settings.json to disable it globally or for a language/workspace.
+
+Enter first performs the "on enter" continuation action as above. Any new boundary within the same logical paragraph stays temporarily protected: text on either side can reflow, but cannot cross that boundary while you remain in the paragraph. Moving within that paragraph keeps the protection. Leaving it (including switching editors) or running the full formatter releases the protection and reflows the paragraph normally.
+
+Inserting spaces or tabs does not trigger live reflow. This lets you adjust spacing and indentation without repeated wrapping creating "staircases" or other messy behaviour. Other edits resume live reflow.
+
+Tables use their whole table as the reflow scope because column widths depend on the other rows; table reflow waits if an Enter boundary inside the table is protected.
 
 ### Doc comments
 

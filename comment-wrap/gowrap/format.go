@@ -10,6 +10,12 @@ import (
 
 func Format(source []byte, options commentwrap.Options) []byte {
 	lines := strings.SplitAfter(string(source), "\n")
+	return []byte(strings.Join(commentwrap.Format(lines, Comments(source), commentwrap.Style{Prefix: "//"}, options), ""))
+}
+
+// Comments scans source without requiring syntactically complete code.
+func Comments(source []byte) []commentwrap.Comment {
+	lines := strings.SplitAfter(string(source), "\n")
 	fileSet := token.NewFileSet()
 	file := fileSet.AddFile("", -1, len(source))
 	var sourceScanner scanner.Scanner
@@ -43,7 +49,7 @@ func Format(source []byte, options commentwrap.Options) []byte {
 		})
 	}
 
-	return []byte(strings.Join(commentwrap.Format(lines, comments, commentwrap.Style{Prefix: "//"}, options), ""))
+	return comments
 }
 
 func isDirective(comment string) bool {

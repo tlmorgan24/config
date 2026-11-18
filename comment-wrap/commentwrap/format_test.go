@@ -188,6 +188,7 @@ func TestStdBulletRecognizesMarkers(t *testing.T) {
 		{rest: "(3) item", wantStyle: "(n)", wantLen: 4},
 		{rest: "-   item", wantStyle: "-", wantLen: 4},
 		{rest: "- ", wantStyle: "-", wantLen: 2},
+		{rest: "-", wantStyle: "-", wantLen: 1},
 	}
 	for _, test := range tests {
 		got, ok := stdBullet(test.rest)
@@ -195,7 +196,7 @@ func TestStdBulletRecognizesMarkers(t *testing.T) {
 			t.Errorf("stdBullet(%q) = %+v, %t; want style %q, len %d", test.rest, got, ok, test.wantStyle, test.wantLen)
 		}
 	}
-	for _, rest := range []string{"-", "-item", "3.5 volts", "(x) item", "1 item", "()", "word"} {
+	for _, rest := range []string{"-item", "3.5 volts", "(x) item", "1 item", "()", "word"} {
 		if _, ok := stdBullet(rest); ok {
 			t.Errorf("stdBullet(%q) unexpectedly matched", rest)
 		}
@@ -212,6 +213,7 @@ func TestWordBulletRecognizesMarkers(t *testing.T) {
 		{rest: "foo:   bar", wantStyle: "word:", wantLen: 7},
 		{rest: "foo - bar", wantStyle: "word-", wantLen: 6},
 		{rest: "foo: ", wantStyle: "word:", wantLen: 5},
+		{rest: "foo:", wantStyle: "word:", wantLen: 4},
 	}
 	for _, test := range tests {
 		got, ok := wordBullet(test.rest)
@@ -219,7 +221,7 @@ func TestWordBulletRecognizesMarkers(t *testing.T) {
 			t.Errorf("wordBullet(%q) = %+v, %t; want style %q, len %d", test.rest, got, ok, test.wantStyle, test.wantLen)
 		}
 	}
-	for _, rest := range []string{"foo:", "foo bar", "foo:bar baz", ": x"} {
+	for _, rest := range []string{"foo bar", "foo:bar baz", ": x"} {
 		if _, ok := wordBullet(rest); ok {
 			t.Errorf("wordBullet(%q) unexpectedly matched", rest)
 		}
@@ -331,9 +333,9 @@ func TestFormatWhitespaceList(t *testing.T) {
 	want := "# Items:\n#   one two three\n#     four five\n#   six\n#   seven\n"
 	checkFormat(t, src, want, 20)
 
-	// A line at the continuation indent is pulled up into the bullet above.
+	// A single word with deeper content is a marker on its own line.
 	src = "# Items:\n#   one\n#     two\n#   three\n"
-	want = "# Items:\n#   one two\n#   three\n"
+	want = "# Items:\n#   one\n#     two\n#   three\n"
 	checkFormat(t, src, want, 40)
 }
 

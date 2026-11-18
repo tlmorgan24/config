@@ -1,7 +1,7 @@
 {
   "name": "comment-wrap",
   "displayName": "Comment Wrap",
-  "description": "Wrap comments when formatting",
+  "description": "Wrap comments when formatting and while typing",
   "publisher": "tlmorgan24",
   "version": "0.0.2",
   "main": "./extension.js",
@@ -13,5 +13,21 @@
   },
   "dependencies": {
     "jsonc-parser": "3.3.1"
+  },
+  "scripts": {
+    "test": "node --test live.test.js"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "Comment Wrap",
+      "properties": {
+        "commentWrap.liveReflow": {
+          "type": "boolean",
+          "default": true,
+          "scope": "language-overridable",
+          "description": "Reflow the active comment paragraph while typing and deleting. Enter-created boundaries stay protected until you leave the paragraph or format the document."
+        }
+      }
+    }
   }
 }
