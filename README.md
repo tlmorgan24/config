@@ -358,21 +358,80 @@ Certain cases (described below) are recognised as bullet points with a "text ali
 3. Likewise (the reverse direction), a non-bullet comment whose first non-whitespace character is at the text alignment level of the bullet above (without any new paragraphs between them) is considered part of that bullet and may be pulled into it. So, the general rule that a line is only left underfull "if the line below it has a different indent level" does not apply to bullets, as the "text alignment level" is usually different to the "indent level" of the bullet marker itself.
 4. No lines other than as laid out in point 3 can be pulled into a bullet.
 
-A comment line is assumed to be a bullet point when the line starts with 0+ whitespaces followed by `- `, `* `, `(1) `, `1) `, or `1. ` (likewise for other integers). These are recognised as bullet markers, and the first non-whitespace after the bullet marker is the "text alignment level" of that bullet.
+A comment line is assumed to be a bullet point when the line starts with 0+ whitespaces, followed by `-`, `*`, `(1)`, `1)`, or `1.` (likewise for other integers), followed by either:
+* 1+ whitespaces, followed by non-whitespace text. The `-`, `*`, `(1)`, `1)`, or `1.` are recognised as bullet markers, and the first non-whitespace after the marker is the "text alignment level" of that bullet.
+* 0+ whitespaces, followed by `\n` (i.e., the only non-whitespace is the marker itself). Look at the next line: if non-blank and its indent is beyond the start of the marker, consider it part of the bullet and pull it up, preserving one space after the marker. Else, assume it is a bullet with no content.
+
+E.g.:
+```bash
+# Below is a list.
+# * item1 which is too long so will overflow
+# * 
+#  item2
+```
+Becomes:
+```bash
+# Below is a list.
+# * item1 which is too
+#   long so will overflow
+# * item2
+```
 
 When a line (indent level = INTRO_INDENT) ends with a colon, and the next line (skipping over blank comments) has a larger indent level (LIST_INDENT), this indented line is also assumed to be a bullet point. There are three possible cases for this indented line:
   * the line uses a standard bullet marker as per above, so gets treated as such.
-  * the line starts with 0+ whitespaces, followed by a single word followed by `: ` or ` - `. This is treated as a bullet marker, meaning the "text alignment level" is the first non-whitespace after the `: `/` - `.
-  * the line does not satisfy either of the above. First see if it can be a table (see precedence rules below), otherwise assume the indent alone is acting as the bullet marker. If following the usual approach, the "text alignment level" would be the first character of the first word. But, reflowed long lines would be indistinguishable from new bullets. Instead, the first line of a bullet should be at LIST_INDENT, while following lines (if part of the same bullet) should be at LIST_INDENT + (LIST_INDENT - INTRO_INDENT). The next bullet returns to being at LIST_INDENT. This allows the formatter to know whether a line can be pulled up (part of the above bullet) or not.
+  * the line starts with 0+ whitespaces, followed by a single word, followed by `:` or ` -`, followed by either:
+    * 1+ whitespaces, followed by non-whitespace text. The word plus `:` or ` -` is treated as a bullet marker, meaning the "text alignment level" is the first non-whitespace after the `:`/` -`.
+    * 0+ whitespaces, followed by `\n` (i.e., the only non-whitespace is the marker itself). Look at the next line: if its indent is beyond LIST_INDENT (i.e., beyond the first character of the bullet marker), consider it part of the bullet but do NOT pull it up. Assume that the intended style is to preserve the bullet marker on its own line. The first line of the content is not pulled up, but apart from that, the usual rules follow (the rest of the lines may be pulled up, all including the first line may overflow down, and the "text alignment level" is still the start of the content).
+  * the line does not satisfy either of the above. First see if it can be part of a table (see precedence rules below). If it can't:
+    * if the line only has one word, consider it as a possible "bullet marker on its own line" (as if it ended with `:`).
+    * else (the "whitespace bullet" case), assume the indent alone is acting as the bullet marker. If following the usual approach, the "text alignment level" would be the first character of the first word. But, reflowed long lines would be indistinguishable from new bullets. Instead, the first line of a bullet should be at LIST_INDENT, while reflowed lines (if part of the same bullet) should be beyond LIST_INDENT. The formatter assumes any lines beyond LIST_INDENT under a whitespace bullet are part of that bullet, and may pull them up (to prevent confusion, no nested bullets/tables are allowed under such a bullet).
 
-The bullet list ends when there is a line that is less indented than LIST_INDENT, or a line that is the same indent as LIST_INDENT and does not match the same bullet style (the possible styles being `- `, `* `, `(1) `, `1) `, `1. `, word+`: `, word+` - `, whitespace-only). A blank comment does not end the list.
+The bullet list is assumed to continue (each marker returning to LIST_INDENT) until there is a line that is less indented than LIST_INDENT, or a line that is the same indent as LIST_INDENT and does not match the same bullet style (the possible styles being `-`, `*`, `(1)`, `1)`, `1.`, word+`:`, word+` -`, other). A blank comment does not end the list.
 
-A numerical bullet of matching style but mismatching number is considered part of the same list. The formatter does not enforce a consistent increment (e.g., if a bullet list starts at `(2)`, it is not shifted to start at `(1)`), to prevent stale references like "see point (3)".
+Lists may be nested (except inside a whitespace bullet, to prevent confusion with its line continuation). Each level of nesting has its own INTRO_INDENT and LIST_INDENT (when an inner list ends, it returns to the outer LIST_INDENT).
+
+E.g.:
+```bash
+# Below is a list of args:
+#
+#   arg1:
+#     does short stuff
+#
+#   arg2:
+#     does long stuff which will overflow. Also introduces a sublist:
+#       item1 which will overflow
+#       item2
+#   
+#   arg3: does stuff on same line
+```
+Becomes:
+```bash
+# Below is a list of args:
+#
+#   arg1:
+#     does short stuff
+#
+#   arg2:
+#     does long stuff
+#     which will overflow.
+#     Also introduces a
+#     sublist:
+#       item1 which will
+#         overflow
+#       item2
+#
+#   arg3: does stuff on
+#         same line
+```
+
+A numerical bullet of matching style but inconsistent number is allowed. The formatter does not enforce a consistent increment (e.g., if a bullet list starts at `(2)`, it is not shifted to start at `(1)`), to prevent stale references like "see point (2)".
+
+When `word:` appears alone on a line inside a word-style list, it could either be a bullet marker on its own line (the lines below are its content) or an intro to a nested list (the lines below it are list items). It is treated as an intro if the next line is more indented and is itself a standard or word-style bullet; otherwise it is a marker with content.
 
 ##### Tables
 
-* Each run of 2+ whitespaces after the first non-whitespace of a comment line is recognised as a table-item separator. The separator plus the text before it (up to the end of the previous separator or the line's comment mark, whichever is closer) is the "width" of the table item. Trailing whitespace is ignored (i.e., the last table item is never empty, and its "width" is just its text).
-* Consecutive lines at the same indent level and with the same number of table items (minimum 2) are considered rows of the same table. They are modified by the formatter to align the starts of their table items. This means adding additional whitespace to the separators of short-width items, such that all items of a column have the same width. The longest-width item+separator of each column are unchanged.
+* Each run of 2+ whitespaces after the first non-whitespace of a comment line may be recognised as a table-item separator. The separator plus the text before it (up to the end of the previous separator or the line's comment mark, whichever is closer) is the "width" of the table item. Trailing whitespace is ignored (i.e., the last table item is never empty, and its "width" is just its text).
+* Consecutive lines at the same indent level and with the same number of table items (minimum 2) create a table of rows. They are modified by the formatter to align the starts of their table items. This means adding additional whitespace to the separators of short-width items, such that all items of a column have the same width. The longest-width item+separator of each column are unchanged.
 * If the table width is beyond MAX_WIDTH after the above:
   * Reduce the last column's width just enough to satisfy MAX_WIDTH, or if this would reduce the column below MIN_COL_WIDTH (e.g. 30 chars), reduce it to MIN_COL_WIDTH and accept that the table goes beyond MAX_WIDTH. I.e., `last_column_width = max(MAX_WIDTH − last_column_start, MIN_COL_WIDTH)`.
   * Reflow the last column similarly to how you would reflow bullet text (the "text alignment level" being the first character of the column), but where the max width is the column width (which, as per above, may go beyond MAX_WIDTH).

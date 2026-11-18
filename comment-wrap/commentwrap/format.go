@@ -168,18 +168,18 @@ func splitItems(text string) (items, seps []string) {
 
 type markerInfo struct {
 	style     string
-	prefixLen int // bytes of rest up to the first non-whitespace after the marker
+	prefixLen int  // bytes of rest up to the first non-whitespace after the marker
+	bare      bool // the marker is the only non-whitespace on the line
 }
 
-// stdBullet recognises `- `, `* `, `(1) `, `1) ` and `1. `.
+// stdBullet recognises `-`, `*`, `(1)`, `1)` and `1.`, followed either by
+// whitespace and text, or by nothing (a bare marker).
 func stdBullet(rest string) (markerInfo, bool) {
 	var style string
-	var end int // index just after the marker, before its mandatory space
+	var end int // index just after the marker
 	switch {
-	case strings.HasPrefix(rest, "- "):
-		style, end = "-", 1
-	case strings.HasPrefix(rest, "* "):
-		style, end = "*", 1
+	case rest != "" && (rest[0] == '-' || rest[0] == '*'):
+		style, end = rest[:1], 1
 	case strings.HasPrefix(rest, "("):
 		d := digitsFrom(rest, 1)
 		if d == 1 || d >= len(rest) || rest[d] != ')' {
@@ -193,24 +193,37 @@ func stdBullet(rest string) (markerInfo, bool) {
 		}
 		style, end = "n"+string(rest[d]), d+1
 	}
-	if end >= len(rest) || rest[end] != ' ' {
+	if end < len(rest) && !isSpace(rest[end]) {
 		return markerInfo{}, false
 	}
-	return markerInfo{style: style, prefixLen: skipSpace(rest, end+1)}, true
+	if end >= len(strings.TrimRight(rest, " \t")) {
+		return markerInfo{style: style, prefixLen: len(rest), bare: true}, true
+	}
+	return markerInfo{style: style, prefixLen: skipSpace(rest, end)}, true
 }
 
-// wordBullet recognises a single word followed by `: ` or ` - `. It only
-// applies inside a list introduced by a line ending in a colon.
+// wordBullet recognises a single word followed by `:` or ` -`, and then either
+// whitespace and text or nothing (a bare marker). It only applies inside a list
+// introduced by a line ending in a colon.
 func wordBullet(rest string) (markerInfo, bool) {
-	tokEnd := strings.IndexAny(rest, " \t")
-	if tokEnd <= 0 {
+	t := strings.TrimRight(rest, " \t")
+	tokEnd := strings.IndexAny(t, " \t")
+	if tokEnd < 0 {
+		if len(t) > 1 && strings.HasSuffix(t, ":") {
+			return markerInfo{style: "word:", prefixLen: len(rest), bare: true}, true
+		}
 		return markerInfo{}, false
 	}
-	tok := rest[:tokEnd]
+	if tokEnd == 0 {
+		return markerInfo{}, false
+	}
+	tok := t[:tokEnd]
 	switch {
 	case len(tok) > 1 && strings.HasSuffix(tok, ":"):
 		return markerInfo{style: "word:", prefixLen: skipSpace(rest, tokEnd)}, true
-	case strings.HasPrefix(rest[tokEnd:], " - "):
+	case t[tokEnd:] == " -":
+		return markerInfo{style: "word-", prefixLen: len(rest), bare: true}, true
+	case strings.HasPrefix(t[tokEnd:], " - "):
 		return markerInfo{style: "word-", prefixLen: skipSpace(rest, tokEnd+3)}, true
 	}
 	return markerInfo{}, false
@@ -260,10 +273,22 @@ type block struct {
 	// Bullets. marker is what precedes the text on the first line (including
 	// the gap); contPad is how far continuation lines are indented relative to
 	// lead. textLevel is the absolute indent continuation lines must have to be
-	// recognised as part of this bullet.
+	// recognised as part of this bullet (-1 if not yet known).
 	marker    string
 	contPad   int
 	textLevel int
+	// altLevel is a second indent (-1 if none) at which lines continue the
+	// bullet: the original indent of a line pulled up into a bare marker.
+	altLevel int
+	// pullable: a bare standard marker that may still pull up the next line.
+	pullable bool
+	// ownLine: the marker stays on its own line and the content (starting at
+	// textLevel, with leading whitespace cLead) goes on the lines below it.
+	ownLine bool
+	cLead   string
+	// ws: a whitespace bullet. Anything more indented than it belongs to it, and
+	// no list can be nested inside it.
+	ws bool
 
 	// Tables.
 	count int
@@ -327,6 +352,23 @@ func listStyleAt(cl []cline, k int) (style string, ok bool) {
 	return "ws", true
 }
 
+// bulletBelow reports whether the line after cl[i] is non-blank, more indented
+// than it, and itself a bullet (standard or word style).
+func bulletBelow(cl []cline, i int) bool {
+	if i+1 >= len(cl) || cl[i+1].blank || cl[i+1].indent <= cl[i].indent {
+		return false
+	}
+	if _, ok := stdBullet(cl[i+1].rest); ok {
+		return true
+	}
+	_, ok := wordBullet(cl[i+1].rest)
+	return ok
+}
+
+func (b *block) contLevel(indent int) bool {
+	return indent == b.textLevel || (b.altLevel >= 0 && indent == b.altLevel)
+}
+
 func scan(cl []cline, options Options) []*block {
 	var blocks []*block
 	var cur *block
@@ -367,12 +409,40 @@ func scan(cl []cline, options Options) []*block {
 		wordInList := top != nil && I == top.listIndent && isWord &&
 			(top.style == "word:" || top.style == "word-")
 
+		// Anything more indented than a whitespace bullet is part of it (no
+		// nested bullets or tables), as long as no blank line intervenes.
+		wsCont := cur != nil && cur.kind == kBullet && cur.ws && I > cur.indent
+		// A bullet marker that is the whole of a word bullet line is not an
+		// intro for a nested list, even though it ends in a colon.
+		markerLine := false
+
 		switch {
+		case wsCont:
+			cur.words = append(cur.words, strings.Fields(ln.text)...)
 		case isStd: // 1. standard bullets
 			newBlock(newBullet(ln, sb, options))
 		case wordInList: // 2. word bullets (only inside an intro list)
-			newBlock(newBullet(ln, wb, options))
-		case cur != nil && cur.kind == kBullet && I == cur.textLevel:
+			b := newBullet(ln, wb, options)
+			if wb.bare && wb.style == "word:" && bulletBelow(cl, i) {
+				// `Args:` followed by a deeper bullet is a bullet of this list
+				// that introduces a nested list, not a marker with content.
+				b.ownLine = false
+			} else {
+				markerLine = wb.bare
+			}
+			newBlock(b)
+		case cur != nil && cur.kind == kBullet && cur.pullable && I > cur.indent:
+			// A bare standard marker pulls up the line after it.
+			cur.pullable = false
+			cur.altLevel = I
+			cur.words = append(cur.words, strings.Fields(ln.text)...)
+		case cur != nil && cur.kind == kBullet && cur.ownLine && cur.textLevel < 0 && I > cur.indent:
+			// First line of content under a marker on its own line: never pulled
+			// up, but it sets the level for the rest of the content.
+			cur.textLevel = I
+			cur.cLead = ln.lead
+			cur.words = append(cur.words, strings.Fields(ln.text)...)
+		case cur != nil && cur.kind == kBullet && cur.contLevel(I):
 			// Continuation of the nearest bullet above.
 			cur.words = append(cur.words, strings.Fields(ln.text)...)
 		case cur != nil && cur.kind == kTable && I == cur.indent && len(ln.items) == cur.count:
@@ -386,10 +456,19 @@ func scan(cl []cline, options Options) []*block {
 			t.addRow(ln)
 			newBlock(t)
 		case top != nil && top.style == "ws" && I == top.listIndent: // 4. whitespace bullets
+			if len(strings.Fields(ln.text)) == 1 && i+1 < len(cl) && !cl[i+1].blank && cl[i+1].indent > I {
+				// A single word with deeper content below is a marker on its own
+				// line.
+				newBlock(&block{
+					kind: kBullet, lead: ln.lead, indent: I, marker: ln.text,
+					ownLine: true, textLevel: -1, altLevel: -1,
+				})
+				break
+			}
 			delta := top.listIndent - top.introIndent
 			newBlock(&block{
 				kind: kBullet, lead: ln.lead, indent: I,
-				contPad: delta, textLevel: I + delta,
+				contPad: delta, textLevel: I + delta, altLevel: -1, ws: true,
 				words: strings.Fields(ln.text),
 			})
 		case cur != nil && cur.kind == kProse && cur.indent == I: // 5. prose
@@ -401,8 +480,9 @@ func scan(cl []cline, options Options) []*block {
 		// A line ending in a colon, followed (possibly after blank comment lines)
 		// by a more indented line, introduces a list. A non-bullet line directly
 		// below at the text level of a bullet is a continuation of that bullet
-		// instead, so it does not start a list.
-		if cur.kind != kTable && strings.HasSuffix(ln.text, ":") {
+		// instead, so it does not start a list. No list can be nested inside a
+		// whitespace bullet, whose deeper lines are all part of it.
+		if cur.kind != kTable && !cur.ws && !markerLine && strings.HasSuffix(ln.text, ":") {
 			nxt := i + 1
 			for nxt < len(cl) && cl[nxt].blank {
 				nxt++
@@ -411,7 +491,7 @@ func scan(cl []cline, options Options) []*block {
 				next := cl[nxt]
 				_, nextStd := stdBullet(next.rest)
 				continuation := nxt == i+1 && cur.kind == kBullet &&
-					next.indent == cur.textLevel && !nextStd
+					cur.contLevel(next.indent) && !nextStd
 				if style, ok := listStyleAt(cl, nxt); ok && !continuation {
 					lists = append(lists, &listCtx{introIndent: I, listIndent: next.indent, style: style})
 				}
@@ -422,16 +502,24 @@ func scan(cl []cline, options Options) []*block {
 }
 
 func newBullet(ln cline, mi markerInfo, options Options) *block {
+	if mi.bare && strings.HasPrefix(mi.style, "word") {
+		// `arg:` or `arg -` alone: the marker keeps its own line.
+		return &block{
+			kind: kBullet, lead: ln.lead, indent: ln.indent, marker: ln.text,
+			ownLine: true, textLevel: -1, altLevel: -1,
+		}
+	}
 	marker := ln.rest[:mi.prefixLen]
 	text := ln.rest[mi.prefixLen:]
-	if strings.TrimSpace(text) == "" {
+	if mi.bare {
 		marker = strings.TrimRight(marker, " \t") + " "
 	}
 	cols := displayWidth(marker, options)
 	return &block{
 		kind: kBullet, lead: ln.lead, indent: ln.indent,
-		marker: marker, contPad: cols, textLevel: ln.indent + cols,
-		words: strings.Fields(text),
+		marker: marker, contPad: cols, textLevel: ln.indent + cols, altLevel: -1,
+		pullable: mi.bare,
+		words:    strings.Fields(text),
 	}
 }
 
@@ -471,8 +559,16 @@ func formatRun(run []Comment, indentStr string, style Style, options Options) []
 }
 
 func (b *block) renderBullet(prefix string, prefixCols int, options Options) []string {
+	if b.ownLine {
+		out := []string{prefix + b.lead + b.marker}
+		avail := options.Width - prefixCols - displayWidth(b.cLead, options)
+		for _, l := range wrapText(b.words, avail, avail, options) {
+			out = append(out, prefix+b.cLead+l)
+		}
+		return out
+	}
 	if len(b.words) == 0 {
-		return []string{prefix + b.lead + b.marker}
+		return []string{prefix + b.lead + strings.TrimRight(b.marker, " \t")}
 	}
 	firstAvail := options.Width - prefixCols - b.indent - displayWidth(b.marker, options)
 	contAvail := options.Width - prefixCols - b.indent - b.contPad
@@ -579,12 +675,10 @@ func wrapText(words []string, firstAvail, contAvail int, options Options) []stri
 }
 
 // looksLikeBullet reports whether a line starting with words[b] would be read
-// as a standard bullet (a marker followed by more text).
+// as a standard bullet: a marker, with or without text after it (a marker alone
+// on a line is a bare bullet).
 func looksLikeBullet(words []string, b int) bool {
-	if b+1 >= len(words) {
-		return false
-	}
-	_, ok := stdBullet(words[b] + " x")
+	_, ok := stdBullet(words[b])
 	return ok
 }
 
