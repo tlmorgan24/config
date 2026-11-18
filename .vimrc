@@ -404,10 +404,10 @@ nnoremap <Esc>/ <C-r>
 inoremap <Esc>/ <C-o><C-r>
 xnoremap <Esc>/ <Esc><C-r>
 
-" Cmd + c: copy visual selection to system clipboard (leaves vim registers untouched). In Ghostty / VS Code, I actually
+" Cmd + c: copy visual selection to system clipboard and enter insert mode (leaves vim registers untouched). In Ghostty / VS Code, I actually
 " only send this sequence by pressing cmd+shift+c, because cmd+c is already used by them to mean copy TERMINAL's
 " selection.
-xnoremap <Esc>[99;9u <Cmd>call system('pbcopy', getregion(getpos('v'), getpos('.'), #{type: mode()}) + (mode() ==# 'V' ? [''] : []))<CR>
+xnoremap <Esc>[99;9u <Cmd>call system('pbcopy', getregion(getpos('v'), getpos('.'), #{type: mode()}) + (mode() ==# 'V' ? [''] : []))<CR><Esc>i
 
 " Cmd + x: cut visual selection to system clipboard and enter insert mode (leaves vim registers untouched).
 xnoremap <Esc>[120;9u <Cmd>call system('pbcopy', getregion(getpos('v'), getpos('.'), #{type: mode()}) + (mode() ==# 'V' ? [''] : []))<CR>"_c
