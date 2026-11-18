@@ -355,8 +355,7 @@ So, the formatters aim to handle the most common situations properly:
 Certain cases (described below) are recognised as bullet points with a "text alignment level". In these cases:
 1. Each bullet starts a new logical paragraph.
 2. When wrapping a bullet, continuation lines align with the bullet's "text alignment level".
-3. Likewise (the reverse direction), a non-bullet comment whose first non-whitespace character is at the text alignment level of the bullet above (without any new paragraphs between them) is considered part of that bullet and may be pulled into it. So, the general rule that a line is only left underfull "if the line below it has a different indent level" does not apply to bullets, as the "text alignment level" is usually different to the "indent level" of the bullet marker itself.
-4. No lines other than as laid out in point 3 can be pulled into a bullet.
+3. Likewise (the reverse direction), a non-bullet comment whose first non-whitespace character is at the "text alignment level" of the bullet above (without any new paragraphs between them) is considered part of that bullet and may be pulled into it. So, the general rule that a line is only left underfull "if the line below it has a different indent level" does not apply to bullets, as the "text alignment level" is usually different to the "indent level" of the bullet marker itself.
 
 A comment line is assumed to be a bullet point when the line starts with 0+ whitespaces, followed by `-`, `*`, `(1)`, `1)`, or `1.` (likewise for other integers), followed by either:
 * 1+ whitespaces, followed by non-whitespace text. The `-`, `*`, `(1)`, `1)`, or `1.` are recognised as bullet markers, and the first non-whitespace after the marker is the "text alignment level" of that bullet.
@@ -427,6 +426,9 @@ Becomes:
 A numerical bullet of matching style but inconsistent number is allowed. The formatter does not enforce a consistent increment (e.g., if a bullet list starts at `(2)`, it is not shifted to start at `(1)`), to prevent stale references like "see point (2)".
 
 When `word:` appears alone on a line inside a word-style list, it could either be a bullet marker on its own line (the lines below are its content) or an intro to a nested list (the lines below it are list items). It is treated as an intro if the next line is more indented and is itself a standard or word-style bullet; otherwise it is a marker with content.
+
+There is one more case where lines misaligned with the "text alignment level" are allowed to be pulled into a bullet. This case is a `word:` or `word -` style bullet with content on its line (i.e., not a "marker on its own line"). Here, a strict rule of requiring the below lines to align with the "text alignment level" would fail under edits, as editing the `word` would shift the text alignment level out of sync. Therefore, if a line is in the same paragraph as such a bullet, it is considered part of the bullet if it has ANY indentation more than the bullet marker AND cannot be interpreted as a bullet or table (if it can, that takes priority).
+
 
 ##### Tables
 

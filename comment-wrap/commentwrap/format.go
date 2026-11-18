@@ -277,6 +277,10 @@ type block struct {
 	marker    string
 	contPad   int
 	textLevel int
+	// style is the marker style, as in markerInfo ("word:", "word-", "-", "n.",
+	// ...). It is empty for non-bullets and for whitespace and single-word
+	// own-line bullets, which have no recognised marker.
+	style string
 	// altLevel is a second indent (-1 if none) at which lines continue the
 	// bullet: the original indent of a line pulled up into a bare marker.
 	altLevel int
@@ -367,6 +371,18 @@ func bulletBelow(cl []cline, i int) bool {
 
 func (b *block) contLevel(indent int) bool {
 	return indent == b.textLevel || (b.altLevel >= 0 && indent == b.altLevel)
+}
+
+// absorbsDeeper reports whether this block takes in any non-bullet, non-table
+// line indented beyond its marker, whatever the line's exact indent. That is
+// the case for word bullets (`word:` and `word -`) with their content on the
+// marker's line: the marker's length is edited often (renamed arguments), which
+// moves the text alignment level and would otherwise orphan existing
+// continuation lines. Standard bullets and own-line markers are excluded, as
+// their continuation lines are not positioned relative to an editable marker.
+func (b *block) absorbsDeeper(indent int) bool {
+	return b.kind == kBullet && !b.ownLine && !b.ws &&
+		strings.HasPrefix(b.style, "word") && indent > b.indent
 }
 
 func scan(cl []cline, options Options) []*block {
@@ -471,6 +487,14 @@ func scan(cl []cline, options Options) []*block {
 				contPad: delta, textLevel: I + delta, altLevel: -1, ws: true,
 				words: strings.Fields(ln.text),
 			})
+		case cur != nil && cur.absorbsDeeper(I):
+			// A word bullet takes any other line indented beyond its marker
+			// (no blank comment between), whatever its exact indent, so that
+			// renaming the marker does not orphan the continuation lines. Only
+			// reached for lines that are not bullets, not table rows and not the
+			// first item of a colon-introduced list, as all of those are matched
+			// above. It is reflowed to the bullet's text alignment level.
+			cur.words = append(cur.words, strings.Fields(ln.text)...)
 		case cur != nil && cur.kind == kProse && cur.indent == I: // 5. prose
 			cur.words = append(cur.words, strings.Fields(ln.text)...)
 		default:
@@ -506,7 +530,7 @@ func newBullet(ln cline, mi markerInfo, options Options) *block {
 		// `arg:` or `arg -` alone: the marker keeps its own line.
 		return &block{
 			kind: kBullet, lead: ln.lead, indent: ln.indent, marker: ln.text,
-			ownLine: true, textLevel: -1, altLevel: -1,
+			ownLine: true, textLevel: -1, altLevel: -1, style: mi.style,
 		}
 	}
 	marker := ln.rest[:mi.prefixLen]
@@ -518,6 +542,7 @@ func newBullet(ln cline, mi markerInfo, options Options) *block {
 	return &block{
 		kind: kBullet, lead: ln.lead, indent: ln.indent,
 		marker: marker, contPad: cols, textLevel: ln.indent + cols, altLevel: -1,
+		style:    mi.style,
 		pullable: mi.bare,
 		words:    strings.Fields(text),
 	}
