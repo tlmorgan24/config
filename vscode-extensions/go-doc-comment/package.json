@@ -1,0 +1,29 @@
+{
+  "name": "go-doc-comment",
+  "displayName": "Go Doc Comment",
+  "description": "Generate bare Go declaration doc comments by typing ///",
+  "publisher": "tlmorgan24",
+  "version": "0.0.1",
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:go"
+  ],
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "goDocComment.slash",
+        "title": "Generate Go Doc Comment"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "goDocComment.slash",
+        "key": "/",
+        "when": "editorTextFocus && !editorReadonly && editorLangId == go"
+      }
+    ]
+  }
+}

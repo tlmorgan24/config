@@ -40,8 +40,8 @@ fi
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/drop" .)
 # Build my checkout program (see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/checkout" .)
-# Build every comment formatter command. Each command directory becomes an executable with the same name, so adding a
-# formatter implementation only requires adding another entry under comment-wrap/cmd/.
+# Build every comment tool (formatters and doc comment helpers). Each command directory becomes an executable
+# with the same name, so adding a tool only requires adding another entry under comment-wrap/cmd/.
 # Language mappings and shared defaults live in comment-wrap/config.jsonc.
 for command_dir in "$script_dir/comment-wrap/cmd"/*/; do
   [[ -d "$command_dir" ]] || continue

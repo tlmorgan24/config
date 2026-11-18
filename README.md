@@ -454,7 +454,7 @@ If multiple cases may apply, precedence is as follows:
 
 When reflowing, ensure that the new lines (which should be part of the same paragraph) would not be confused for new bullet points. If it would, break at another word instead.
 
-#### While typing
+### Formatting while typing
 
 I also define actions to occur on enter/delete while typing comments in vscode-extensions/line-comment-continue/:
 
@@ -463,6 +463,10 @@ I also define actions to occur on enter/delete while typing comments in vscode-e
 * For numeric markers, Enter inserts the next number and renumbers later siblings consecutively, preserving the marker style. For example, Enter after bullet 2 in a list numbered 1, 2, 4 produces 1, 2, 3, 4. While the on-save formatter does not renumber to prevent stale references, it is considered appropriate behaviour for a live editing tool like this, as you can see the changes and intervene if it will produce stale references.
 * Enter on an empty standard bullet removes its marker. At the end of a bullet with continuation lines below it, Enter keeps the text alignment; at the end of the last continuation line, it creates the next bullet.
 * Backspace when the cursor is immediately after a bullet marker deletes the entire marker (rather than a single character) and renumbers later siblings.
+
+### Doc comments
+
+In a Go file, typing `/` at the end of a line containing only indentation and `//`, if the line is directly above a function declaration, generates `// FunctionName ` and a `//     - name: ` line for each named parameter.
 
 ### Search
 
