@@ -87,6 +87,10 @@ go install github.com/segmentio/golines@latest # for line wrapping
 pip3 install pillow
 pip3 install img2pdf
 
+# Coding agents
+brew install --cask claude-code  # but command is just `claude`
+#brew install --cask codex
+
 # My preferred font (alternative: `brew install --cask font-fira-code-nerd-font`)
 brew install --cask font-jetbrains-mono-nerd-font
 # Terminal options (plus VS Code, installed below). Choose whichever, all configs are in this repo, pros/cons in README.
@@ -97,7 +101,7 @@ brew install --cask kitty
 brew install starship
 
 # My preferred IDE
-brew install --cask visual-studio-code  
+brew install --cask visual-studio-code  # open with `code` command
 # Install VS Code extensions (strip comments and blank lines, then install each ID). Must come after installation of VS
 # Code.
 sed -e 's/#.*//' -e 's/[[:space:]]//g' "$script_dir/vscode-extensions.txt" | grep . | xargs -L1 code --install-extension
