@@ -1697,10 +1697,10 @@ claude-search() {
     --bind="ctrl-r:transform:${(j:; :)toggle}"
   )
 
-  # Ctrl+r's help says which directory it switches to.
+  # Ctrl+r's help is green while sessions from all directories are included.
   local reply REPLY
-  _fzf_help -c 'dir="this directory"; [[ -e $CLAUDE_SEARCH_STATE/here ]] && dir="all directories"' \
-    ⌃r '$dir' ⌃s 'search mode' ⌃i insensitive ⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter resume esc quit
+  _fzf_help -c 'export FZF_HELP_ACTIVE_KEYS=; [[ -e $CLAUDE_SEARCH_STATE/here ]] || FZF_HELP_ACTIVE_KEYS="|⌃r|"' \
+    ⌃r 'all directories' ⌃s 'search mode' ⌃i insensitive ⇧↑/↓ 'scroll preview' ⌥z 'wrap preview' enter resume esc quit
   FZF_OPTS+=($reply --bind="ctrl-r:+transform-border-label:$REPLY")
   _fzf_search_mode_opts
   FZF_OPTS+=($reply --prompt='words> ')
@@ -1838,7 +1838,7 @@ if (( $+commands[cmdlog] )); then
     local colour_rows=0
     # Pressing ctrl+r again toggles between all commands and only those run in the current directory (like atuin), and
     # ctrl+t toggles colouring the list's commands. Both reload the list. The header shows which directory is shown,
-    # and the help what each toggle switches to (see _fzf_help). In $CMDLOG_HISTORY_STATE, `here` exists while it's
+    # and the help colours enabled toggles green (see _fzf_help). In $CMDLOG_HISTORY_STATE, `here` exists while it's
     # this directory, and `colour` while colouring. (fzf runs this in a new shell, in this directory. The header is set
     # with the `:` form, as the last action, so a directory name containing brackets can't break it. Setting
     # CMDLOG_HIGHLIGHT to nothing stops cmdlog colouring.)
@@ -1864,12 +1864,12 @@ if (( $+commands[cmdlog] )); then
       --bind="ctrl-r,ctrl-t:transform:${(j:; :)toggle}"
     )
     local hints=(
-      'dir="this directory" highlight=highlight'
-      '[[ -e $CMDLOG_HISTORY_STATE/here ]] && dir="all directories"'
-      '[[ -e $CMDLOG_HISTORY_STATE/colour ]] && export FZF_HELP_ACTIVE_KEYS="|⌃t|"'
+      'export FZF_HELP_ACTIVE_KEYS='
+      '[[ -e $CMDLOG_HISTORY_STATE/here ]] || FZF_HELP_ACTIVE_KEYS+="|⌃r|"'
+      '[[ -e $CMDLOG_HISTORY_STATE/colour ]] && FZF_HELP_ACTIVE_KEYS+="|⌃t|"'
     )
     local reply REPLY
-    _fzf_help -c "${(j:; :)hints}" ⌃r '$dir' ⌃s 'search mode' ⌃i insensitive ⌃t '$highlight' ⇧↑/↓ 'scroll output' \
+    _fzf_help -c "${(j:; :)hints}" ⌃r 'all directories' ⌃s 'search mode' ⌃i insensitive ⌃t highlight ⇧↑/↓ 'scroll output' \
       ⌥z 'wrap output' enter insert esc quit
     FZF_OPTS+=($reply --bind="ctrl-r,ctrl-t:+transform-border-label:$REPLY")
     _fzf_search_mode_opts
