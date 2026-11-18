@@ -29,13 +29,6 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if !language.Enabled {
-		_, err = os.Stdout.Write(source)
-		if err != nil {
-			fatal(err)
-		}
-		return
-	}
 
 	width := language.Width
 	if configuredWidth := maxLineLength(os.Args[1:]); configuredWidth > 0 {

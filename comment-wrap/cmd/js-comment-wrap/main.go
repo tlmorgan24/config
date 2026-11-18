@@ -27,12 +27,11 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if language.Enabled {
-		source = jswrap.Format(source, commentwrap.Options{
-			Width:    language.Width,
-			TabWidth: language.TabWidth, MinColWidth: language.MinColWidth,
-		})
-	}
+	source = jswrap.Format(source, commentwrap.Options{
+		Width:    language.Width,
+		TabWidth: language.TabWidth, MinColWidth: language.MinColWidth,
+	})
+
 	if _, err := os.Stdout.Write(source); err != nil {
 		fatal(err)
 	}

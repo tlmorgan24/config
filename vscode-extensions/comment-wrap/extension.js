@@ -27,8 +27,8 @@ function loadConfig() {
         throw new Error(`${key} for ${id} must be a positive integer`);
       }
     }
-    if (typeof language.enabled !== "boolean" || typeof language.formatter !== "string" || !language.formatter) {
-      throw new Error(`missing enabled or formatter configuration for ${id}`);
+    if (typeof language.formatter !== "string" || !language.formatter) {
+      throw new Error(`missing formatter configuration for ${id}`);
     }
     if (language.args !== undefined && (!Array.isArray(language.args) || language.args.some((arg) => typeof arg !== "string"))) {
       throw new Error(`formatter args for ${id} must be strings`);
@@ -74,32 +74,6 @@ function editsFor(document, formatted) {
   )];
 }
 
-function formatOnSave(event) {
-  let language;
-  try {
-    language = loadConfig()[event.document.languageId];
-  } catch (error) {
-    vscode.window.showErrorMessage(`Comment Wrap: ${error.message}`);
-    return;
-  }
-  if (!language?.enabled) {
-    return;
-  }
-  const editorConfig = vscode.workspace.getConfiguration("editor", event.document);
-  if (editorConfig.get("formatOnSave") && editorConfig.get("defaultFormatter") === "tlmorgan24.comment-wrap") {
-    return; // VS Code will call our formatting provider for this save.
-  }
-  const editor = vscode.window.visibleTextEditors.find((editor) => editor.document === event.document);
-  event.waitUntil(
-    runFormatter(event.document, language, editor?.options)
-      .then((formatted) => editsFor(event.document, formatted))
-      .catch((error) => {
-        vscode.window.showErrorMessage(`Comment Wrap: ${error.message}`);
-        return [];
-      }),
-  );
-}
-
 function activate(context) {
   let providers = [];
   const registerProviders = () => {
@@ -112,7 +86,7 @@ function activate(context) {
               return [];
             }
             const language = loadConfig()[languageId];
-            if (!language?.enabled) {
+            if (!language) {
               return [];
             }
             return runFormatter(document, language, options).then((formatted) => editsFor(document, formatted));
@@ -133,7 +107,6 @@ function activate(context) {
     watcher.onDidCreate(registerProviders),
     watcher.onDidDelete(registerProviders),
     { dispose: () => providers.forEach((provider) => provider.dispose()) },
-    vscode.workspace.onWillSaveTextDocument(formatOnSave),
   );
 }
 

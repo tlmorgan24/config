@@ -11,7 +11,6 @@ import (
 )
 
 type Language struct {
-	Enabled     bool     `json:"enabled"`
 	Width       int      `json:"width"`
 	TabWidth    int      `json:"tabWidth"`
 	MinColWidth int      `json:"minColWidth"`

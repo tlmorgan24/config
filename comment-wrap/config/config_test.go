@@ -19,10 +19,10 @@ func fixture(t *testing.T, source string) {
 
 func TestLanguageDefaultsAndOverrides(t *testing.T) {
 	fixture(t, `{
-		"defaults": {"enabled":true,"width":100,"tabWidth":4,"minColWidth":30},
+		"defaults": {"width":100,"tabWidth":4,"minColWidth":30},
 		"languages": {
 			"new-language":{"formatter":"shell-comment-wrap"},
-			"disabled":{"formatter":"js-comment-wrap","enabled":false,"width":80}
+			"overridden":{"formatter":"js-comment-wrap","width":80}
 		}
 	} // EOF comment without a final newline`)
 	settings, err := Load()
@@ -30,11 +30,11 @@ func TestLanguageDefaultsAndOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	language, err := settings.Language("new-language")
-	if err != nil || !language.Enabled || language.Width != 100 || language.TabWidth != 4 || language.MinColWidth != 30 {
+	if err != nil || language.Width != 100 || language.TabWidth != 4 || language.MinColWidth != 30 {
 		t.Fatalf("inherited settings: %+v, %v", language, err)
 	}
-	language, err = settings.Language("disabled")
-	if err != nil || language.Enabled || language.Width != 80 {
+	language, err = settings.Language("overridden")
+	if err != nil || language.Width != 80 {
 		t.Fatalf("overrides: %+v, %v", language, err)
 	}
 	t.Setenv("COMMENT_WRAP_TAB_WIDTH", "2")

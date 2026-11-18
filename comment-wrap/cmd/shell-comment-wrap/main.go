@@ -30,14 +30,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "shell-comment-wrap: %v\n", err)
 		os.Exit(1)
 	}
-	if !language.Enabled {
-		_, err = os.Stdout.Write(source)
-	} else {
-		_, err = os.Stdout.Write(shellwrap.Format(source, commentwrap.Options{
-			Width:    language.Width,
-			TabWidth: language.TabWidth, MinColWidth: language.MinColWidth,
-		}))
-	}
+	_, err = os.Stdout.Write(shellwrap.Format(source, commentwrap.Options{
+		Width:    language.Width,
+		TabWidth: language.TabWidth, MinColWidth: language.MinColWidth,
+	}))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "shell-comment-wrap: %v\n", err)
 		os.Exit(1)

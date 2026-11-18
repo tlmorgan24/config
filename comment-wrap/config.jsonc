@@ -1,7 +1,6 @@
 {
   // Shared defaults; each language can override these settings.
   "defaults": {
-    "enabled": true,
     "width": 100,
     "tabWidth": 4, // VS Code settings.json takes priority, so no need to repeat language-specific overrides in this file
     "minColWidth": 30

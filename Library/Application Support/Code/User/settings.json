@@ -210,11 +210,18 @@
     "editor.insertSpaces": false, // Go prefers tabs over spaces
     // Go extension sets the Go formatter to the extension's own default. Override to instead
     // use my custom extension which wraps comments, then runs golines with gofmt.
-    "editor.defaultFormatter": "tlmorgan24.comment-wrap"
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
   },
 
+  "[python]": {
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
+  },
   "[shellscript]": {  // E.g. bash (see files.associations)
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
   },
   "[html]": {
     "editor.tabSize": 2
@@ -223,10 +230,14 @@
     "editor.tabSize": 2
   },
   "[json]": {
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
   },
   "[jsonc]": {  // JSON with comments (this settings.json file is actually JSONC, hence why I can comment!).
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
   },
   "[yaml]": {
     "editor.tabSize": 2
@@ -238,16 +249,24 @@
     "editor.tabSize": 2
   },
   "[javascript]": {
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
   },
   "[javascriptreact]": {
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
   },
   "[typescript]": {
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
   },
   "[typescriptreact]": {
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap",
+    "editor.formatOnSave": true
   },
 
   "files.associations": {
