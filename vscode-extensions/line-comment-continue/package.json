@@ -34,92 +34,92 @@
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == go"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == go"
       },
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == shellscript"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == shellscript"
       },
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == python"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == python"
       },
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == javascript"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == javascript"
       },
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == javascriptreact"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == javascriptreact"
       },
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == typescript"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == typescript"
       },
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == typescriptreact"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == typescriptreact"
       },
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == json"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == json"
       },
       {
         "command": "lineCommentContinue.enter",
         "key": "enter",
-        "when": "editorTextFocus && editorLangId == jsonc"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == jsonc"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == go"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == go"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == shellscript"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == shellscript"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == python"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == python"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == javascript"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == javascript"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == javascriptreact"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == javascriptreact"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == typescript"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == typescript"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == typescriptreact"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == typescriptreact"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == json"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == json"
       },
       {
         "command": "lineCommentContinue.backspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == jsonc"
+        "when": "editorTextFocus && !suggestWidgetVisible && !inlineSuggestionVisible && !inSnippetMode && editorLangId == jsonc"
       }
     ]
   }

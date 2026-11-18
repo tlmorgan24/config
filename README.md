@@ -458,9 +458,9 @@ I also define actions to occur on enter/delete while typing comments in vscode-e
 
 * Enter preserves the indentation of the current comment marker and the alignment of the *text* with respect to the comment marker. For example, `//   hello|`, then enter, creates the new line, `//   |` (where `|` represents the cursor).
 * It recognises bullet markers and inserts a new marker on enter. **NOTE**: I think, by happy coincidence, this allows it to work nicely with JSDoc, because the `*` at the start of each line is treated as a bullet, so the `*` gets auto-inserted. A more robust solution may soon be required.
-* For numeric markers, on enter on a bullet line or on deletion of a comment with bullets below it, it adjusts the numbers to be consecutive starting from the first number. While the on-save formatter does not do this to prevent stale references, it is considered appropriate behaviour for a live editing tool like this, as you can see the changes and intervene if it will produce stale references.
-  * This is currently buggy. Imagine bullets 1, 2, 3, 4. If you delete bullet 3, nothing happens (I believe on-delete number adjustment is not implemented in the tool yet), leaving 1, 2, 4. Then, pressing enter on bullet 2 inserts bullet 3 and increments 4 to 5, leaving 1, 2, 3, 5.
-* Backspace when the cursor is after a bullet marker deletes the entire marker, rather than a single character.
+* For numeric markers, Enter inserts the next number and renumbers later siblings consecutively, preserving the marker style. For example, Enter after bullet 2 in a list numbered 1, 2, 4 produces 1, 2, 3, 4. While the on-save formatter does not renumber to prevent stale references, it is considered appropriate behaviour for a live editing tool like this, as you can see the changes and intervene if it will produce stale references.
+* Enter on an empty standard bullet removes its marker. At the end of a bullet with continuation lines below it, Enter keeps the text alignment; at the end of the last continuation line, it creates the next bullet.
+* Backspace when the cursor is immediately after a bullet marker deletes the entire marker (rather than a single character) and renumbers later siblings.
 
 ### Search
 
