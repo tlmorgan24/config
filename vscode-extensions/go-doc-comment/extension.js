@@ -43,7 +43,7 @@ function readGoDeclaration(source, line) {
 
 function docCommentPlan(target, signature, eol) {
   const overview = `${target.indentation}// ${signature.name} `;
-  const text = [overview, ...signature.names.map((name) => `${target.indentation}//     - ${name}: `)].join(eol);
+  const text = [overview, ...signature.names.map((name) => `${target.indentation}//   - ${name}: `)].join(eol);
   return {
     edits: [{ start: [target.line, 0], end: [target.line, target.indentation.length + 3], text }],
     cursor: [target.line, overview.length],
