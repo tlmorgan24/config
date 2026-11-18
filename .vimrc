@@ -23,6 +23,13 @@ let g:go_highlight_extra_types = 1  " A few common library types, e.g. io.Reader
 let g:go_highlight_operators = 1
 let g:go_highlight_format_strings = 0  " On by default, but VS Code leaves `%d` etc the colour of the string.
 
+" Markdown: load syntax highlighting for these fenced code block labels (disabled by default in Vim).
+" label=syntax entries handle aliases; shell blocks use zsh, as standalone shell scripts do above.
+let g:markdown_fenced_languages = ['go', 'python', 'sh=zsh', 'bash=zsh', 'zsh',
+      \ 'javascript', 'js=javascript', 'typescript', 'ts=typescript', 'json',
+      \ 'html', 'css', 'yaml', 'yml=yaml', 'vim',
+      \ 'c', 'cpp', 'c++=cpp', 'java', 'kotlin', 'cs', 'csharp=cs', 'c#=cs']
+
 set number  " Line numbers (only one space away from start of line, unfortunately no way to customise spacing)
 hi LineNr ctermfg=8  " Very low contrast with background, helps prevent line numbers from intruding on actual text.
 
