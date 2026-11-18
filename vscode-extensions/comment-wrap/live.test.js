@@ -647,3 +647,79 @@ test("spacing edits postpone pending paste work without losing its affected para
   assert.equal(h.output(), "// alpha beta gamma\n// delta epsilon\n//\n// one two three four\n// five six seven|");
   assert.equal(h.controller.state(h.document).affected.length, 0);
 });
+
+for (const laterSibling of [false, true]) {
+  test(`selection deletion then Backspace reflows when cursor notifications arrive late (later sibling: ${laterSibling})`, async () => {
+    const intro = '# <new-order> contains comma-separated fields, where each field can be:';
+    const first = '#   * an integer i, to mean the original field i (0-based).';
+    const prefix = '#   * ';
+    const rest = 'a range i-j, as shorthand for i,i+1,etc,j-1,j (if i < j) or i,i-1,etc,j+1,j (if i > j) or i (if i == j).';
+    const suffix = laterSibling ? '\n#   * next item' : '';
+    const h = harness(`${intro}\n${first}\n${prefix}|${rest}${suffix}`, 'shellscript', 100);
+    // Cmd+Backspace performs cursorHomeSelect then deleteLeft. A manual
+    // selection followed by Backspace produces these same native events.
+    const anchor = new Position(2, prefix.length), start = new Position(2, 0);
+    h.editor.selection = new Selection(anchor, start);
+    h.controller.selected({ textEditor: h.editor });
+    h.change([{ range: new Range(start, anchor), rangeOffset: h.document.offsetAt(start), rangeLength: prefix.length, text: '' }]);
+    await h.drain(); // The document is updated; the selection still is not.
+    h.editor.selection = new Selection(start, start);
+    h.controller.selected({ textEditor: h.editor });
+    await h.drain();
+    assert.equal(h.output(), `${intro}\n${first}\n|${rest}${suffix}`);
+    const previousEnd = new Position(1, first.length);
+    h.change([{ range: new Range(previousEnd, start), rangeOffset: h.document.offsetAt(previousEnd), rangeLength: 1, text: '' }]);
+    await h.drain(); // The old cursor now names another line, or past EOF.
+    h.editor.selection = new Selection(previousEnd, previousEnd);
+    h.controller.selected({ textEditor: h.editor });
+    await h.drain();
+    assert.equal(h.output(), `${intro}\n#   * an integer i, to mean the original field i (0-based).|a range i-j, as shorthand for\n#     i,i+1,etc,j-1,j (if i < j) or i,i-1,etc,j+1,j (if i > j) or i (if i == j).${suffix}`);
+  });
+}
+
+test('a deletion skipped while the old selection is nonempty retries when it collapses', async () => {
+  const h = harness('// alpha |remove this\n// beta gamma delta epsilon', 'go', 24);
+  const start = new Position(0, 9), end = new Position(0, 20);
+  h.editor.selection = new Selection(end, start);
+  h.change([{ range: new Range(start, end), rangeOffset: h.document.offsetAt(start), rangeLength: 11, text: '' }]);
+  await h.drain();
+  assert.equal(h.editor.edits.length, 0);
+  h.editor.selection = new Selection(start, start);
+  h.controller.selected({ textEditor: h.editor });
+  await h.drain();
+  assert.equal(h.output(), '// alpha |beta gamma\n// delta epsilon');
+});
+
+test('a cursor notification during helper execution retries a joined line without another keystroke', async () => {
+  const h = harness('// alpha beta gamma delta\n| epsilon', 'go', 24);
+  const release = h.delay();
+  const start = new Position(0, 25), end = new Position(1, 0);
+  h.change([{ range: new Range(start, end), rangeOffset: 25, rangeLength: 1, text: '' }]);
+  await h.drain();
+  h.editor.selection = new Selection(start, start);
+  h.controller.selected({ textEditor: h.editor });
+  release(); await new Promise((resolve) => setImmediate(resolve));
+  await h.drain();
+  assert.equal(h.output(), '// alpha beta gamma\n// delta| epsilon');
+  assert.equal(h.controller.state(h.document).needsReflow, false);
+});
+
+test('a settled edit inspects its paragraph only once', async () => {
+  const h = harness('// short|', 'go', 100);
+  h.type('x'); await h.drain();
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.controller.state(h.document).affected.length, 0);
+  assert.equal(h.controller.state(h.document).needsReflow, false);
+});
+
+test('retrying after a cursor move formats the edited paragraph without touching the destination paragraph', async () => {
+  const untouched = '// untouched paragraph deliberately remains overfull';
+  const h = harness(`// alpha beta gamma delt|\n//\n${untouched}`, 'go', 24);
+  const release = h.delay();
+  h.type('a'); await h.drain();
+  h.select(h.document.offsetAt(new Position(2, 3)));
+  release(); await new Promise((resolve) => setImmediate(resolve));
+  await h.drain();
+  assert.equal(h.output(), '// alpha beta gamma\n// delta\n//\n// |untouched paragraph deliberately remains overfull');
+  assert.equal(h.editor.selectionWrites, 2, 'only the two simulated user actions move the cursor explicitly');
+});

@@ -70,7 +70,7 @@ class LiveReflow {
 
   state(document) {
     if (!this.states.has(document)) {
-      this.states.set(document, { breaks: [], scope: null, affected: [], scheduledReflow: null, generation: 0, applying: false });
+      this.states.set(document, { breaks: [], scope: null, affected: [], needsReflow: false, scheduledReflow: null, generation: 0, applying: false });
     }
     return this.states.get(document);
   }
@@ -94,6 +94,7 @@ class LiveReflow {
     state.breaks = [];
     state.scope = null;
     state.affected = [];
+    state.needsReflow = false;
     state.enterChange = null;
   }
 
@@ -132,7 +133,10 @@ class LiveReflow {
     // wrapping would repeatedly orphan the continuation lines just created.
     // The generation was already advanced, so earlier results cannot apply either.
     // Keep pending paste ranges for the next text edit or explicit formatting.
-    if (changes.every((change) => change.rangeLength === 0 && /^[ \t]+$/.test(change.text))) return;
+    if (changes.every((change) => change.rangeLength === 0 && /^[ \t]+$/.test(change.text))) {
+      state.needsReflow = false;
+      return;
+    }
     const newline = changes.find((change) => state.enterChange && sameChanges([change], [state.enterChange]));
     if (newline && /^\r?\n[^\r\n]*$/.test(newline.text)) {
       state.enterChange = null;
@@ -141,21 +145,34 @@ class LiveReflow {
       state.breaks.push(boundary);
       this.schedule(editor, { inspect: true, target: document.positionAt(Math.max(0, boundary - eolLength)) });
     } else {
-      // Retain pasted ranges through later keystrokes, so a stale helper
-      // response cannot leave the earlier paragraphs of a paste unformatted.
+      // Track every edit, including a zero-length point after deletion. The
+      // document event can precede its selection event, so the current cursor
+      // may still point at a different paragraph or even beyond the new EOF.
+      state.needsReflow = true;
       for (const change of changes) {
-        if (!/[\r\n]/.test(change.text)) continue;
         const start = moveOffset(change.rangeOffset, changes, false);
         state.affected.push({ start, end: start + change.text.length });
       }
+      const merged = [];
+      for (const range of state.affected.sort((a, b) => a.start - b.start)) {
+        const previous = merged.at(-1);
+        if (previous && range.start <= previous.end) previous.end = Math.max(previous.end, range.end);
+        else merged.push(range);
+      }
+      state.affected = merged;
       this.schedule(editor, {});
     }
   }
 
   selected(event) {
     const state = this.states.get(event.textEditor.document);
-    if (!state || state.applying || !state.scope) return;
+    if (!state || state.applying) return;
     const editor = event.textEditor;
+    if (state.needsReflow) {
+      if (editor.selections.length === 1 && editor.selection.isEmpty) this.schedule(editor, {});
+      return;
+    }
+    if (!state.scope) return;
     const offset = editor.document.offsetAt(editor.selection.active);
     if (editor.selections.length !== 1 || offset < state.scope.start || offset > state.scope.end) this.leave(editor);
   }
@@ -169,7 +186,8 @@ class LiveReflow {
     this.reset(editor.document);
     state.affected = affected;
     if (affected.length) {
-      this.schedule(editor, {});
+      state.needsReflow = true;
+      this.schedule(editor, { flush: true });
       return;
     }
     if (scope && protectedParagraph && this.enabled(editor.document) && editor.selections.length === 1 && editor.selection.isEmpty) {
@@ -241,18 +259,36 @@ class LiveReflow {
     protectedLines = state.breaks.map((at) => document.positionAt(at).line);
     if (options.inspect && !state.affected.length) return;
     const edits = [];
-    if (!options.inspect && result?.edit) edits.push(result.edit);
+    const inspected = [];
+    const remember = (paragraph, line) => {
+      let first = paragraph?.edit?.first ?? paragraph?.first ?? line;
+      let last = paragraph?.edit?.last ?? paragraph?.last ?? line;
+      for (const boundary of protectedLines) {
+        if (boundary <= line) first = Math.max(first, boundary);
+        else last = Math.min(last, boundary - 1);
+      }
+      inspected.push({ first, last });
+    };
+    if (!options.inspect || !result?.edit) remember(result, target.line);
     const ranges = state.affected.map((range) => ({
       first: document.positionAt(range.start).line, last: document.positionAt(range.end).line,
     }));
+    if (!options.inspect && result?.edit) {
+      // A selection notification can be a real cursor move. Retry the edited
+      // ranges without formatting an unrelated paragraph at the new cursor.
+      const affected = !ranges.length || options.target || ranges.some((range) =>
+        range.first <= result.edit.last && range.last >= result.edit.first);
+      if (affected) edits.push(result.edit);
+    }
     // Query whole logical paragraphs against one immutable snapshot, then
     // apply all of their spacing changes in a single atomic editor edit.
     for (const range of ranges) {
       for (let line = range.first; line <= range.last;) {
-        const covered = edits.find((edit) => edit.first <= line && edit.last >= line);
+        const covered = inspected.find((range) => range.first <= line && range.last >= line);
         if (covered) { line = covered.last + 1; continue; }
         const paragraph = await request(document.lineAt(line).range.end);
         if (!current()) return;
+        remember(paragraph, line);
         if (paragraph?.edit) edits.push(paragraph.edit);
         let last = paragraph?.edit?.last ?? paragraph?.last ?? line;
         for (const boundary of protectedLines) {
@@ -268,7 +304,11 @@ class LiveReflow {
       const end = document.offsetAt(document.lineAt(edit.last).range.end);
       return spacingChanges(source.slice(start, end), edit.text, start);
     });
-    if (!changes.length) { state.affected = []; return; }
+    if (!changes.length) {
+      state.affected = [];
+      state.needsReflow = false;
+      return;
+    }
     state.applying = true;
     state.expectedChanges = changes;
     try {
@@ -282,7 +322,10 @@ class LiveReflow {
           ), change.text);
         }
       }, { undoStopBefore: Boolean(options.flush), undoStopAfter: Boolean(options.flush) });
-      if (applied && state.generation === generation) state.affected = [];
+      if (applied && state.generation === generation) {
+        state.affected = [];
+        state.needsReflow = false;
+      }
     } finally {
       state.applying = false;
       state.expectedChanges = null;
