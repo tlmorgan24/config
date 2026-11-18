@@ -211,6 +211,28 @@ function renumberEdits(document, prefix, startLine, list, firstNumber) {
   return edits;
 }
 
+// Reuse the first following paragraph's indentation if it is deeper than the
+// intro's text. Blank comments separate paragraphs without ending an intro.
+function colonSeparator(document, lineNumber, prefix, comment, textSeparator) {
+  for (let nextLine = lineNumber + 1; nextLine < document.lineCount; nextLine++) {
+    const next = parseCommentLine(document.lineAt(nextLine).text, prefix);
+    if (!next || next.indentation !== comment.indentation) {
+      break;
+    }
+    if (next.content === "") {
+      continue;
+    }
+    if (next.separator.length > textSeparator.length) {
+      return next.separator;
+    }
+    break;
+  }
+  const indentSize = vscode.workspace
+    .getConfiguration("lineCommentContinue", document.uri)
+    .get("indentSize", 2);
+  return textSeparator + " ".repeat(indentSize);
+}
+
 function continuationFor(document, position) {
   const prefix = commentPrefixes[document.languageId];
   if (!prefix) {
@@ -225,16 +247,27 @@ function continuationFor(document, position) {
 
   const context = bulletContext(document, position.line, prefix);
   const start = `${comment.indentation}${prefix}`;
+  if (
+    context && context.direct &&
+    position.character < start.length + context.separator.length + context.bullet.marker.length
+  ) {
+    return null;
+  }
+  const atEnd = line.slice(position.character).trim() === "";
+  if (atEnd && comment.content.trimEnd().endsWith(":")) {
+    const textSeparator = context && context.direct
+      ? context.separator + " ".repeat(context.bullet.marker.length)
+      : comment.separator;
+    return {
+      continuation: start + colonSeparator(document, position.line, prefix, comment, textSeparator),
+      numericBullet: null,
+    };
+  }
   if (!context) {
     return { continuation: `${start}${comment.separator}`, numericBullet: null };
   }
 
   const { bullet } = context;
-  const markerEnd = start.length + context.separator.length + bullet.marker.length;
-  if (context.direct && position.character < markerEnd) {
-    return null;
-  }
-  const atEnd = line.slice(position.character).trim() === "";
   const textLevel = context.separator.length + bullet.marker.length;
   const numeric = bullet.number !== null ? bullet : null;
 

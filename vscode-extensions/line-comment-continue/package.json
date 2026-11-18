@@ -19,7 +19,22 @@
   "engines": {
     "vscode": "^1.80.0"
   },
+  "scripts": {
+    "test": "node --test extension.test.js"
+  },
   "contributes": {
+    "configuration": {
+      "title": "Line Comment Continue",
+      "properties": {
+        "lineCommentContinue.indentSize": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 1,
+          "scope": "resource",
+          "description": "Spaces to indent beyond the current comment text when Enter follows a colon. Existing deeper content below takes precedence."
+        }
+      }
+    },
     "commands": [
       {
         "command": "lineCommentContinue.enter",
