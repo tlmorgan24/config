@@ -270,8 +270,8 @@ type block struct {
 	rows  []*tableRow
 }
 
-// listCtx is a list introduced by a line ending in a colon followed by a more
-// indented line.
+// listCtx is a list introduced by a line ending in a colon followed (possibly
+// after blank comment lines) by a more indented line.
 type listCtx struct {
 	introIndent, listIndent int
 	style                   string // "-", "*", "(n)", "n)", "n.", "word:", "word-" or "ws"
@@ -340,13 +340,15 @@ func scan(cl []cline, options Options) []*block {
 	for i, ln := range cl {
 		if ln.blank {
 			newBlock(&block{kind: kBlank})
-			cur, lists = nil, nil
+			// A blank comment ends the current paragraph/bullet/table, but not
+			// the enclosing list(s): that is decided by the next non-blank line.
+			cur = nil
 			continue
 		}
 		I := ln.indent
 
 		// Lists end at a line that is less indented than the list, or that is at
-		// the list's indent but not in its style.
+		// the list's indent but not in its style. Blank lines never end a list.
 		for len(lists) > 0 {
 			top := lists[len(lists)-1]
 			if I < top.listIndent || (I == top.listIndent && !top.matches(ln)) {
@@ -396,15 +398,21 @@ func scan(cl []cline, options Options) []*block {
 			newBlock(&block{kind: kProse, lead: ln.lead, indent: I, words: strings.Fields(ln.text)})
 		}
 
-		// A line ending in a colon, followed by a more indented line, introduces a
-		// list. A non-bullet line at the text level of a bullet is a continuation
-		// of that bullet instead, so it does not start a list.
-		if cur.kind != kTable && strings.HasSuffix(ln.text, ":") && i+1 < len(cl) {
-			next := cl[i+1]
-			if !next.blank && next.indent > I {
+		// A line ending in a colon, followed (possibly after blank comment lines)
+		// by a more indented line, introduces a list. A non-bullet line directly
+		// below at the text level of a bullet is a continuation of that bullet
+		// instead, so it does not start a list.
+		if cur.kind != kTable && strings.HasSuffix(ln.text, ":") {
+			nxt := i + 1
+			for nxt < len(cl) && cl[nxt].blank {
+				nxt++
+			}
+			if nxt < len(cl) && cl[nxt].indent > I {
+				next := cl[nxt]
 				_, nextStd := stdBullet(next.rest)
-				continuation := cur.kind == kBullet && next.indent == cur.textLevel && !nextStd
-				if style, ok := listStyleAt(cl, i+1); ok && !continuation {
+				continuation := nxt == i+1 && cur.kind == kBullet &&
+					next.indent == cur.textLevel && !nextStd
+				if style, ok := listStyleAt(cl, nxt); ok && !continuation {
 					lists = append(lists, &listCtx{introIndent: I, listIndent: next.indent, style: style})
 				}
 			}
@@ -608,7 +616,7 @@ func commentIndent(content string) string {
 }
 
 // displayWidth measures s in terminal columns: a tab counts as the configured
-// tab width, combining and format characters as 0, East Asian wide characters 
+// tab width, combining and format characters as 0, East Asian wide characters
 // and emoji as 2, everything else as 1.
 func displayWidth(s string, options Options) int {
 	w := 0
