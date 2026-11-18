@@ -2,7 +2,7 @@
   "name": "normalised-copy-paste",
   "displayName": "Normalised Copy Paste",
   "description": "Copy and paste editor text while adapting indentation to its destination",
-  "publisher": "thomasmorgan",
+  "publisher": "tlmorgan24",
   "version": "1.0.0",
   "engines": {
     "vscode": "^1.80.0"

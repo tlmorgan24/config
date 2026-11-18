@@ -41,7 +41,8 @@ fi
 # Build my checkout program (see README.md) from its source in this repo.
 (cd "$script_dir/rebase" && go build -o "$LOCAL_BIN/checkout" .)
 # Build every comment formatter command. Each command directory becomes an executable with the same name, so adding a
-# language only requires adding another entry under comment-wrap/cmd/.
+# formatter implementation only requires adding another entry under comment-wrap/cmd/.
+# Language mappings and shared defaults live in comment-wrap/config.jsonc.
 for command_dir in "$script_dir/comment-wrap/cmd"/*/; do
   [[ -d "$command_dir" ]] || continue
   command_name="$(basename "$command_dir")"
@@ -79,8 +80,13 @@ if command -v code >/dev/null; then
     [[ -d "$source_dir" ]] || continue
     package_name="$(basename "$source_dir")"
     mkdir "$vsix_dir/extension"
-    cp -R "$source_dir/." "$vsix_dir/extension/"
-    (cd "$vsix_dir" && zip -qr "$package_name.vsix" extension)
+    rsync -a --exclude='/node_modules/' \
+      "$source_dir/" "$vsix_dir/extension/"
+    if [[ -f "$vsix_dir/extension/package-lock.json" ]]; then
+      npm ci --prefix "$vsix_dir/extension" --omit=dev --ignore-scripts --no-audit --no-fund
+    fi
+    (cd "$vsix_dir" && zip -qr "$package_name.vsix" extension \
+      -x 'extension/package-lock.json' 'extension/node_modules/.package-lock.json')
     rm -rf "$vsix_dir/extension"
     # This prints a `url.parse()` deprecation warning (DEP0169), which is VS Code's fault: after installing, its CLI
     # always looks the extension up on the Marketplace, using a request helper that still calls `url.parse()`.

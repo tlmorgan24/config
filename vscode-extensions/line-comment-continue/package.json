@@ -2,7 +2,7 @@
   "name": "line-comment-continue",
   "displayName": "Line Comment Continue",
   "description": "Continue comments on Enter",
-  "publisher": "thomasmorgan",
+  "publisher": "tlmorgan24",
   "version": "0.0.1",
   "main": "./extension.js",
   "activationEvents": [

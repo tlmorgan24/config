@@ -2,7 +2,7 @@
   "name": "go-run-buttons",
   "displayName": "Go Run Buttons",
   "description": "Add run and debug buttons for the active Go package.",
-  "publisher": "thomasmorgan",
+  "publisher": "tlmorgan24",
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.80.0"

@@ -25,7 +25,11 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if !settings.Go.Enabled {
+	language, err := settings.Language(config.LanguageID("go"))
+	if err != nil {
+		fatal(err)
+	}
+	if !language.Enabled {
 		_, err = os.Stdout.Write(source)
 		if err != nil {
 			fatal(err)
@@ -33,14 +37,14 @@ func main() {
 		return
 	}
 
-	width := settings.Go.Width
+	width := language.Width
 	if configuredWidth := maxLineLength(os.Args[1:]); configuredWidth > 0 {
 		width = configuredWidth
 	}
 	source = gowrap.Format(source, commentwrap.Options{
 		Width:       width,
-		TabWidth:    settings.Go.TabWidth,
-		MinColWidth: settings.Go.MinColWidth,
+		TabWidth:    language.TabWidth,
+		MinColWidth: language.MinColWidth,
 	})
 
 	golines, err := exec.LookPath("golines")
@@ -55,7 +59,7 @@ func main() {
 		}
 	}
 
-	command := exec.Command(golines, formatterArgs(os.Args[1:], width)...)
+	command := exec.Command(golines, formatterArgs(os.Args[1:], width, language.TabWidth)...)
 	command.Stdin = bytes.NewReader(source)
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -85,12 +89,16 @@ func maxLineLength(args []string) int {
 	return 0
 }
 
-func formatterArgs(args []string, width int) []string {
+func formatterArgs(args []string, width, tabWidth int) []string {
 	filtered := make([]string, 0, len(args))
 	hasWidth := false
+	hasTabWidth := false
 	for _, arg := range args {
 		if arg != "--shorten-comments" {
 			filtered = append(filtered, arg)
+		}
+		if arg == "-t" || strings.HasPrefix(arg, "-t=") || arg == "--tab-len" || strings.HasPrefix(arg, "--tab-len=") {
+			hasTabWidth = true
 		}
 		if arg == "-m" || strings.HasPrefix(arg, "-m=") || strings.HasPrefix(arg, "--max-len=") {
 			hasWidth = true
@@ -98,6 +106,9 @@ func formatterArgs(args []string, width int) []string {
 	}
 	if !hasWidth {
 		filtered = append([]string{"-m", strconv.Itoa(width)}, filtered...)
+	}
+	if !hasTabWidth {
+		filtered = append(filtered, "--tab-len="+strconv.Itoa(tabWidth))
 	}
 	return filtered
 }

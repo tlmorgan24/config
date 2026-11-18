@@ -21,12 +21,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "shell-comment-wrap: %v\n", err)
 		os.Exit(1)
 	}
-	if !settings.Shellscript.Enabled {
+	languageID := config.LanguageID("shellscript")
+	if len(os.Args) > 1 {
+		languageID = os.Args[1]
+	}
+	language, err := settings.Language(languageID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "shell-comment-wrap: %v\n", err)
+		os.Exit(1)
+	}
+	if !language.Enabled {
 		_, err = os.Stdout.Write(source)
 	} else {
 		_, err = os.Stdout.Write(shellwrap.Format(source, commentwrap.Options{
-			Width:    settings.Shellscript.Width,
-			TabWidth: settings.Shellscript.TabWidth, MinColWidth: settings.Shellscript.MinColWidth,
+			Width:    language.Width,
+			TabWidth: language.TabWidth, MinColWidth: language.MinColWidth,
 		}))
 	}
 	if err != nil {

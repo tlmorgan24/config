@@ -2,21 +2,16 @@
   "name": "comment-wrap",
   "displayName": "Comment Wrap",
   "description": "Wrap comments when formatting",
-  "publisher": "thomasmorgan",
-  "version": "0.0.1",
+  "publisher": "tlmorgan24",
+  "version": "0.0.2",
   "main": "./extension.js",
   "activationEvents": [
-    "onLanguage:go",
-    "onLanguage:shellscript",
-    "onLanguage:python",
-    "onLanguage:javascript",
-    "onLanguage:javascriptreact",
-    "onLanguage:typescript",
-    "onLanguage:typescriptreact",
-    "onLanguage:json",
-    "onLanguage:jsonc"
+    "onStartupFinished"
   ],
   "engines": {
     "vscode": "^1.80.0"
+  },
+  "dependencies": {
+    "jsonc-parser": "3.3.1"
   }
 }

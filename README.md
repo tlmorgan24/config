@@ -284,11 +284,11 @@ Most of these are default, some are custom (or the keybinding was customised) an
 
 ### Formatting
 
-Custom formatters (which I mainly use to wrap comments nicely) are in the comment-wrap/ directory and set up by `copy.sh`. Configure them in .config/comment-wrap/config.json. Remember to copy across the changes (run `copy.sh`) each time you change the config. 
+Custom formatters (which I mainly use to wrap comments nicely) are in the comment-wrap/ directory and set up by `copy.sh`. Configure them in comment-wrap/config.jsonc. Other extensions (e.g. the Go extension) may set the language's default formatter. To use mine instead, override it with `"editor.defaultFormatter": "tlmorgan24.comment-wrap"` in that language's block (e.g. `"[go]"`) in VS Code's `settings.json`.
 
-A formatter will run on save (cmd+s) if its `"enabled"` field is `true`. Can still save without formatting by doing cmd+k then s.
+The formatters reflow comment lines to the configured MAX_WIDTH (called `"width"` in config.jsonc), e.g. 100 characters. Within a paragraph, short lines get promoted to the line above (and then reflowed again), so you don't end up with e.g. `# long line\n# short line\n# long line`.
 
-The formatters reflow comment lines to the configured MAX_WIDTH (called `"width"` in config.json), e.g. 100 characters. Within a paragraph, short lines get promoted to the line above (and then reflowed again), so you don't end up with e.g. `# long line\n# short line\n# long line`.
+A formatter will run on save (cmd+s) if its `"enabled"` config field is `true`. Can still save without formatting by doing cmd+k then s.
 
 #### Definitions
 

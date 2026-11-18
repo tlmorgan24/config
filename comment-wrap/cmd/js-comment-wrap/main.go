@@ -19,7 +19,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	languageID := "javascript"
+	languageID := config.LanguageID("javascript")
 	if len(os.Args) > 1 {
 		languageID = os.Args[1]
 	}

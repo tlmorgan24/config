@@ -19,7 +19,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	languageID := "python"
+	languageID := config.LanguageID("python")
 	if len(os.Args) > 1 {
 		languageID = os.Args[1]
 	}

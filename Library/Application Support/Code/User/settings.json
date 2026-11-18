@@ -207,15 +207,11 @@
     "ui.semanticTokenTypes": { "string": false, "number": false }
   },
   "[go]": {
-    "editor.insertSpaces": false // Go prefers tabs over spaces
+    "editor.insertSpaces": false, // Go prefers tabs over spaces
+    // Go extension sets the Go formatter to the extension's own default. Override to instead
+    // use my custom extension which wraps comments, then runs golines with gofmt.
+    "editor.defaultFormatter": "tlmorgan24.comment-wrap"
   },
-  // Formatting. Use custom tool which wraps comments (including promoting long 
-  // trailing comments to their own line), then runs golines to wrap actual code.
-  "go.formatTool": "custom", 
-  "go.alternateTools": {
-    "customFormatter": "${env:HOME}/.local/bin/go-comment-wrap"
-  },
-  "go.formatFlags": ["--base-formatter=gofmt"],
 
   "[shellscript]": {  // E.g. bash (see files.associations)
     "editor.tabSize": 2
