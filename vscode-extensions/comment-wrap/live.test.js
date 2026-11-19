@@ -255,12 +255,11 @@ test("disabled reflow and multiple cursors leave text alone", async () => {
   }
 });
 
-test("multiline paste reflows immediately", async () => {
+test("single-line paste still reflows the active comment", async () => {
   const h = harness("// |", "go", 20);
-  h.type("alpha beta gamma delta epsilon\n// zeta"); await h.drain();
-  assert.equal(h.output(), "// alpha beta gamma\n// delta epsilon\n// zeta|");
+  h.type("alpha beta gamma delta epsilon"); await h.drain();
+  assert.equal(h.output(), "// alpha beta gamma\n// delta epsilon|");
   assert.equal(h.editor.edits.length, 1);
-  assert.equal(h.controller.state(h.document).breaks.length, 0);
 });
 
 test("switching editors releases protection and preserves the old editor selection", async () => {
@@ -505,78 +504,88 @@ for (const eol of ["\n", "\r\n"]) {
   }
 }
 
-test("pasting across several paragraphs reflows every touched paragraph in one edit", async () => {
-  const h = harness("// |", "go", 24);
-  h.type("alpha beta gamma delta epsilon\n//\n// one two three four five six seven\n//\n// last paragraph also needs wrapping");
-  await h.drain();
-  assert.equal(h.output(), "// alpha beta gamma\n// delta epsilon\n//\n// one two three four\n// five six seven\n//\n// last paragraph also\n// needs wrapping|");
-  assert.equal(h.editor.edits.length, 1);
-  assert.equal(h.controller.state(h.document).breaks.length, 0);
-});
+for (const [name, pasted, language] of [
+  ["paragraphs", "// alpha beta gamma delta epsilon\n//\n// one two three four five six seven", "go"],
+  ["one newline", "\n// beta", "go"],
+  ["just a newline", "\n", "go"],
+  ["comments ending on code", "// alpha beta gamma delta epsilon\ncode()", "go"],
+  ["comments ending on a blank line", "// alpha beta gamma delta epsilon\n", "go"],
+  ["bullets", "# - alpha beta gamma delta epsilon\n# - one two three four five six seven", "shellscript"],
+  ["tables", "// a  alpha beta gamma delta\n// bb  epsilon zeta\n", "go"],
+  ["CRLF", "// alpha beta gamma delta epsilon\r\n//\r\n// one two three four five six seven", "go"],
+]) {
+  test(`multiline paste preserves ${name} without requesting reflow`, async () => {
+    const h = harness("|", language, 24);
+    h.type(pasted); await h.drain();
+    assert.equal(h.output(), pasted + "|");
+    assert.equal(h.calls.length, 0);
+    assert.equal(h.editor.edits.length, 0);
+    assert.equal(h.controller.state(h.document).affected.length, 0);
+    assert.equal(h.controller.state(h.document).needsReflow, false);
+    h.select(0); await h.drain();
+    h.controller.leave(h.editor); await h.drain();
+    assert.equal(h.document.text, pasted);
+    assert.equal(h.calls.length, 0);
+  });
+}
 
-test("a paste containing just one newline is not mistaken for Enter", async () => {
-  const h = harness("// alpha|", "go", 40);
-  h.type("\n// beta"); await h.drain();
-  assert.equal(h.output(), "// alpha beta|");
-  assert.equal(h.controller.state(h.document).breaks.length, 0);
-});
-
-test("pasted comments reflow even when the paste ends on code or a blank line", async () => {
-  for (const ending of ["code()", ""]) {
-    const h = harness("|", "go", 24);
-    h.type(`// alpha beta gamma delta epsilon\n\n// one two three four five six seven\n${ending}`);
-    await h.drain();
-    assert.equal(h.output(), `// alpha beta gamma\n// delta epsilon\n\n// one two three four\n// five six seven\n${ending}|`);
-    assert.equal(h.editor.edits.length, 1);
-  }
-});
-
-test("pasting paragraphs into a document leaves unrelated paragraphs alone", async () => {
-  const before = "// existing paragraph deliberately left overfull here\n//\n";
-  const after = "\n//\n// later paragraph deliberately left overfull here";
-  const h = harness(`${before}// |${after}`, "go", 24);
-  h.type("alpha beta gamma delta epsilon\n//\n// one two three four five six seven"); await h.drain();
-  assert.equal(h.output(), `${before}// alpha beta gamma\n// delta epsilon\n//\n// one two three four\n// five six seven|${after}`);
-});
-
-test("pasted bullets keep their own paragraph boundaries and hanging indentation", async () => {
-  const h = harness("|", "shellscript", 24);
-  h.type("# - alpha beta gamma delta epsilon\n# - one two three four five six seven"); await h.drain();
-  assert.equal(h.output(), "# - alpha beta gamma\n#   delta epsilon\n# - one two three four\n#   five six seven|");
-  assert.equal(h.controller.state(h.document).breaks.length, 0);
-});
-
-test("typing before a paste result returns still reflows all pasted paragraphs", async () => {
-  const h = harness("|", "go", 24);
-  const release = h.delay();
-  h.type("// alpha beta gamma delta epsilon\n//\n// one two three four five six");
-  await h.drain();
-  h.type(" seven");
-  release(); await new Promise((resolve) => setImmediate(resolve));
-  await h.drain();
-  assert.equal(h.output(), "// alpha beta gamma\n// delta epsilon\n//\n// one two three four\n// five six seven|");
+test("a 5000-line code paste stays exact and makes no helper requests", async () => {
+  const pasted = Array.from({ length: 5000 }, (_, i) => i % 10 === 0
+    ? `// comment ${i} with enough words to exceed the wrapping width`
+    : `const value${i} = ${i};`).join("\n");
+  const h = harness("|", "javascript", 24);
+  h.type(pasted); await h.drain();
+  assert.equal(h.document.text, pasted);
+  assert.equal(h.calls.length, 0);
+  assert.equal(h.editor.edits.length, 0);
   assert.equal(h.controller.state(h.document).affected.length, 0);
 });
 
-test("pasting into an Enter-protected paragraph retains its existing boundary", async () => {
+test("typing after a multiline paste only reflows the edited paragraph", async () => {
+  const before = "// alpha beta gamma delta epsilon\n//\n";
+  const h = harness("|", "go", 24);
+  h.type(before + "// one two three four five six"); await h.drain();
+  h.type(" seven"); await h.drain();
+  assert.equal(h.output(), before + "// one two three four\n// five six seven|");
+  assert.equal(h.controller.state(h.document).affected.length, 0);
+});
+
+test("a multiline paste cancels queued formatting of an earlier edit", async () => {
+  const h = harness("// alpha beta gamma delt|", "go", 24);
+  h.type("a");
+  assert.ok(h.controller.state(h.document).affected.length);
+  h.type("\n// pasted paragraph deliberately left overfull"); await h.drain();
+  assert.equal(h.output(), "// alpha beta gamma delta\n// pasted paragraph deliberately left overfull|");
+  assert.equal(h.calls.length, 0);
+  assert.equal(h.controller.state(h.document).affected.length, 0);
+});
+
+test("a multiline paste invalidates in-flight formatting and clears its pending ranges", async () => {
+  const h = harness("// alpha beta gamma delt|", "go", 24);
+  const release = h.delay();
+  h.type("a"); await h.drain();
+  h.type("\n//\n// one two three four five six");
+  release(); await new Promise((resolve) => setImmediate(resolve));
+  await h.drain();
+  assert.equal(h.output(), "// alpha beta gamma delta\n//\n// one two three four five six|");
+  assert.equal(h.editor.edits.length, 0);
+  assert.equal(h.controller.state(h.document).affected.length, 0);
+  h.type(" seven"); await h.drain();
+  assert.equal(h.output(), "// alpha beta gamma delta\n//\n// one two three four\n// five six seven|");
+});
+
+test("pasting into an Enter-protected paragraph keeps its boundary without scheduling a later flush", async () => {
   const h = harness("// alpha|", "go", 24);
   await h.enter(); await h.drain();
-  h.type("beta gamma delta epsilon\n// zeta eta theta iota"); await h.drain();
-  assert.equal(h.output(), "// alpha\n// beta gamma delta\n// epsilon zeta eta\n// theta iota|");
+  const calls = h.calls.length;
+  const pasted = "beta gamma delta epsilon\n// zeta eta theta iota";
+  h.type(pasted); await h.drain();
+  assert.equal(h.output(), "// alpha\n// " + pasted + "|");
   assert.equal(h.controller.state(h.document).breaks.length, 1);
-});
-
-test("a pasted table is formatted once even when the paste ends on a blank line", async () => {
-  const h = harness("|", "go", 25);
-  h.type("// a  alpha beta gamma delta\n// bb  epsilon zeta\n"); await h.drain();
-  assert.equal(h.output(), "// a   alpha beta gamma\n//     delta\n// bb  epsilon zeta\n|");
-  assert.equal(h.editor.edits.length, 1);
-});
-
-test("multiline paste preserves CRLF while reflowing every paragraph", async () => {
-  const h = harness("|", "go", 24);
-  h.type("// alpha beta gamma delta epsilon\r\n//\r\n// one two three four five six seven"); await h.drain();
-  assert.equal(h.output(), "// alpha beta gamma\r\n// delta epsilon\r\n//\r\n// one two three four\r\n// five six seven|");
+  h.select(0); await h.drain();
+  h.controller.leave(h.editor); await h.drain();
+  assert.equal(h.calls.length, calls);
+  assert.equal(h.document.text, "// alpha\n// " + pasted);
 });
 
 test("spaces after the bullet in the reported example never wrap or rearrange its text", async () => {
@@ -633,18 +642,16 @@ test("a space invalidates an in-flight result before it can wrap the comment", a
   assert.equal(h.editor.edits.length, 0);
 });
 
-test("spacing edits postpone pending paste work without losing its affected paragraphs", async () => {
+test("spacing after a skipped paste does not defer its formatting to later typing", async () => {
   const h = harness("|", "go", 24);
-  const release = h.delay();
   const pasted = "// alpha beta gamma delta epsilon\n//\n// one two three four five six";
   h.type(pasted); await h.drain();
-  h.type(" ");
-  release(); await new Promise((resolve) => setImmediate(resolve));
-  await h.drain();
+  h.type(" "); await h.drain();
   assert.equal(h.output(), pasted + " |");
+  assert.equal(h.calls.length, 0);
   assert.equal(h.editor.edits.length, 0);
   h.type("seven"); await h.drain();
-  assert.equal(h.output(), "// alpha beta gamma\n// delta epsilon\n//\n// one two three four\n// five six seven|");
+  assert.equal(h.output(), "// alpha beta gamma delta epsilon\n//\n// one two three four\n// five six seven|");
   assert.equal(h.controller.state(h.document).affected.length, 0);
 });
 
@@ -748,7 +755,9 @@ test("typing a first table row preserves separators until a second row exists", 
     firstRow += text;
     assert.equal(h.output(), firstRow + "|");
   }
-  h.type("\n// bb  gamma"); await h.drain();
+  h.type("\n// bb  "); await h.drain();
+  assert.equal(h.output(), firstRow + "\n// bb  |");
+  h.type("gamma"); await h.drain();
   assert.equal(h.output(), "// a   alpha beta gamma\n//     delta\n// bb  gamma|");
 });
 

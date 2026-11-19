@@ -128,17 +128,28 @@ class LiveReflow {
     if (!this.enabled(document) || editor?.document !== document || editor.selections.length !== 1) {
       return this.reset(document);
     }
+    const newline = changes.length === 1 && state.enterChange && sameChanges(changes, [state.enterChange])
+      && /^\r?\n[^\r\n]*$/.test(changes[0].text) ? changes[0] : null;
+    if (!newline && changes.some((change) => /[\r\n]/.test(change.text))) {
+      // Preserve multiline pastes and other bulk insertions exactly. Drop
+      // pending work and its scope so typing or leaving cannot format the paste
+      // later. Existing Enter boundaries still track their original paragraphs.
+      state.affected = [];
+      state.needsReflow = false;
+      state.scope = null;
+      state.enterChange = null;
+      return;
+    }
     // Spaces and tabs are an in-progress spacing/indentation edit. In
     // particular, after a bullet they change its alignment on every key; live
     // wrapping would repeatedly orphan the continuation lines just created.
     // The generation was already advanced, so earlier results cannot apply either.
-    // Keep pending paste ranges for the next text edit or explicit formatting.
+    // Keep pending edit ranges for the next text edit or explicit formatting.
     if (changes.every((change) => change.rangeLength === 0 && /^[ \t]+$/.test(change.text))) {
       state.needsReflow = false;
       return;
     }
-    const newline = changes.find((change) => state.enterChange && sameChanges([change], [state.enterChange]));
-    if (newline && /^\r?\n[^\r\n]*$/.test(newline.text)) {
+    if (newline) {
       state.enterChange = null;
       const eolLength = newline.text.startsWith("\r\n") ? 2 : 1;
       const boundary = moveOffset(newline.rangeOffset, changes, false) + eolLength;
