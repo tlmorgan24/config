@@ -547,6 +547,25 @@ PDF-only options:
 
 E.g.: `reslice --page a4 -C 0.1 capture.pdf paginated.pdf`.
 
+### Cropping PDFs
+
+Usage: `pdfcrop [options] <input-path> <output-path> `
+
+Options:
+  * --pages <selection> - page number(s) to crop, as comma-separated ranges, e.g. '1-3,5,7'
+  * --all <mm> - amount to crop from to all sides of the selected pages (can override selected sides below)
+  * --top <mm> - override crop amount from top
+  * --right <mm> - override crop amount from right
+  * --bottom <mm> - override crop amount from bottom
+  * --left <mm> - override crop amount from left
+  * `--force` - allow overwriting an existing output file
+  * `--upw`, `--opw`, `--upw-file`, `--opw-file` - pass PDF passwords or password file paths
+
+Individual edges override --all regardless of option order. Cropping preserves text and vectors;
+excluded content remains in the PDF (just hidden).
+
+Uses `pdfcpu crop` (installed by `./install.sh`) internally.
+
 ## Other custom config
 
 * Ctrl+↑/↓ no longer open Mission Control / App Exposé, freeing them for other apps.

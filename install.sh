@@ -108,3 +108,4 @@ sed -e 's/#.*//' -e 's/[[:space:]]//g' "$script_dir/vscode-extensions.txt" | gre
 
 # Other tools with specific use cases
 brew install poppler  # For working with pdfs, e.g. merge with `pdfunite`, extract text with `pdftotext`
+brew install pdfcpu  # Crop PDF pages

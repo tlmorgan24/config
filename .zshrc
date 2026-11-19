@@ -759,6 +759,86 @@ bl() { _batch_records l $'\n' "$@"; }
 alias python='python3'
 alias pip='pip3'
 
+# Usage: pdfcrop [options] <input-path> <output-path>
+#
+# Options:
+#   --pages <selection>  page number(s) to crop, as comma-separated ranges, e.g. '1-3,5,7'
+#   --all <mm>           amount to crop from to all sides of the selected pages (can override
+#                        selected sides below)
+#   --top <mm>           override crop amount from top
+#   --right <mm>         override crop amount from right
+#   --bottom <mm>        override crop amount from bottom
+#   --left <mm>          override crop amount from left
+#   --force              allow overwriting an existing output file
+#   --upw/--opw <value>  PDF user/owner password (or use --upw-file/--opw-file <path>)
+#   --quiet/-q, --verbose/-v, --offline/-o, --conf/-c <path> are passed to pdfcpu.
+#
+# Individual edges override --all regardless of option order. Cropping preserves text and vectors;
+# excluded content remains in the PDF (just hidden).
+pdfcrop() {
+  emulate -L zsh
+  setopt extendedglob
+  local crop_all=0 crop_pages='' crop_option crop_value
+  local -A crop_edges
+  local -a crop_files crop_flags
+  while (( $# )); do
+    case "$1" in
+      -h|--help)
+        print -r -- 'Usage: pdfcrop [--all MM] [--top MM] [--right MM] [--bottom MM] [--left MM]
+               [--pages SELECTION] [--force] [PDFCPU OPTIONS] INPUT.pdf OUTPUT.pdf'
+        return 0
+        ;;
+      --force|--quiet|--verbose|--offline|--force=*|--quiet=*|--verbose=*|--offline=*|-[qvo]##|-v<->)
+        crop_flags+=("$1"); shift ;;
+      --all|--top|--right|--bottom|--left|--pages|-p|--all=*|--top=*|--right=*|--bottom=*|--left=*|--pages=*|\
+      --upw|--opw|--upw-file|--opw-file|--conf|-c|--upw=*|--opw=*|--upw-file=*|--opw-file=*|--conf=*)
+        crop_option=${1%%=*}
+        if [[ "$1" == *=* ]]; then
+          crop_value=${1#*=}
+          shift
+        else
+          if (( $# < 2 )) || [[ "$2" == --* ]]; then
+            print -ru2 -- "pdfcrop: $crop_option requires a value"
+            return 2
+          fi
+          crop_value=$2
+          shift 2
+        fi
+        if [[ "$crop_option" == (--upw|--opw|--upw-file|--opw-file|--conf|-c) ]]; then
+          crop_flags+=("$crop_option" "$crop_value")
+        elif [[ "$crop_option" == --pages || "$crop_option" == -p ]]; then
+          [[ -n "$crop_value" ]] || { print -ru2 -- 'pdfcrop: page selection cannot be empty'; return 2; }
+          crop_pages=$crop_value
+        else
+          if [[ ! "$crop_value" =~ '^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$' ]]; then
+            print -ru2 -- "pdfcrop: $crop_option requires a number in millimetres"
+            return 2
+          fi
+          if [[ "$crop_option" == --all ]]; then
+            crop_all=$crop_value
+          else
+            crop_edges[${crop_option#--}]=$crop_value
+          fi
+        fi
+        ;;
+      -c?*) crop_flags+=(--conf "${1#-c}"); shift ;;
+      -p?*) crop_pages=${1#-p}; shift ;;
+      --) shift; crop_files+=("$@"); break ;;
+      -) crop_files+=("$1"); shift ;;
+      -*) print -ru2 -- "pdfcrop: unknown option: $1 (see pdfcrop --help)"; return 2 ;;
+      *) crop_files+=("$1"); shift ;;
+    esac
+  done
+  if (( ${#crop_files} != 2 )); then
+    print -ru2 -- 'Usage: pdfcrop [options] INPUT.pdf OUTPUT.pdf (see pdfcrop --help)'
+    return 2
+  fi
+  [[ -n "$crop_pages" ]] && crop_flags+=(--pages "$crop_pages")
+  command pdfcpu crop --unit mm "${crop_flags[@]}" -- \
+    "${crop_edges[top]-$crop_all} ${crop_edges[right]-$crop_all} ${crop_edges[bottom]-$crop_all} ${crop_edges[left]-$crop_all}" \
+    "${crop_files[@]}"
+}
+
 # Usage: `goinit [directory [module name]]`
 #
 # Quickly initialise a Go program: mkcd into the directory, init a module there, create boilerplate main.go,
