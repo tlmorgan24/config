@@ -324,8 +324,28 @@ func TestFormatTableEndsAtBlankAndBullet(t *testing.T) {
 	checkFormat(t, src, want, 80)
 }
 
-func TestFormatSingleRowIsNotATable(t *testing.T) {
-	checkFormat(t, "# Hello.   World again\n", "# Hello. World again\n", 80)
+func TestFormatSingleRowIsATable(t *testing.T) {
+	checkFormat(t, "# Hello.   World again\n", "# Hello.  World again\n", 80)
+}
+
+func TestFormatSingleRowTableSeparatesProse(t *testing.T) {
+	checkFormat(t, "# prose above\n# a    last cell\n# prose below\n",
+		"# prose above\n# a  last cell\n# prose below\n", 80)
+}
+
+func TestFormatSingleRowTableAfterIntro(t *testing.T) {
+	checkFormat(t, "# Options:\n#   --all    alpha beta gamma delta\n#            epsilon zeta\n",
+		"# Options:\n#   --all  alpha beta gamma delta epsilon\n#          zeta\n", 36)
+}
+
+func TestFormatTableEndsAtDifferentItemCount(t *testing.T) {
+	checkFormat(t, "# a    first\n# bb    middle    last\n# c    final\n",
+		"# a  first\n# bb  middle  last\n# c  final\n", 80)
+}
+
+func TestFormatBulletsTakePrecedenceOverSingleRowTables(t *testing.T) {
+	checkFormat(t, "# - alpha  beta gamma\n", "# - alpha beta gamma\n", 80)
+	checkFormat(t, "# Args:\n#   arg: alpha  beta gamma\n", "# Args:\n#   arg: alpha beta gamma\n", 80)
 }
 
 func TestFormatWhitespaceList(t *testing.T) {

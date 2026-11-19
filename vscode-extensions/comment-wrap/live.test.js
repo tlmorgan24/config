@@ -738,3 +738,41 @@ test("live reflow uses the configured table gap", async () => {
   assert.equal(h.calls[0].tableGap, 4);
   assert.equal(h.output(), "// a     alphax|\n// bb    beta");
 });
+
+
+test("typing a first table row preserves separators until a second row exists", async () => {
+  const h = harness("// a|", "go", 24);
+  let firstRow = "// a";
+  for (const text of ["  ", ..."alpha beta gamma delta"]) {
+    h.type(text); await h.drain();
+    firstRow += text;
+    assert.equal(h.output(), firstRow + "|");
+  }
+  h.type("\n// bb  gamma"); await h.drain();
+  assert.equal(h.output(), "// a   alpha beta gamma\n//     delta\n// bb  gamma|");
+});
+
+test("typing a single table row after an intro preserves its separators", async () => {
+  const h = harness("# Options:\n#   --all|", "shellscript", 24);
+  let row = "# Options:\n#   --all";
+  for (const text of ["  ", ..."alpha beta gamma delta"]) {
+    h.type(text); await h.drain();
+    row += text;
+    assert.equal(h.output(), row + "|");
+  }
+});
+
+test("deletion creating a double space leaves the single prose row editable", async () => {
+  const h = harness("// alpha |x beta gamma delta", "go", 16);
+  h.type("", 1); await h.drain();
+  assert.equal(h.output(), "// alpha | beta gamma delta");
+  h.select(h.document.text.indexOf("beta") + "beta".length);
+  h.type("z"); await h.drain();
+  assert.equal(h.output(), "// alpha  betaz| gamma delta");
+});
+
+test("deletion creating an extra table item does not restructure the row", async () => {
+  const h = harness("// a  alpha beta\n// bb  gamma |x delta\n// c  epsilon zeta", "go", 16);
+  h.type("", 1); await h.drain();
+  assert.equal(h.output(), "// a  alpha beta\n// bb  gamma | delta\n// c  epsilon zeta");
+});

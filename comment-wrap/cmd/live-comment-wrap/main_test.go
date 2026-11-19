@@ -71,6 +71,10 @@ func TestLive(t *testing.T) {
 		{name: "JS template excluded", input: "const s = `\n// alpha beta gam|ma delta\n`;", want: "const s = `\n// alpha beta gam|ma delta\n`;", language: "javascript", width: 15},
 		{name: "only active paragraph", input: "// alpha beta gamma delta\n//\n// eps|ilon\n// zeta eta", want: "// alpha beta gamma delta\n//\n// eps|ilon zeta eta", width: 25},
 
+		{name: "single-row table stays editable", input: "// alpha  be|ta gamma delta", want: "// alpha  be|ta gamma delta", width: 16},
+		{name: "single-row table after intro stays editable", input: "# Options:\n#   --all   al|pha beta gamma delta", want: "# Options:\n#   --all   al|pha beta gamma delta", language: "shellscript", width: 20},
+		{name: "single-row continuation stays editable", input: "// a     alpha beta\n//       gam|ma delta", want: "// a     alpha beta\n//       gam|ma delta", width: 16},
+		{name: "accidental extra separator splits table", input: "// a  alpha beta\n// bb  gamma  del|ta\n// c  epsilon zeta", want: "// a  alpha beta\n// bb  gamma  del|ta\n// c  epsilon zeta", width: 16},
 		{name: "table shrinks old padding", input: "// a        alpha be|ta\n// bb       gamma", want: "// a   alpha be|ta\n// bb  gamma", width: 40},
 		{name: "table cursor in removed padding", input: "// a       | alpha\n// bb       gamma", want: "// a   |alpha\n// bb  gamma", width: 40},
 		{name: "table continuation follows alignment", input: "// a        alpha beta\n//          gam|ma\n// bb       delta", want: "// a   alpha beta\n//     gam|ma\n// bb  delta", width: 20},
@@ -105,5 +109,12 @@ func TestLiveConfiguredTableGap(t *testing.T) {
 	result := reflow(request{Source: source, Language: "go", Cursor: cursor, Width: 40, TabWidth: 4, MinColWidth: 8, TableGap: 4})
 	if result == nil || result.Edit == nil || result.Edit.Text != "// a     alpha\n// bb    beta" {
 		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestLiveSingleRowTableHasNoEdit(t *testing.T) {
+	_, result := liveMarked(t, "// alpha   be|ta gamma delta", "go", 16)
+	if result == nil || result.First != 0 || result.Last != 0 || result.Edit != nil {
+		t.Fatalf("expected a recognized single-row table with no edit: %+v", result)
 	}
 }

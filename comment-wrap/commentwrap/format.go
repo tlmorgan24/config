@@ -322,27 +322,6 @@ func (l *listCtx) matches(ln cline) bool {
 	}
 }
 
-// tableAhead reports whether line i, which has 2+ items, is the first row of a
-// table, i.e. whether another row with the same indent and item count follows
-// it (possibly after continuation lines, which are more indented).
-func tableAhead(cl []cline, i int) bool {
-	base := cl[i]
-	for j := i + 1; j < len(cl); j++ {
-		l := cl[j]
-		if l.blank {
-			return false
-		}
-		if _, ok := stdBullet(l.rest); ok {
-			return false
-		}
-		if l.indent > base.indent {
-			continue
-		}
-		return l.indent == base.indent && len(l.items) == len(base.items)
-	}
-	return false
-}
-
 // listStyleAt works out the style of a list whose first line is cl[k]. ok is
 // false if the first line is the start of a table, in which case no list
 // context is needed.
@@ -353,7 +332,7 @@ func listStyleAt(cl []cline, k int) (style string, ok bool) {
 	if wb, isWord := wordBullet(cl[k].rest); isWord {
 		return wb.style, true
 	}
-	if len(cl[k].items) >= 2 && tableAhead(cl, k) {
+	if len(cl[k].items) >= 2 {
 		return "", false
 	}
 	return "ws", true
@@ -473,7 +452,7 @@ func scan(cl []cline, options Options) []*block {
 			// Continuation of the last column of the row above.
 			last := cur.rows[len(cur.rows)-1]
 			last.words = append(last.words, strings.Fields(ln.text)...)
-		case len(ln.items) >= 2 && tableAhead(cl, i): // 3. tables
+		case len(ln.items) >= 2: // 3. tables
 			t := &block{kind: kTable, lead: ln.lead, indent: I, count: len(ln.items)}
 			t.addRow(ln)
 			newBlock(t)

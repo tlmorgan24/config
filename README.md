@@ -432,15 +432,15 @@ There is one more case where lines misaligned with the "text alignment level" ar
 
 ##### Tables
 
-* Each run of 2+ whitespaces after the first non-whitespace of a comment line may be recognised as a table-item separator. The separator plus the text before it (up to the end of the previous separator or the line's comment mark, whichever is closer) is the "width" of the table item. Trailing whitespace is ignored (i.e., the last table item is never empty, and its "width" is just its text).
-* Consecutive lines at the same indent level and with the same number of table items (minimum 2) create a table of rows. The formatter ignores the original separator widths and realigns the table so that each column is as narrow as its longest item plus a gap of `"tableGap"` characters (default 2, configured in config.jsonc).
+* A line is considered a table row if it has 2+ not-entirely-whitespace items separated by runs of 2+ whitespaces.
+* Consecutive lines at the same indent level and with the same number of table items (minimum 2) are considered part of the same table. The formatter ignores the original separators and realigns the table so that each column is as narrow as its longest item plus a gap of `"tableGap"` spaces (default 2, configured in config.jsonc).
 * If the table width is beyond MAX_WIDTH after the above:
   * Reduce the last column's width just enough to satisfy MAX_WIDTH, or if this would reduce the column below MIN_COL_WIDTH (e.g. 30 chars), reduce it to MIN_COL_WIDTH and accept that the table goes beyond MAX_WIDTH. I.e., `last_column_width = max(MAX_WIDTH − last_column_start, MIN_COL_WIDTH)`.
   * Reflow the last column similarly to how you would reflow bullet text (the "text alignment level" being the first character of the column), but where the max width is the column width (which, as per above, may go beyond MAX_WIDTH).
 * If a line is at a different indent level or has a different number of table items to the above table row, it is checked as follows:
   * If it is a blank line, it ends the table, and the next line will be a new paragraph.
   * Else if its indent level is greater than the table's first column, it is considered part of the above row's last item (pull upwards if there is space). The line is ignored when evaluating subsequent lines as possibly part of the same table. Note, the stricter rule of requiring alignment with the table's last column's "text alignment level" breaks under edits made to the last row (e.g. if you add text to an earlier column, this pushes the "text alignment level" of the last column forward while its continuation lags behind).
-  * Else, treat the table as ended, and the current line is as a new paragraph (i.e., as if the line above were a blank line).
+  * Else, treat the table as ended, and the current line as a new paragraph (i.e., as if the line above were a blank line). Nothing prevents it from being interpreted as another, separate, table (if applicable).
 
 ##### Preventing confusion of which case to apply
 
@@ -470,11 +470,11 @@ I also define actions to occur on enter/delete while typing comments in vscode-e
 
 #### Live reflow
 
-The Comment Wrap extension (which provides the whole-document formatter) also reflows while typing or deleting, after a 100 ms pause. It uses the same rules as the document formatter, but only on the active paragraph. Set `"commentWrap.liveReflow": false` in VS Code settings.json to disable it globally or for a language/workspace.
+The Comment Wrap extension (which provides the whole-document formatter) also reflows while typing or deleting. It uses the same rules as the document formatter, but only on the active paragraph. Set `"commentWrap.liveReflow": false` in VS Code settings.json to disable it globally or for a language/workspace.
 
 Enter first performs the "on enter" continuation action as above. Any new boundary within the same logical paragraph stays temporarily protected: text on either side can reflow, but cannot cross that boundary while you remain in the paragraph. Moving within that paragraph keeps the protection. Leaving it (including switching editors) or running the full formatter releases the protection and reflows the paragraph normally.
 
-Inserting spaces or tabs does not trigger live reflow. This lets you adjust spacing and indentation without repeated wrapping creating "staircases" or other messy behaviour. Other edits resume live reflow.
+Inserting spaces or tabs does not trigger live reflow. This lets you adjust spacing and indentation without repeated wrapping creating "staircases" or other messy behaviour. For a similar reason, editing a single-row table does not trigger live reflow. Other edits resume live reflow.
 
 Tables use their whole table as the reflow scope because column widths depend on the other rows; table reflow waits if an Enter boundary inside the table is protected.
 

@@ -77,6 +77,12 @@ func Live(source string, comments []Comment, style Style, options Options, curso
 			if column < len(prefix)+len(leadingSpace(strings.TrimPrefix(lines[cursor.Line], prefix))) {
 				return result
 			}
+			// A single-row table is most likely half-typed or a stray double space
+			// inside a paragraph. Leave it editable without restructuring text
+			// under the cursor; document formatting handles it on save.
+			if b.kind == kTable && len(b.rows) == 1 {
+				return result
+			}
 			lo, hi := b.first, b.last
 			for _, line := range protected {
 				cut := line - c.Line
