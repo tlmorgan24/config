@@ -216,12 +216,16 @@
     "command": "normalisedCopyPaste.paste",
     "when": "editorTextFocus"
   },
-  // Delete back to the first non-whitespace character of the line, rather than to column 0 (VS Code's default on macOS),
-  // so that rewriting a line keeps its indentation.
+  // Smart Home, with an extra stop at the text after a leading // or # comment marker.
+  // Repeated presses reach the marker, then column 0. Delete uses the same stops.
+  {
+    "key": "cmd+left",
+    "command": "lineCommentContinue.home",
+    "when": "editorTextFocus"
+  },
   {
     "key": "cmd+backspace",
-    "command": "runCommands",
-    "args": { "commands": ["cursorHomeSelect", "deleteLeft"] },
+    "command": "lineCommentContinue.deleteToHome",
     "when": "editorTextFocus && !editorReadonly && !editorHasSelection"
   },
 

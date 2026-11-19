@@ -20,7 +20,7 @@
     "vscode": "^1.80.0"
   },
   "scripts": {
-    "test": "node --test extension.test.js"
+    "test": "node --test *.test.js"
   },
   "contributes": {
     "configuration": {
@@ -43,6 +43,14 @@
       {
         "command": "lineCommentContinue.backspace",
         "title": "Remove Line Comment Bullet"
+      },
+      {
+        "command": "lineCommentContinue.home",
+        "title": "Go to Comment Text or Line Start"
+      },
+      {
+        "command": "lineCommentContinue.deleteToHome",
+        "title": "Delete to Comment Text or Line Start"
       }
     ],
     "keybindings": [

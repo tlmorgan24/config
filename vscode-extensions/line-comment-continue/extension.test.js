@@ -185,3 +185,71 @@ test("Enter inside word and standard markers delegates to normal editing", () =>
   assert.equal(enter("# intro:\n#   na|me: text"), null);
   assert.equal(enter("# 1|. text"), null);
 });
+
+test("Enter exits the reported nested list; Backspace preserves its indentation", () => {
+  const state0 = "# 1. hi\n# 2. bye\n#      1. hi\n#      2. bye";
+  const state1 = state0 + "\n#      3. ";
+  assert.equal(enter(state0 + "|"), state1);
+  assert.equal(enter(state1 + "|"), state0 + "\n# 3. ");
+
+  const lines = state1.split("\n");
+  const plan = context.module.exports.planBackspace({
+    languageId: "python", lineCount: lines.length, lineAt: (i) => ({ text: lines[i] }),
+  }, { line: 4, character: lines[4].length });
+  assert.equal(plan.edits.length, 1);
+  const edit = plan.edits[0];
+  const state2 = lines.slice(0, -1).join("\n") + "\n" +
+    lines[4].slice(0, edit.start[1]) + edit.text + lines[4].slice(edit.end[1]);
+  assert.equal(state2, state0 + "\n#      ");
+  assert.equal(enter(state2 + "|"), state2 + "\n#      ");
+});
+
+for (const [name, input, expected] of [
+  ["exit one level at a time", "# 1. outer\n#    - middle\n#         1. inner\n#         2. |",
+    "# 1. outer\n#    - middle\n#         1. inner\n#    - "],
+  ["unordered parent", "# * outer\n#     1. inner\n#     2. |", "# * outer\n#     1. inner\n# * "],
+  ["parenthesized parent", "# (9) outer\n#       - inner\n#       - |", "# (9) outer\n#       - inner\n# (10) "],
+  ["closing-parenthesis parent", "# 9) outer\n#       - inner\n#       - |", "# 9) outer\n#       - inner\n# 10) "],
+  ["nonempty nested bullet still continues", "# 1. outer\n#     - inner|", "# 1. outer\n#     - inner\n#     - "],
+  ["top-level empty bullet still removes marker", "# 1. outer\n# 2. |", "# 1. outer\n# "],
+  ["standalone indented list has no parent", "#     - inner\n#     - |", "#     - inner\n#     "],
+  ["prose closes a previous outer list", "# 1. old\n# prose\n#     - inner\n#     - |",
+    "# 1. old\n# prose\n#     - inner\n#     "],
+  ["code separates lists", "# 1. old\ncode()\n#     - inner\n#     - |", "# 1. old\ncode()\n#     - inner\n#     "],
+  ["comment indentation separates lists", "# 1. old\n  #     - inner\n  #     - |",
+    "# 1. old\n  #     - inner\n  #     "],
+  ["empty marker with child content starts content", "# 1. outer\n#     - |\n#         child",
+    "# 1. outer\n#     - \n#         \n#         child"],
+  ["resume enclosing word list", "# intro:\n#   name: outer\n#           - inner\n#           - |",
+    "# intro:\n#   name: outer\n#           - inner\n#   "],
+  ["renumber outer siblings and align their wrapped text", "# 8. outer\n#      - inner\n#      - |\n# 9. later\n#    wrapped",
+    "# 8. outer\n#      - inner\n# 9. \n# 10. later\n#     wrapped"],
+  ["renumber remaining inner siblings too", "# 1. outer\n#     1. inner\n#     2. |\n#     3. later\n# 2. outer later",
+    "# 1. outer\n#     1. inner\n# 2. \n#     2. later\n# 3. outer later"],
+]) {
+  test(name, () => assert.equal(enter(input), expected));
+}
+
+test("repeated Enter exits each enclosing list before removing the outermost marker", () => {
+  const initial = "# 1. outer\n#    - middle\n#         1. inner\n";
+  const middle = enter(initial + "#         2. |");
+  assert.equal(middle, initial + "#    - ");
+  const outer = enter(middle + "|");
+  assert.equal(outer, initial + "# 2. ");
+  assert.equal(enter(outer + "|"), initial + "# ");
+});
+
+test("resuming a parent places the cursor after the replacement marker", () => {
+  const lines = ["  # 9. outer", "  #       - inner", "  #       - "];
+  const plan = planEnter({
+    languageId: "python", lineCount: lines.length, lineAt: (i) => ({ text: lines[i] }),
+  }, { line: 2, character: lines[2].length });
+  assert.equal(JSON.stringify(plan.cursor), JSON.stringify([2, "  # 10. ".length]));
+});
+
+for (const [language, prefix] of Object.entries(languages)) {
+  test(`${language}: nested empty bullet resumes outer list at its actual indentation`, () => {
+    const head = `\t${prefix}\t1. outer\n\t${prefix}\t\t- inner\n`;
+    assert.equal(enter(head + `\t${prefix}\t\t- |`, language), head + `\t${prefix}\t2. `);
+  });
+}

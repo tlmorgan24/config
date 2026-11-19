@@ -146,6 +146,8 @@ function bulletContext(document, lineNumber, prefix) {
   let item = null;
   let table = null;
   let target = null;
+  const ancestors = [];
+  let parent = null;
   let followedByContent = false;
   for (let i = 0; i <= lineNumber - firstLine + 1 && i < comments.length; i++) {
     const comment = comments[i];
@@ -205,6 +207,15 @@ function bulletContext(document, lineNumber, prefix) {
       table = null;
     }
 
+    // Keep enclosing items independently of the current item: a nested list
+    // need not follow a colon or use a fixed number of indentation spaces.
+    if (item && item.line === i + firstLine) {
+      while (ancestors.length && ancestors.at(-1).separator.length >= level) ancestors.pop();
+      ancestors.push(item);
+    } else if (!item) {
+      while (ancestors.length && ancestors.at(-1).separator.length >= level) ancestors.pop();
+    }
+
     const followingIndex = nextContent(i);
     const following = comments[followingIndex];
     const continuationBelow = followingIndex === i + 1 && item && following &&
@@ -214,10 +225,13 @@ function bulletContext(document, lineNumber, prefix) {
       (markerStyle(following.content) !== "ws" || !tableAt(followingIndex))) {
       lists.push({ introLevel: level, level: following.separator.length, style: markerStyle(following.content) });
     }
-    if (i === lineNumber - firstLine) target = item;
+    if (i === lineNumber - firstLine) {
+      target = item;
+      parent = ancestors.at(-2) || null;
+    }
     if (i === lineNumber - firstLine + 1) followedByContent = Boolean(target && item === target);
   }
-  return target ? { ...target, direct: target.line === lineNumber, followedByContent } : null;
+  return target ? { ...target, direct: target.line === lineNumber, followedByContent, parent } : null;
 }
 
 // Whether the given line is a (non-bullet) continuation line of a bullet whose
@@ -374,7 +388,8 @@ function continuationFor(document, position) {
   const { bullet } = context;
   const numeric = bullet.number !== null ? bullet : null;
 
-  // Enter on a bullet with no text removes the marker, to leave the list.
+  // Enter on an empty bullet exits one list level. planEnter resumes its
+  // enclosing list if there is one; Backspace still only removes the marker.
   if (context.direct && bullet.empty && !context.hasContent && atEnd) {
     return { continuation: null, emptyBullet: true, numericBullet: numeric, context };
   }
@@ -427,6 +442,21 @@ function planEnter(document, position) {
     const edits = [{ start: [position.line, markerStart], end: [position.line, line.length], text: "" }];
     if (result.numericBullet) {
       edits.push(...renumberEdits(document, prefix, position.line + 1, list, result.numericBullet.number));
+    }
+    const parent = result.context.parent;
+    if (parent) {
+      const marker = !parent.standard ? "" : parent.bullet.number !== null
+        ? nextNumericMarker(parent.bullet.marker, parent.bullet.number)
+        : parent.bullet.core + (parent.bullet.gap || " ");
+      const replacement = parent.separator + marker;
+      const start = comment.indentation.length + prefix.length;
+      edits[0] = { start: [position.line, start], end: [position.line, line.length], text: replacement };
+      if (parent.standard && parent.bullet.number !== null) {
+        edits.push(...renumberEdits(document, prefix, position.line + 1, {
+          indentation: comment.indentation, markerLevel: parent.separator.length, bullet: parent.bullet,
+        }, parent.bullet.number + 2));
+      }
+      return { edits, cursor: [position.line, start + replacement.length] };
     }
     return { edits, cursor: [position.line, markerStart] };
   }
@@ -546,9 +576,45 @@ async function removeBullet() {
   return applyPlan(editor, plan);
 }
 
+// Make cmd+left/cmd+backspace move/delete to the start of the line's comment text if such text is
+// present, else start of the line's entire text (VS Code's "Smart Home" position), and only
+// otherwise go to the start of line itself. Let VS Code choose its normal Home position first,
+// preserving wrapped-line navigation and the existing indentation/column-zero toggle. Add a stop
+// only when that movement would pass the start of a line comment's text.
+async function commentHome(deleteText = false) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return;
+  if (deleteText && editor.selections.some((selection) => !selection.isEmpty)) {
+    return vscode.commands.executeCommand("deleteLeft");
+  }
+  const original = editor.selections.map((selection) => selection.active);
+  await vscode.commands.executeCommand(deleteText ? "cursorHomeSelect" : "cursorHome");
+  if (vscode.window.activeTextEditor !== editor) return;
+  const prefix = commentPrefixes[editor.document.languageId];
+  const pattern = prefix === "//" ? /^\s*\/{2,}\s*(.*)$/ : prefix === "#" ? /^\s*#+\s*(.*)$/ : null;
+  if (pattern && editor.selections.length === original.length) {
+    editor.selections = editor.selections.map((selection, index) => {
+      const before = original[index];
+      const target = selection.active;
+      const match = editor.document.lineAt(before.line).text.match(pattern);
+      const textStart = match && match[0].length - match[1].length;
+      if (!match?.[1] || target.line !== before.line ||
+          before.character <= textStart || target.character >= textStart) {
+        return selection;
+      }
+      const position = new vscode.Position(before.line, textStart);
+      return new vscode.Selection(deleteText ? selection.anchor : position, position);
+    });
+  }
+  if (deleteText) await vscode.commands.executeCommand("deleteLeft");
+  else editor.revealRange(new vscode.Range(editor.selection.active, editor.selection.active));
+}
+
 function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand("lineCommentContinue.enter", continueComment));
   context.subscriptions.push(vscode.commands.registerCommand("lineCommentContinue.backspace", removeBullet));
+  context.subscriptions.push(vscode.commands.registerCommand("lineCommentContinue.home", () => commentHome()));
+  context.subscriptions.push(vscode.commands.registerCommand("lineCommentContinue.deleteToHome", () => commentHome(true)));
 }
 
 function deactivate() {}
@@ -561,4 +627,5 @@ module.exports = {
   planEnter,
   planBackspace,
   removeBullet,
+  commentHome,
 };
