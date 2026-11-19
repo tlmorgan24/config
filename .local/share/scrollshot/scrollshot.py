@@ -12,8 +12,16 @@ hidden scrollable content. Otherwise, provide one of:
                         CSS selector (or the page, if none)
 
 Output is PDF if the path ends in .pdf, or PNG if ends in .png. If PDF:
-    --page a4 (default) | max (sizes each page to fit as much content as possible)
-                        | <width>x<height> (mm)
+    --page a4 (default) | a3 | a5 | letter | legal | <width>x<height> (mm)
+                        | max (sizes each page to fit as much content as possible)
+    -A --after FRAC     break pages in a blank gap found up to FRAC of the page
+                        height below the nominal page end (meaning page may be
+                        longer than --page)
+    -B, --before FRAC   ... or up to FRAC of the page height above it (page may
+                        be shorter)
+    -C, --around FRAC   shorthand for -A FRAC -B FRAC
+
+The -A, -B or -C options are not combinable with --page max.
 
 Other options:
     --margin 0.2        fraction of visible height discarded at the top and bottom
@@ -28,13 +36,15 @@ Other options:
 
 Requirements:
     pip install pillow img2pdf
+    For -A/-B/-C: the `reslice` command must be on your PATH, and
+    pip install pymupdf numpy
     Safari > Develop > "Allow JavaScript from Apple Events"
     Give the terminal Screen Recording permission when prompted.
     Give the terminal Accessibility permission when prompted (optional). It is used to read
     the exact web-view frame, which makes sidebars, docked inspectors, page zoom
     and multiple monitors work. Without it, a less accurate heuristic is used.
 """
-import argparse, io, json, math, os, subprocess, sys, tempfile, time
+import argparse, io, json, math, os, shutil, subprocess, sys, tempfile, time
 from PIL import Image
 
 ap = argparse.ArgumentParser(description="Capture a scrollable area of the current Safari tab.")
@@ -46,8 +56,17 @@ ap.add_argument("--margin", type=float, default=0.2,
                 help="fraction of the visible height discarded at the top and "
                      "bottom of every slice (default 0.2; must be < 0.5)")
 ap.add_argument("--page", default="a4",
-                help="PDF page size: a4 (default), max (one page as big "
-                     "as possible), or WxH in mm, e.g. 200x300")
+                help="PDF page size: a4 (default), a3, a5, letter, legal, "
+                     "WxH in mm (e.g. 200x300), or max (one page as big as "
+                     "possible)")
+ap.add_argument("-A", "--after", type=float, default=None, metavar="FRAC",
+                help="PDF: break pages in a blank gap up to FRAC of the page "
+                     "height below the nominal page end (uses reslice)")
+ap.add_argument("-B", "--before", type=float, default=None, metavar="FRAC",
+                help="PDF: break pages in a blank gap up to FRAC of the page "
+                     "height above the nominal page end (uses reslice)")
+ap.add_argument("-C", "--around", type=float, default=None, metavar="FRAC",
+                help="PDF: shorthand for -A FRAC -B FRAC")
 ap.add_argument("--keep-fixed", action="store_true",
                 help="don't hide fixed / unstick sticky elements after the first slice")
 ap.add_argument("--keep-scrollbars", action="store_true",
@@ -66,9 +85,42 @@ else:
 if not 0 <= a.margin < 0.5:
     sys.exit("--margin must be between 0 and 0.5")
 
-# Shared JS helpers. `up(e)` returns the nearest scrollable ancestor of e (or e itself).
-# html/body are mapped to document.scrollingElement, because page scrolling
-# normally has overflow:visible and would otherwise never be detected.
+# Keep in sync with PAGE_SIZES in reslice.py.
+PAGE_SIZES = {"a3": (297, 420), "a4": (210, 297), "a5": (148, 210),
+              "letter": (215.9, 279.4), "legal": (215.9, 355.6)}
+if a.out.lower().endswith(".pdf") and a.page.lower() != "max":
+    try:
+        pg = a.page.lower()
+        pw_mm, ph_mm = PAGE_SIZES[pg] if pg in PAGE_SIZES else map(float, pg.split("x"))
+        if not all(math.isfinite(v) and v > 0 for v in (pw_mm, ph_mm)):
+            raise ValueError
+    except ValueError:
+        sys.exit("--page must be one of a3, a4, a5, letter, legal, max, "
+                 "or positive finite WxH in mm (e.g. 200x300)")
+
+# -A/-B/-C hand the finished capture to the separate `reslice` command. Check everything up front so
+# a problem doesn't cost you a capture.
+reslice_cmd = None
+use_reslice = a.before is not None or a.after is not None or a.around is not None
+if use_reslice:
+    if not a.out.lower().endswith(".pdf"):
+        sys.exit("-A/-B/-C only apply to PDF output")
+    if a.page.lower() == "max":
+        sys.exit("-A/-B/-C re-paginate to a page size, so they can't be used with --page max")
+    before = a.before if a.before is not None else (a.around if a.around is not None else 0.0)
+    after = a.after if a.after is not None else (a.around if a.around is not None else 0.0)
+    if not (math.isfinite(before) and 0 <= before < 1
+            and math.isfinite(after) and after >= 0):
+        sys.exit("-A must be finite and >= 0; -B must be finite and between 0 and 1 "
+                 "(-C supplies either value unless overridden)")
+    reslice_cmd = shutil.which("reslice")
+    if not reslice_cmd:
+        sys.exit("-A/-B/-C need the `reslice` command on your PATH "
+                 "(and: pip install pymupdf numpy)")
+
+# Shared JS helpers. `up(e)` returns the nearest scrollable ancestor of e (or e itself). html/body
+# are mapped to document.scrollingElement, because page scrolling normally has overflow:visible and
+# would otherwise never be detected.
 SCROLL_JS = """
 var DOC = document.scrollingElement || document.documentElement;
 function isS(e) {
@@ -83,8 +135,8 @@ function up(e) {
 }
 """
 
-# Temporary style that hides every scrollbar (standard property + WebKit
-# pseudo-element). Removed again in cleanup().
+# Temporary style that hides every scrollbar (standard property + WebKit pseudo-element). Removed
+# again in cleanup().
 HIDE_SB_JS = """
   if (!document.getElementById('__nosb')) {
     var s = document.createElement('style');
@@ -134,8 +186,8 @@ def js(code, pre=False, _fatal=True, **vars):
     return json.loads(res)
 
 
-# Exact frame of Safari's web view via the Accessibility API (global screen
-# points, top-left origin: the same space screencapture -R uses).
+# Exact frame of Safari's web view via the Accessibility API (global screen points, top-left origin:
+# the same space screencapture -R uses).
 JXA = """
 (function () {
   var se = Application('System Events');
@@ -272,9 +324,9 @@ def settle(target):
 
 
 try:
-    # Hide scrollbars BEFORE measuring anything: with classic scrollbars this
-    # changes the content width (and possibly the wrapping / scrollHeight), so
-    # all geometry below must be measured in the hidden state.
+    # Hide scrollbars BEFORE measuring anything: with classic scrollbars this changes the content
+    # width (and possibly the wrapping / scrollHeight), so all geometry below must be measured in
+    # the hidden state.
     if not a.keep_scrollbars:
         js(HIDE_SB_JS)
         time.sleep(0.3)
@@ -341,8 +393,8 @@ try:
 
     fx, fy = X0 + g["left"] * zoom, Y0 + g["top"] * zoom
     fw, fh = g["cw"] * zoom, g["ch"] * zoom
-    # Round the capture region inward to whole points, then derive everything
-    # else from the rounded numbers so slices line up exactly.
+    # Round the capture region inward to whole points, then derive everything else from the rounded
+    # numbers so slices line up exactly.
     x0, y0 = math.ceil(fx - 1e-3), math.ceil(fy - 1e-3)
     w0 = math.floor(fx + fw + 1e-3) - x0
     h0 = math.floor(fy + fh + 1e-3) - y0
@@ -387,8 +439,8 @@ try:
                 break
 
             if n == 1 and not a.keep_fixed:
-                # Fixed elements would repeat in every slice and sticky ones would
-                # overlap content: hide the former, make the latter static.
+                # Fixed elements would repeat in every slice and sticky ones would overlap content:
+                # hide the former, make the latter static.
                 cnt = js("""
                   var t = window.__t, k = 0;
                   window.__fix = window.__fix || [];
@@ -438,21 +490,18 @@ if a.out.lower().endswith(".pdf"):
     def png_bytes(im):
         b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()
 
-    pg = a.page.lower()
-    sizes = {"a4": (210, 297)}
+    # With -A/-B/-C the capture is first written as one tall page ("max"), then re-paginated to the
+    # requested page size by `reslice`.
+    pg = "max" if use_reslice else a.page.lower()
     if pg == "max":
-        # one page sized like the capture (1 CSS px = 1 pt), split only when
-        # exceeding the ~14400 pt page limit of PDF viewers
+        # one page sized like the capture (1 CSS px = 1 pt), split only when exceeding the ~14400 pt
+        # page limit of PDF viewers
         max_rows = int(14000 * scale)
         pages = [png_bytes(res.crop((0, t, res.width, min(t + max_rows, res.height))))
                  for t in range(0, res.height, max_rows)]
         dpi = 72 * scale
         layout = img2pdf.get_fixed_dpi_layout_fun((dpi, dpi))
     else:
-        try:
-            pw_mm, ph_mm = sizes[pg] if pg in sizes else map(float, pg.split("x"))
-        except ValueError:
-            sys.exit("--page must be a4, max, or WxH in mm (e.g. 200x300)")
         pw, ph = img2pdf.mm_to_pt(pw_mm), img2pdf.mm_to_pt(ph_mm)
         rows = int(res.width * ph / pw)              # image rows per page
         bg = res.getpixel((0, res.height - 1))       # pad last page with edge colour
@@ -464,9 +513,29 @@ if a.out.lower().endswith(".pdf"):
                 padded.paste(chunk, (0, 0)); chunk = padded
             pages.append(png_bytes(chunk))
         layout = img2pdf.get_layout_fun(pagesize=(pw, ph), fit=img2pdf.FitMode.into)
-    with open(a.out, "wb") as f:
-        f.write(img2pdf.convert(pages, layout_fun=layout))
-    print(f"saved {a.out} ({len(pages)} page(s), page={pg}, lossless)")
+    with tempfile.TemporaryDirectory() as td:
+        pdf_path = os.path.join(td, "tall.pdf") if use_reslice else a.out
+        with open(pdf_path, "wb") as f:
+            f.write(img2pdf.convert(pages, layout_fun=layout))
+        if use_reslice:
+            cmd = [reslice_cmd, "--page", a.page]
+            for flag, val in (("-B", a.before), ("-A", a.after), ("-C", a.around)):
+                if val is not None:
+                    cmd += [flag, str(val)]
+            cmd += [pdf_path, a.out]
+            failure = None
+            try:
+                result = subprocess.run(cmd)
+                if result.returncode != 0:
+                    failure = f"reslice exited with status {result.returncode}"
+            except OSError as e:
+                failure = f"couldn't launch reslice: {e}"
+            if failure is not None:
+                keep = os.path.splitext(a.out)[0] + "-tall.pdf"
+                shutil.copy(pdf_path, keep)
+                sys.exit(f"{failure}; the unsliced capture was saved as {keep}")
+        else:
+            print(f"saved {a.out} ({len(pages)} page(s), page={pg}, lossless)")
 else:
     res.save(a.out, format="PNG")
     print(f"saved {a.out} ({res.width}x{res.height})")

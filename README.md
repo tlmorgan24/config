@@ -533,8 +533,9 @@ Three modes:
   * `--selector <CSS>`: uses nearest scrollable ancestor of the element matching the CSS selector (or the page, if none).
   * Default - uses the scroller (an element, or the page itself) with the most hidden scrollable content
 
-Other options:
-  * `--page <width>x<height>` (for PDF only) - set PDF page size in mm. Default is A4. Can also use `--page max` to aim for a single page which perfectly fits all the content (if too long, falls back to maximum-possible page height for each page).
+PDF-only options:
+  * `--page <width>x<height>` - set PDF page size in mm. Default is A4. Can also use `--page max` to aim for a single page which perfectly fits all the content (if too long, falls back to maximum-possible page height for each page).
+  * `-A`/`-B`/`-C` `<fraction>` - intelligently search for suitable cutting location to separate the PDF pages (passed to "reslice" tool below). Cannot use with `--page max`.
 
 ### Reslice
 
