@@ -23,6 +23,7 @@ type request struct {
 	Width       int                  `json:"width"`
 	TabWidth    int                  `json:"tabWidth"`
 	MinColWidth int                  `json:"minColWidth"`
+	TableGap    int                  `json:"tableGap"`
 }
 
 func reflow(r request) *commentwrap.LiveResult {
@@ -42,13 +43,13 @@ func reflow(r request) *commentwrap.LiveResult {
 	default:
 		return nil
 	}
-	return commentwrap.Live(r.Source, comments, commentwrap.Style{Prefix: prefix}, commentwrap.Options{Width: r.Width, TabWidth: r.TabWidth, MinColWidth: r.MinColWidth}, r.Cursor, r.Protected)
+	return commentwrap.Live(r.Source, comments, commentwrap.Style{Prefix: prefix}, commentwrap.Options{Width: r.Width, TabWidth: r.TabWidth, MinColWidth: r.MinColWidth, TableGap: r.TableGap}, r.Cursor, r.Protected)
 }
 
 func main() {
 	decoder, encoder := json.NewDecoder(os.Stdin), json.NewEncoder(os.Stdout)
 	for {
-		var r request
+		r := request{TableGap: 2}
 		if err := decoder.Decode(&r); err == io.EOF {
 			return
 		} else if err != nil {
@@ -56,6 +57,9 @@ func main() {
 		}
 		if r.Width < 1 || r.TabWidth < 1 || r.MinColWidth < 1 {
 			fatal(fmt.Errorf("width, tabWidth and minColWidth must be positive"))
+		}
+		if r.TableGap < 2 {
+			fatal(fmt.Errorf("tableGap must be at least 2"))
 		}
 		if err := encoder.Encode(reflow(r)); err != nil {
 			fatal(err)

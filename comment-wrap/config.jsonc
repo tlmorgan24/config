@@ -1,9 +1,10 @@
 {
   // Shared defaults; each language can override these settings.
   "defaults": {
-    "width": 100,
+    "width": 100, // Width (in characters) at which wrapping occurs
     "tabWidth": 4, // VS Code settings.json takes priority, so no need to repeat language-specific overrides in this file
-    "minColWidth": 30
+    "minColWidth": 30, // Formatter will never wrap a table column to a width shorter than this (preferring to go beyond "width")
+    "tableGap": 2 // Number of spaces to render between a table column's widest item and the next column (must be >=2)
   },
   // Add a VS Code language ID with the formatter to use.
   // If another extension sets the default formatter, override with "editor.defaultFormatter": "tlmorgan24.comment-wrap"

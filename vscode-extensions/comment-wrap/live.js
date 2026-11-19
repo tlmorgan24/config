@@ -236,6 +236,7 @@ class LiveReflow {
       width: language.width,
       tabWidth: Number(editor.options.tabSize) || language.tabWidth,
       minColWidth: language.minColWidth,
+      tableGap: language.tableGap ?? 2,
     });
     const current = () => !document.isClosed && document.version === version && state.generation === generation;
     const result = await request(target);

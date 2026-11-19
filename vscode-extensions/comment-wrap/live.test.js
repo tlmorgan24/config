@@ -56,7 +56,7 @@ class Document {
   }
 }
 
-function harness(marked, language = "go", width = 24) {
+function harness(marked, language = "go", width = 24, tableGap = 2) {
   const document = new Document(marked.replace("|", ""), language);
   const at = document.positionAt(marked.indexOf("|"));
   const editor = {
@@ -99,7 +99,7 @@ function harness(marked, language = "go", width = 24) {
     const result = JSON.parse(execFileSync(binary, [], { input: JSON.stringify(request), encoding: "utf8" }));
     if (delayed) await delayed;
     return result;
-  }, () => ({ [language]: { width, tabWidth: 4, minColWidth: 8 } }), (error) => { throw error; });
+  }, () => ({ [language]: { width, tabWidth: 4, minColWidth: 8, tableGap } }), (error) => { throw error; });
 
   function change(changes, reason) {
     for (const edit of [...changes].sort((a, b) => b.rangeOffset - a.rangeOffset)) {
@@ -722,4 +722,19 @@ test('retrying after a cursor move formats the edited paragraph without touching
   await h.drain();
   assert.equal(h.output(), '// alpha beta gamma\n// delta\n//\n// |untouched paragraph deliberately remains overfull');
   assert.equal(h.editor.selectionWrites, 2, 'only the two simulated user actions move the cursor explicitly');
+});
+
+
+test("deleting the widest table row collapses padding", async () => {
+  const lastRow = "\n// a much longer option  removed";
+  const h = harness("// a                     alpha\n// bb                    beta|" + lastRow, "go", 80);
+  h.type("", lastRow.length); await h.drain();
+  assert.equal(h.output(), "// a   alpha\n// bb  beta|");
+});
+
+test("live reflow uses the configured table gap", async () => {
+  const h = harness("// a        alpha|\n// bb       beta", "go", 80, 4);
+  h.type("x"); await h.drain();
+  assert.equal(h.calls[0].tableGap, 4);
+  assert.equal(h.output(), "// a     alphax|\n// bb    beta");
 });

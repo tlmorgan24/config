@@ -10,6 +10,8 @@ type Options struct {
 	Width       int
 	TabWidth    int
 	MinColWidth int
+	// TableGap is the minimum space between columns; values below 2 use 2.
+	TableGap int
 }
 
 // Comment describes a line comment found by a language-specific scanner.
@@ -621,13 +623,20 @@ func (b *block) renderBullet(prefix string, prefixCols int, options Options) []s
 	return out
 }
 
+// tableGap must be at least 2 so rendered columns are recognised as a table.
+const tableGap = 2
+
 func (b *block) renderTable(prefix string, prefixCols int, options Options) []string {
+	gap := options.TableGap
+	if gap < tableGap {
+		gap = tableGap
+	}
 	cols := b.count - 1
 	colW := make([]int, cols)
 	sum := 0
 	for k := 0; k < cols; k++ {
 		for _, r := range b.rows {
-			if w := displayWidth(r.cells[k], options) + displayWidth(r.seps[k], options); w > colW[k] {
+			if w := displayWidth(r.cells[k], options) + gap; w > colW[k] {
 				colW[k] = w
 			}
 		}

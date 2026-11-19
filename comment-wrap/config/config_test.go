@@ -22,7 +22,7 @@ func TestLanguageDefaultsAndOverrides(t *testing.T) {
 		"defaults": {"width":100,"tabWidth":4,"minColWidth":30},
 		"languages": {
 			"new-language":{"formatter":"shell-comment-wrap"},
-			"overridden":{"formatter":"js-comment-wrap","width":80}
+			"overridden":{"formatter":"js-comment-wrap","width":80,"tableGap":4}
 		}
 	} // EOF comment without a final newline`)
 	settings, err := Load()
@@ -30,11 +30,11 @@ func TestLanguageDefaultsAndOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	language, err := settings.Language("new-language")
-	if err != nil || language.Width != 100 || language.TabWidth != 4 || language.MinColWidth != 30 {
+	if err != nil || language.Width != 100 || language.TabWidth != 4 || language.MinColWidth != 30 || language.TableGap != 2 {
 		t.Fatalf("inherited settings: %+v, %v", language, err)
 	}
 	language, err = settings.Language("overridden")
-	if err != nil || language.Width != 80 {
+	if err != nil || language.Width != 80 || language.TableGap != 4 {
 		t.Fatalf("overrides: %+v, %v", language, err)
 	}
 	t.Setenv("COMMENT_WRAP_TAB_WIDTH", "2")
@@ -50,6 +50,10 @@ func TestLanguageDefaultsAndOverrides(t *testing.T) {
 func TestInvalidConfig(t *testing.T) {
 	for _, source := range []string{
 		`{`,
+		`{"defaults":{"width":100,"tabWidth":4,"minColWidth":30},"languages":{"go":{"formatter":"go-comment-wrap","tableGap":0}}}`,
+		`{"defaults":{"width":100,"tabWidth":4,"minColWidth":30},"languages":{"go":{"formatter":"go-comment-wrap","tableGap":1}}}`,
+		`{"defaults":{"width":100,"tabWidth":4,"minColWidth":30},"languages":{"go":{"formatter":"go-comment-wrap","tableGap":-2}}}`,
+
 		`{"languages":{}}`,
 		`{"defaults":{"width":100,"tabWidth":4,"minColWidth":30},"languages":{"go":{}}}`,
 		`{"defaults":{"width":100,"tabWidth":4,"minColWidth":30},"languages":{"go":{"formatter":"go-comment-wrap","width":0}}}`,
@@ -89,5 +93,17 @@ func TestRepositoryConfig(t *testing.T) {
 	t.Setenv("COMMENT_WRAP_TAB_WIDTH", "auto")
 	if _, err := settings.Language("go"); err == nil {
 		t.Fatal("expected invalid editor tab width error")
+	}
+}
+
+func TestTableGapDefaultInherited(t *testing.T) {
+	fixture(t, `{"defaults":{"width":100,"tabWidth":4,"minColWidth":30,"tableGap":3},"languages":{"go":{"formatter":"go-comment-wrap"}}}`)
+	settings, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	language, err := settings.Language("go")
+	if err != nil || language.TableGap != 3 {
+		t.Fatalf("inherited gap: %+v, %v", language, err)
 	}
 }

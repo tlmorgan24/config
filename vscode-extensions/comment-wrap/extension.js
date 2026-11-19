@@ -23,11 +23,14 @@ function loadConfig() {
   }
   const languages = {};
   for (const [id, overrides] of Object.entries(config.languages)) {
-    const language = { ...config.defaults, ...overrides };
+    const language = { tableGap: 2, ...config.defaults, ...overrides };
     for (const key of ["width", "tabWidth", "minColWidth"]) {
       if (!Number.isInteger(language[key]) || language[key] < 1) {
         throw new Error(`${key} for ${id} must be a positive integer`);
       }
+    }
+    if (!Number.isInteger(language.tableGap) || language.tableGap < 2) {
+      throw new Error(`tableGap for ${id} must be an integer of at least 2`);
     }
     if (typeof language.formatter !== "string" || !language.formatter) {
       throw new Error(`missing formatter configuration for ${id}`);

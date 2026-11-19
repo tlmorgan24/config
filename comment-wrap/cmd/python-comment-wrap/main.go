@@ -29,7 +29,7 @@ func main() {
 	}
 	source = pythonwrap.Format(source, commentwrap.Options{
 		Width:    language.Width,
-		TabWidth: language.TabWidth, MinColWidth: language.MinColWidth,
+		TabWidth: language.TabWidth, MinColWidth: language.MinColWidth, TableGap: language.TableGap,
 	})
 
 	if _, err := os.Stdout.Write(source); err != nil {

@@ -71,6 +71,9 @@ func TestLive(t *testing.T) {
 		{name: "JS template excluded", input: "const s = `\n// alpha beta gam|ma delta\n`;", want: "const s = `\n// alpha beta gam|ma delta\n`;", language: "javascript", width: 15},
 		{name: "only active paragraph", input: "// alpha beta gamma delta\n//\n// eps|ilon\n// zeta eta", want: "// alpha beta gamma delta\n//\n// eps|ilon zeta eta", width: 25},
 
+		{name: "table shrinks old padding", input: "// a        alpha be|ta\n// bb       gamma", want: "// a   alpha be|ta\n// bb  gamma", width: 40},
+		{name: "table cursor in removed padding", input: "// a       | alpha\n// bb       gamma", want: "// a   |alpha\n// bb  gamma", width: 40},
+		{name: "table continuation follows alignment", input: "// a        alpha beta\n//          gam|ma\n// bb       delta", want: "// a   alpha beta\n//     gam|ma\n// bb  delta", width: 20},
 		{name: "table alignment and wrapping", input: "// a  alpha beta gamma del|ta\n// bb  epsilon zeta", want: "// a   alpha beta gamma\n//     del|ta\n// bb  epsilon zeta", width: 25},
 		{name: "own-line marker typing gap", input: "# Args:\n#   name: |\n#     content", want: "# Args:\n#   name: |\n#     content", language: "python", width: 30},
 		{name: "active multiple spaces preserved", input: "// alpha  |beta", want: "// alpha  |beta", width: 30},
@@ -93,6 +96,14 @@ func TestLiveCRLF(t *testing.T) {
 	source, cursor := marked("// alpha beta gamma del|ta\r\ncode()")
 	result := reflow(request{Source: source, Language: "go", Cursor: cursor, Width: 22, TabWidth: 4, MinColWidth: 8})
 	if result == nil || result.Edit == nil || result.Edit.Text != "// alpha beta gamma\r\n// delta" {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestLiveConfiguredTableGap(t *testing.T) {
+	source, cursor := marked("// a        alpha|\n// bb       beta")
+	result := reflow(request{Source: source, Language: "go", Cursor: cursor, Width: 40, TabWidth: 4, MinColWidth: 8, TableGap: 4})
+	if result == nil || result.Edit == nil || result.Edit.Text != "// a     alpha\n// bb    beta" {
 		t.Fatalf("unexpected result: %+v", result)
 	}
 }

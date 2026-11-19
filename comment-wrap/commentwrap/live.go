@@ -125,7 +125,7 @@ func Live(source string, comments []Comment, style Style, options Options, curso
 			replacement := part.render(prefix, displayWidth(prefix, options), options)
 			first, last = c.Line+lo, c.Line+hi
 			original := lines[first : last+1]
-			replacement, mapped, ok := liveCursor(original, replacement, prefix, Position{cursor.Line - first, cursor.Character})
+			replacement, mapped, ok := liveCursor(original, replacement, prefix, Position{cursor.Line - first, cursor.Character}, b.kind != kTable)
 			if !ok {
 				return result
 			}
@@ -177,7 +177,7 @@ func liveText(lines []string, prefix string) (string, []liveChar) {
 	return text, chars
 }
 
-func liveCursor(original, replacement []string, prefix string, cursor Position) ([]string, Position, bool) {
+func liveCursor(original, replacement []string, prefix string, cursor Position, preserveGap bool) ([]string, Position, bool) {
 	before, oldChars := liveText(original, prefix)
 	after, newChars := liveText(replacement, prefix)
 	if len(oldChars) != len(newChars) {
@@ -216,7 +216,11 @@ func liveCursor(original, replacement []string, prefix string, cursor Position) 
 		gap := before[oldEnd:oldNext]
 		outputGap := after[newEnd:newNext]
 		firstNewline := strings.IndexByte(gap, '\n')
-		if firstNewline >= 0 && at-oldEnd <= firstNewline {
+		if !preserveGap && n < len(oldChars) {
+			// Follow the next cell or word through table alignment, including
+			// when the cursor was inside padding that has been removed.
+			mapped = newNext
+		} else if firstNewline >= 0 && at-oldEnd <= firstNewline {
 			// The caret is in trailing horizontal whitespace before an
 			// existing newline. Preserve that typing gap on this line, even
 			// when a marker intentionally keeps its content on the next one.
@@ -230,7 +234,7 @@ func liveCursor(original, replacement []string, prefix string, cursor Position) 
 			mapped = newEnd + (at - oldEnd)
 		} else if !strings.ContainsAny(gap, "\r\n") && !strings.ContainsAny(outputGap, "\r\n") {
 			// Preserve the horizontal gap being edited, including a newly typed space
-			// at the end of a paragraph and deliberate multi-space table separators.
+			// at the end of a paragraph.
 			after = after[:newEnd] + gap + after[newNext:]
 			mapped = newEnd + (at - oldEnd)
 		} else {

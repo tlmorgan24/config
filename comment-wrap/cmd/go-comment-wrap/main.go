@@ -37,7 +37,7 @@ func main() {
 	source = gowrap.Format(source, commentwrap.Options{
 		Width:       width,
 		TabWidth:    language.TabWidth,
-		MinColWidth: language.MinColWidth,
+		MinColWidth: language.MinColWidth, TableGap: language.TableGap,
 	})
 
 	golines, err := exec.LookPath("golines")

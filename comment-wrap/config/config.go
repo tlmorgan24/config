@@ -14,6 +14,7 @@ type Language struct {
 	Width       int      `json:"width"`
 	TabWidth    int      `json:"tabWidth"`
 	MinColWidth int      `json:"minColWidth"`
+	TableGap    int      `json:"tableGap"`
 	Formatter   string   `json:"formatter"`
 	Args        []string `json:"args"`
 }
@@ -41,7 +42,7 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("parse %s: %w", path, err)
 	}
-	var settings Config
+	settings := Config{Defaults: Language{TableGap: 2}}
 	if err := json.Unmarshal(source, &settings); err != nil {
 		return Config{}, fmt.Errorf("parse %s: %w", path, err)
 	}
@@ -76,6 +77,9 @@ func (c Config) Language(languageID string) (Language, error) {
 	}
 	if language.Width < 1 || language.TabWidth < 1 || language.MinColWidth < 1 {
 		return Language{}, fmt.Errorf("width, tabWidth and minColWidth for %s must be positive", languageID)
+	}
+	if language.TableGap < 2 {
+		return Language{}, fmt.Errorf("tableGap for %s must be at least 2", languageID)
 	}
 	if language.Formatter == "" {
 		return Language{}, fmt.Errorf("missing formatter for %s", languageID)

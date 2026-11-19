@@ -254,7 +254,7 @@ func formatText(src string, width int, options ...Options) string {
 		return strings.Join(Format(lines, comments, Style{Prefix: "#"}, Options{Width: width, TabWidth: 4, MinColWidth: 30}), "")
 	}
 	return strings.Join(Format(lines, comments, Style{Prefix: "#"}, Options{
-		Width: width, TabWidth: options[0].TabWidth, MinColWidth: options[0].MinColWidth,
+		Width: width, TabWidth: options[0].TabWidth, MinColWidth: options[0].MinColWidth, TableGap: options[0].TableGap,
 	}), "")
 }
 
@@ -281,11 +281,11 @@ func TestFormatTableAlignsColumnsAndKeepsEditedContinuation(t *testing.T) {
 func TestFormatTableWrapsLastColumn(t *testing.T) {
 	src := "# -a, --all    include everything in the output listing\n" +
 		"# -b  short\n"
-	// The last column would be 19 wide, so it is widened to the minimum of 30
+	// The last column would be 21 wide, so it is widened to the minimum of 30
 	// and the table goes past the configured width.
-	want := "# -a, --all    include everything in the\n" +
-		"#              output listing\n" +
-		"# -b           short\n"
+	want := "# -a, --all  include everything in the\n" +
+		"#            output listing\n" +
+		"# -b         short\n"
 	checkFormat(t, src, want, 34)
 }
 
@@ -294,7 +294,7 @@ func TestFormatOptionsControlDisplayAndMinimumColumnWidths(t *testing.T) {
 		"# -b  short\n"
 	defaultOutput := formatText(table, 34)
 	narrowMinimum := formatText(table, 34, Options{TabWidth: 4, MinColWidth: 10})
-	if len(strings.Split(narrowMinimum, "\n")) <= len(strings.Split(defaultOutput, "\n")) {
+	if narrowMinimum != "# -a, --all  include everything in\n#            the output listing\n# -b         short\n" || narrowMinimum == defaultOutput {
 		t.Fatalf("smaller minimum column width should allow different wrapping:\ndefault:\n%s\ncustom:\n%s", defaultOutput, narrowMinimum)
 	}
 
@@ -383,5 +383,39 @@ func TestFormatKeepsMissingFinalNewline(t *testing.T) {
 	want := "# this comment is long\n# enough to wrap"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestFormatTableShrinksAfterDeletingWidestRow(t *testing.T) {
+	src := "# Options:\n#   --pages <selection>            page numbers\n#   --all <mm>                     amount to crop\n#                                  override selected sides\n#   --a long option, taking space  description\n"
+	formatted := formatText(src, 46)
+	lines := strings.SplitAfter(formatted, "\n")
+	var remaining []string
+	for _, line := range lines {
+		if !strings.Contains(line, "--a long option") {
+			remaining = append(remaining, line)
+		}
+	}
+	want := "# Options:\n#   --pages <selection>  page numbers\n#   --all <mm>           amount to crop override\n#                        selected sides\n"
+	checkFormat(t, strings.Join(remaining, ""), want, 46)
+}
+
+func TestFormatTableGap(t *testing.T) {
+	src := "# a      x        one\n# bb     yyy      two\n"
+	for _, gap := range []int{0, 1, 2, 4} {
+		options := Options{TabWidth: 4, MinColWidth: 8, TableGap: gap}
+		effective := gap
+		if effective < 2 {
+			effective = 2
+		}
+		want := "# a" + strings.Repeat(" ", effective+1) + "x" + strings.Repeat(" ", effective+2) + "one\n" +
+			"# bb" + strings.Repeat(" ", effective) + "yyy" + strings.Repeat(" ", effective) + "two\n"
+		got := formatText(src, 80, options)
+		if got != want {
+			t.Fatalf("gap %d: got %q, want %q", gap, got, want)
+		}
+		if again := formatText(got, 80, options); again != got {
+			t.Fatalf("gap %d is not idempotent: %q", gap, again)
+		}
 	}
 }
