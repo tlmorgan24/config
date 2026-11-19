@@ -25,12 +25,12 @@ Options:
     --page a4 (default) | a3 | a5 | letter | legal | <width>x<height> (mm)
                         the width, and the nominal height, of each page
     --margin 0          blank margin in mm around the content on each page
-    -B, --before 0      fraction of the nominal page height to search for a gap
-                        *above* the nominal cut point (pages may be shorter
-                        by up to this much; like grep -B)
     -A, --after 0       fraction of the nominal page height to search for a gap
                         *below* the nominal cut point (pages may be taller by
-                        up to this much; like grep -A)
+                        up to this much)
+    -B, --before 0      fraction of the nominal page height to search for a gap
+                        *above* the nominal cut point (pages may be shorter
+                        by up to this much)
     -C, --around N      shorthand for -A N -B N (explicit -A / -B override it)
                         With a window on both sides, the tallest blank gap in
                         the whole window wins; ties go to the one nearest the
@@ -38,8 +38,10 @@ Options:
                         every page is exactly the nominal height, as with a
                         plain page-size conversion. Pass -B, -A or -C to look
                         for better break points.
-    --tol 8             grey-level difference (0-255) within which a row of
-                        pixels counts as blank
+    --tol 8             grey-level difference (0-255) within which a row counts
+                        as blank. A row is blank if it is one flat colour, or
+                        if it matches the page's background profile (so grey
+                        margins, borders and sidebars around the content are fine)
     --dpi 50            resolution used for gap detection
 
 Requirements:
@@ -88,7 +90,18 @@ def build_profile(doc, offsets, dpi, tol):
     for i, page in enumerate(doc):
         pix = page.get_pixmap(dpi=dpi, colorspace=fitz.csGRAY, alpha=False)
         a = np.frombuffer(pix.samples, np.uint8).reshape(pix.h, pix.stride)[:, :pix.w]
-        blank.append((a.max(axis=1) - a.min(axis=1)) <= tol)
+        a = a.astype(np.int16)
+        # A row is blank if it is a single flat colour, OR if it matches the page's background
+        # profile: the per-column 80th-percentile brightness (20th for dark pages), i.e. what each
+        # column looks like when it holds no content. The second test handles backgrounds that are
+        # not flat across the width, e.g. grey margins and border lines around a white page in a
+        # screenshot. A percentile is used rather than a median so that columns crossed by ink in
+        # over half the rows (barlines, braces, table borders) still get a clean background
+        # reference.
+        q = 80 if np.median(a) >= 128 else 20
+        flat = (a.max(axis=1) - a.min(axis=1)) <= tol
+        typical = np.abs(a - np.percentile(a, q, axis=0)).max(axis=1) <= tol
+        blank.append(flat | typical)
         ypos.append(offsets[i] + (np.arange(pix.h) + 0.5) * page.rect.height / pix.h)
     return np.concatenate(blank), np.concatenate(ypos)
 
@@ -167,6 +180,7 @@ def main():
 
     # Choose cut points.
     cuts = [0.0]
+    missed = 0
     if smart and total > H:
         blank, ypos = build_profile(src, offsets, a.dpi, a.tol)
     while total - cuts[-1] > H * (1 + after) + 1e-3:
@@ -175,7 +189,10 @@ def main():
         if smart:
             cut = find_gap(blank, ypos, target - H * before,
                            target + H * after, target)
-        cuts.append(cut if cut is not None and cut > cuts[-1] + 1 else target)
+        if cut is None or cut <= cuts[-1] + 1:
+            cut = target
+            missed += smart
+        cuts.append(cut)
     cuts.append(total)
 
     # Build the output pages by clipping and placing the original pages.
@@ -208,6 +225,10 @@ def main():
 
     out.set_metadata(src.metadata or {})
     out.save(a.output, garbage=3, deflate=True)
+    if missed:
+        print(f"warning: no blank gap found for {missed} of {len(cuts) - 2} cut(s); "
+              f"those fell back to the nominal position. Try a larger -A/-B/-C "
+              f"or a higher --tol.", file=sys.stderr)
     hs = [p.rect.height / MM for p in out]
     print(f"saved {a.output}: {len(src)} page(s) -> {len(out)} page(s), "
           f"{pw_mm:g} mm wide, heights {min(hs):.0f}-{max(hs):.0f} mm "
