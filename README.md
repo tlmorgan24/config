@@ -281,6 +281,7 @@ Most of these are default, some are custom (or the keybinding was customised) an
 * Secondary click on a variable -> 'Rename symbol' - renames all occurrences of a symbol in a syntax-aware way (using the language server), rather than a dumb find-and-replace. Use this to change function/variable names.
 * ctrl+tab - switch between most-recently focused files.
 * cmd+alt+left/right - switch between most recent cursor locations (including across files)
+* cmd+c and cmd+p do "indent-aware" copying and pasting, as detailed in vscode-extensions/normalised-copy-paste/extension.js.
 
 ### Formatting
 
