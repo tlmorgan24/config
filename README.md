@@ -536,6 +536,16 @@ Three modes:
 Other options:
   * `--page <width>x<height>` (for PDF only) - set PDF page size in mm. Default is A4. Can also use `--page max` to aim for a single page which perfectly fits all the content (if too long, falls back to maximum-possible page height for each page).
 
+### Reslice
+
+`reslice [options] input.pdf output.pdf` - re-paginate a PDF by treating its pages as one vertical strip, scaling to the target width, and cutting into new pages. Text stays selectable and vector graphics stay vector; links and bookmarks are not carried over.
+
+* `--page a4` (default), `a3`, `a5`, `letter`, `legal`, or `<width>x<height>` in mm sets the target size.
+* `--margin <mm>` adds a margin (default 0).
+* `-A <fraction>`, `-B <fraction>`, or `-C <fraction>` searches for blank gaps after, before, or around each nominal cut. For example, `-C 0.1` searches within 10% of the nominal content height on either side. Page heights can then vary; the last page is padded to at least the target height.
+
+E.g.: `reslice --page a4 -C 0.1 capture.pdf paginated.pdf`.
+
 ## Other custom config
 
 * Ctrl+↑/↓ no longer open Mission Control / App Exposé, freeing them for other apps.

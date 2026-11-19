@@ -52,9 +52,13 @@ for command_dir in "$script_dir/comment-wrap/cmd"/*/; do
   (cd "$script_dir/comment-wrap" && go build -o "$LOCAL_BIN/$command_name" "./cmd/$command_name")
 done
 
-# Create venv for the scrollshot program (see README.md) in this repo.
+# Create venv for the scrollshot program (see README.md).
 python3 -m venv --clear "$HOME/.local/share/scrollshot-venv" >/dev/null
 "$HOME/.local/share/scrollshot-venv/bin/pip" install pillow img2pdf >/dev/null
+
+# Create venv for the reslice program (see README.md).
+python3 -m venv --clear "$HOME/.local/share/reslice-venv" >/dev/null
+"$HOME/.local/share/reslice-venv/bin/pip" install pymupdf numpy >/dev/null
 
 if [[ ! " $* " =~ " --skip-safari " ]]; then
   # Enable Safari's Develop menu and "Allow JavaScript from Apple Events" (used by my scrollshot

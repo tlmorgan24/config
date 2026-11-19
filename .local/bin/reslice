@@ -1,0 +1,2 @@
+#!/bin/bash
+exec "$HOME/.local/share/reslice-venv/bin/python" "$HOME/.local/share/reslice/reslice.py" "$@"
